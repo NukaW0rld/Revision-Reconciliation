@@ -37,7 +37,7 @@ README.md
 
 ---
 
-## Running the CLI (Step 1)
+## Running the CLI
 
 From the **repository root**, run:
 

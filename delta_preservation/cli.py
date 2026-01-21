@@ -1,3 +1,20 @@
+"""
+hm_delta.cli
+
+Command-line entrypoint for the delta preservation prototype.
+
+Given:
+- Rev A PDF (ballooned)
+- Rev B PDF (unballooned)
+- Rev A AS9102 Form 3 (xlsx, sheet "Form3")
+
+Creates:
+out/<run_id>/
+  delta_packet.json        # stub for now; later filled with change queue + evidence paths
+  intermediate/            # debug artifacts per stage
+  snippets/                # evidence snippet images per item
+"""
+
 import argparse
 import hashlib
 import json
