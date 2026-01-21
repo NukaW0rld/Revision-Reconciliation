@@ -1,0 +1,1 @@
+# Balloon detection via PDF text + CV fallback

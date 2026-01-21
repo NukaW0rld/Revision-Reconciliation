@@ -1,0 +1,16 @@
+[project]
+name = "delta-preservation"
+version = "0.1.0"
+description = "Prototype for preserving inspection characteristic identity across drawing revisions"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    "pymupdf",
+    "openpyxl",
+    "opencv-python",
+    "numpy",
+    "rapidfuzz",
+    "pydantic>=2.5,<3.0",
+    "pytest>=8,<9",
+]
