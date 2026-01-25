@@ -30,6 +30,20 @@ class Candidate:
     reasons: List[str]
 
 
+@dataclass
+class Match:
+    """A confirmed assignment of a Rev A characteristic to a Rev B span.
+    
+    Attributes:
+        char_no: The characteristic number from Rev A
+        candidate: The chosen candidate from Rev B
+        pred_center_b: Predicted center in Rev B coordinates (x, y)
+    """
+    char_no: int
+    candidate: Candidate
+    pred_center_b: Optional[Tuple[float, float]] = None
+
+
 def generate_candidates(
     anchor: Anchor,
     revB_spans: List[TextSpan],
@@ -197,3 +211,68 @@ def score_candidate(
         context_score=context_score,
         reasons=reasons
     )
+
+
+def assign_matches(
+    anchors: List[Anchor],
+    candidates_by_anchor: dict[int, List[Candidate]]
+) -> dict[int, Match]:
+    """Greedily assign anchors to Rev B spans using a global matching strategy.
+    
+    This function implements a greedy bipartite matching algorithm that ensures:
+    1. Each characteristic (char_no) is assigned at most once
+    2. Each Rev B span is matched to at most one characteristic
+    
+    The algorithm flattens all candidate edges, sorts by score, and greedily
+    accepts edges that don't conflict with previous assignments.
+    
+    Args:
+        anchors: List of Rev A anchors with characteristic numbers
+        candidates_by_anchor: Dict mapping char_no to list of candidates
+        
+    Returns:
+        Dict mapping assigned char_no to its Match object
+    """
+    # Build list of all edges: (total_score, char_no, span_key, candidate)
+    edges = []
+    for anchor in anchors:
+        char_no = anchor.char_no
+        candidates = candidates_by_anchor.get(char_no, [])
+        
+        for candidate in candidates:
+            # Create unique span key using TextSpan attributes
+            span = candidate.span
+            span_key = (
+                span.block_id,
+                span.line_id,
+                span.span_id,
+                span.bbox_pdf
+            )
+            
+            edges.append((
+                candidate.total_score,
+                char_no,
+                span_key,
+                candidate
+            ))
+    
+    # Sort edges by total_score descending
+    edges.sort(key=lambda e: e[0], reverse=True)
+    
+    # Greedy assignment
+    assigned_chars = set()
+    used_spans = set()
+    matches = {}
+    
+    for total_score, char_no, span_key, candidate in edges:
+        # Accept edge only if both char_no and span are available
+        if char_no not in assigned_chars and span_key not in used_spans:
+            matches[char_no] = Match(
+                char_no=char_no,
+                candidate=candidate,
+                pred_center_b=None  # Can be populated by caller if needed
+            )
+            assigned_chars.add(char_no)
+            used_spans.add(span_key)
+    
+    return matches
