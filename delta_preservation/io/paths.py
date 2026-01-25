@@ -1,1 +1,0 @@
-# Output dirs, naming conventions
