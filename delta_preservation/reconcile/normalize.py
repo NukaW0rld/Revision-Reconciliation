@@ -20,7 +20,7 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     Parse a requirement string into a deterministic match fingerprint.
     
     Args:
-        requirement: Raw requirement string from Form 3
+        requirement: Raw requirement string from Form 3 data and PDF text spans
         
     Returns:
         MatchFingerprint with normalized text and extracted tokens
@@ -34,7 +34,8 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     # Extract type/prefix tokens
     type_patterns = [
         "DRAWING NOTES", "EDGE RADIUS", "COUNTERBORE", "COUNTERSINK",
-        "LENGTH", "DIAMETER", "RADIUS", "DEPTH", "ANGLE", "THREAD", "NOTES"
+        "LENGTH", "DIAMETER", "RADIUS", "DEPTH", "ANGLE", "THREAD", "NOTES",
+        "THRU ALL"
     ]
     type_tokens = []
     for pattern in type_patterns:
@@ -80,6 +81,8 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     elif "RADIUS" in norm_text or "EDGE RADIUS" in norm_text or norm_text.strip().startswith("R "):
         pattern_class = "fillet"
     elif "DIAMETER" in norm_text or "Ø" in requirement or "COUNTERBORE" in norm_text or "COUNTERSINK" in norm_text:
+        pattern_class = "hole"
+    elif "THRU ALL" in norm_text:
         pattern_class = "hole"
     elif "LENGTH" in norm_text or "DEPTH" in norm_text or "ANGLE" in norm_text:
         pattern_class = "dimension"
