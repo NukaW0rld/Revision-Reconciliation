@@ -14,6 +14,11 @@ from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.balloons import detect_balloons
 from delta_preservation.vision.alignment import estimate_transform
 from delta_preservation.vision.snippets import crop_with_padding, save_snippet
+from delta_preservation.vision.bbox_utils import (
+    compute_combined_evidence_bbox,
+    expand_bbox_with_adjacent_spans,
+    normalize_snippet_size,
+)
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
@@ -150,84 +155,103 @@ def main():
     # Convert internal DeltaItems to Pydantic models with Evidence
     delta_items_pydantic: List[DeltaItem] = []
     
+    # Render pages once for all snippets
+    imgA_page = render_page(revA_path, page_index=0, dpi=args.dpi)
+    imgB_page = render_page(revB_path, page_index=0, dpi=args.dpi)
+    pageA = docA.load_page(0)
+    pageB = docB.load_page(0)
+    
     for delta_internal in delta_items_internal:
         # Find corresponding anchor (may not exist for added items)
         anchor = next((a for a in anchors if a.char_no == delta_internal.char_no), None)
         
-        # Create Rev A evidence (only for items with anchors)
+        # Initialize evidence objects
         revA_evidence = None
-        if anchor is not None and anchor.req_bbox is not None:
-            # Render and crop Rev A snippet
-            imgA_page = render_page(revA_path, page_index=anchor.page, dpi=args.dpi)
-            pageA = docA.load_page(anchor.page)
-            bbox_img = pdf_to_img_coords(anchor.req_bbox, pageA, dpi=args.dpi)
+        revB_evidence = None
+        
+        # Compute bboxes for both revA and revB to enable consistent sizing
+        revA_bbox_pdf = None
+        revB_bbox_pdf = None
+        
+        # --- Compute Rev A bbox (balloon + annotation combined) ---
+        if anchor is not None:
+            # Create combined bbox including balloon and annotation
+            revA_bbox_pdf = compute_combined_evidence_bbox(
+                balloon_bbox=anchor.balloon_bbox,
+                req_bbox=anchor.req_bbox,
+                min_width=60.0,  # ~0.8 inch minimum
+                min_height=30.0
+            )
+        
+        # --- Compute Rev B bbox (expand to include adjacent spans) ---
+        if delta_internal.match is not None:
+            span = delta_internal.match.candidate.span
+            base_bbox_b = span.bbox_pdf
+            
+            # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
+            expanded = expand_bbox_with_adjacent_spans(
+                center_bbox=base_bbox_b,
+                all_spans=revB_text_spans,
+                horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
+                vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
+                max_horizontal_expansion=150.0  # ~2 inch max expansion
+            )
+            revB_bbox_pdf = expanded.bbox
+            
+        elif delta_internal.added_span is not None:
+            span = delta_internal.added_span
+            base_bbox_b = span.bbox_pdf
+            
+            # Expand for added items too
+            expanded = expand_bbox_with_adjacent_spans(
+                center_bbox=base_bbox_b,
+                all_spans=revB_text_spans,
+                horizontal_tolerance=20.0,
+                vertical_tolerance=8.0,
+                max_horizontal_expansion=150.0
+            )
+            revB_bbox_pdf = expanded.bbox
+        
+        # --- Normalize sizes for consistent paired snippets ---
+        if revA_bbox_pdf is not None and revB_bbox_pdf is not None:
+            revA_bbox_pdf, revB_bbox_pdf = normalize_snippet_size(revA_bbox_pdf, revB_bbox_pdf)
+        
+        # --- Generate Rev A snippet ---
+        if anchor is not None and revA_bbox_pdf is not None:
+            bbox_img_a = pdf_to_img_coords(revA_bbox_pdf, pageA, dpi=args.dpi)
             try:
-                crop_a = crop_with_padding(imgA_page, bbox_img, pad_px=20)
+                crop_a = crop_with_padding(imgA_page, bbox_img_a, pad_px=10)
                 filename_a = save_snippet(crop_a, snippets_dir, delta_internal.char_no, "revA", anchor.page)
                 revA_evidence = Evidence(
                     page=anchor.page,
-                    bbox=list(anchor.req_bbox),
+                    bbox=list(revA_bbox_pdf),
                     image_path=f"snippets/{filename_a}"
                 )
-            except ValueError:
-                # Bbox invalid, skip snippet
+            except ValueError as e:
+                # Bbox invalid, record evidence without image
                 revA_evidence = Evidence(
                     page=anchor.page,
-                    bbox=list(anchor.req_bbox),
+                    bbox=list(revA_bbox_pdf),
                     image_path=None
                 )
         
-        # Create Rev B evidence
-        revB_evidence = None
-        
-        # For regular items with matches
-        if delta_internal.match is not None:
-            span = delta_internal.match.candidate.span
-            page_b = 0  # Currently working with single-page PDFs (page 0)
-            bbox_b = span.bbox_pdf
-            
-            # Render and crop Rev B snippet
-            imgB_page = render_page(revB_path, page_index=page_b, dpi=args.dpi)
-            pageB = docB.load_page(page_b)
-            bbox_img_b = pdf_to_img_coords(bbox_b, pageB, dpi=args.dpi)
+        # --- Generate Rev B snippet ---
+        if revB_bbox_pdf is not None:
+            page_b = 0
+            bbox_img_b = pdf_to_img_coords(revB_bbox_pdf, pageB, dpi=args.dpi)
             try:
-                crop_b = crop_with_padding(imgB_page, bbox_img_b, pad_px=20)
+                crop_b = crop_with_padding(imgB_page, bbox_img_b, pad_px=10)
                 filename_b = save_snippet(crop_b, snippets_dir, delta_internal.char_no, "revB", page_b)
                 revB_evidence = Evidence(
                     page=page_b,
-                    bbox=list(bbox_b),
+                    bbox=list(revB_bbox_pdf),
                     image_path=f"snippets/{filename_b}"
                 )
-            except ValueError:
-                # Bbox invalid, skip snippet
+            except ValueError as e:
+                # Bbox invalid, record evidence without image
                 revB_evidence = Evidence(
                     page=page_b,
-                    bbox=list(bbox_b),
-                    image_path=None
-                )
-        # For added items with added_span
-        elif delta_internal.added_span is not None:
-            span = delta_internal.added_span
-            page_b = 0  # Currently working with single-page PDFs (page 0)
-            bbox_b = span.bbox_pdf
-            
-            # Render and crop Rev B snippet
-            imgB_page = render_page(revB_path, page_index=page_b, dpi=args.dpi)
-            pageB = docB.load_page(page_b)
-            bbox_img_b = pdf_to_img_coords(bbox_b, pageB, dpi=args.dpi)
-            try:
-                crop_b = crop_with_padding(imgB_page, bbox_img_b, pad_px=20)
-                filename_b = save_snippet(crop_b, snippets_dir, delta_internal.char_no, "revB", page_b)
-                revB_evidence = Evidence(
-                    page=page_b,
-                    bbox=list(bbox_b),
-                    image_path=f"snippets/{filename_b}"
-                )
-            except ValueError:
-                # Bbox invalid, skip snippet
-                revB_evidence = Evidence(
-                    page=page_b,
-                    bbox=list(bbox_b),
+                    bbox=list(revB_bbox_pdf),
                     image_path=None
                 )
         

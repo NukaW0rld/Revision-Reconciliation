@@ -61,8 +61,8 @@ def generate_candidates(
     Returns:
         List of top-K candidates sorted by score descending
     """
-    # Fixed radius (~1.5 inches = 108 points)
-    SEARCH_RADIUS = 108.0
+    # Fixed radius (~2 inches = 144 points) - increased to handle layout shifts
+    SEARCH_RADIUS = 144.0
     
     # Get predicted Rev B center
     if anchor.req_bbox is not None:
@@ -113,6 +113,11 @@ def score_candidate(
 ) -> Candidate:
     """Compute multi-component score for a candidate span.
     
+    The scoring prioritizes finding spans with matching numeric values, as these
+    are the most reliable indicator of the same characteristic. Location is used
+    as a secondary signal to disambiguate when multiple candidates have similar
+    numeric matches.
+    
     Args:
         anchor: Rev A anchor
         span: Candidate Rev B span
@@ -127,7 +132,7 @@ def score_candidate(
     """
     reasons = []
     
-    # (1) Location score
+    # (1) Location score - distance-based, normalized to [0, 1]
     location_score = 1.0 - min(dist / radius, 1.0)
     if location_score > 0:
         dist_mm = dist * 25.4 / 72.0  # Convert points to mm
@@ -146,30 +151,51 @@ def score_candidate(
     # Compare count patterns (e.g., 2X, 4X, 6X)
     anchor_counts = set(anchor_fp.count_tokens)
     span_counts = set(span_fp.count_tokens)
-    # Count patterns present in both is a strong signal, even if values differ
     has_count_pattern = bool(anchor_counts and span_counts)
     count_exact_match = anchor_counts == span_counts if anchor_counts else True
     
-    # Compare numeric values
+    # Compare numeric values - THIS IS THE KEY DISCRIMINATOR
+    # Extract the primary numeric value (usually the dimension value, not tolerance)
     anchor_numerics = set(val for val, _ in anchor_fp.numeric_tokens)
     span_numerics = set(val for val, _ in span_fp.numeric_tokens)
+    
+    # Identify the "primary" numeric value (largest value, likely the dimension)
+    anchor_primary = max(anchor_numerics) if anchor_numerics else None
+    span_primary = max(span_numerics) if span_numerics else None
+    
+    # Compute numeric overlap
     if anchor_numerics:
         numeric_overlap = len(anchor_numerics & span_numerics) / len(anchor_numerics)
     else:
         numeric_overlap = 1.0 if not span_numerics else 0.0
     
+    # Check if primary value matches exactly
+    primary_value_match = (
+        anchor_primary is not None and 
+        span_primary is not None and 
+        anchor_primary == span_primary
+    )
+    
+    # Strong penalty if primary values exist but don't match
+    # This prevents matching "110" to "120" even if they're close in location
+    primary_mismatch_penalty = 0.0
+    if anchor_primary is not None and span_numerics:
+        if anchor_primary not in span_numerics:
+            # The anchor's primary value is NOT in the span - strong penalty
+            primary_mismatch_penalty = 0.4
+            reasons.append(f"primary value {anchor_primary} not found in span")
+    
     # Compare pattern class (hole, dimension, note, etc.)
     class_match = 1.0 if anchor_fp.pattern_class == span_fp.pattern_class else 0.0
     
     # Weighted combination for text score
-    # Symbols are most important (Ø indicates diameter requirement)
-    # Count patterns indicate same type of requirement
-    # Numeric overlap indicates matching values
+    # Numeric matching is now the dominant factor
     text_score = (
-        0.4 * symbol_match +
-        0.2 * (1.0 if has_count_pattern else 0.0) +
-        0.2 * numeric_overlap +
-        0.2 * class_match
+        0.15 * symbol_match +
+        0.15 * (1.0 if has_count_pattern else 0.0) +
+        0.50 * numeric_overlap +  # Heavily weight numeric match
+        0.10 * class_match +
+        0.10 * (1.0 if primary_value_match else 0.0)  # Bonus for exact primary match
     )
     
     matched_parts = []
@@ -179,6 +205,8 @@ def score_candidate(
         matched_parts.append(f"counts: {anchor_counts} vs {span_counts}")
     if numeric_overlap > 0:
         matched_parts.append(f"numerics: {int(numeric_overlap*100)}%")
+    if primary_value_match:
+        matched_parts.append(f"primary={anchor_primary}")
     if matched_parts:
         reasons.append(f"matched: {', '.join(matched_parts)}")
     
@@ -215,16 +243,21 @@ def score_candidate(
     else:
         context_score = 0.0
     
-    # Combine scores
-    LOCATION_WEIGHT = 0.5
-    TEXT_WEIGHT = 0.35
+    # Combine scores with rebalanced weights
+    # Text/numeric matching is now more important than location
+    LOCATION_WEIGHT = 0.35
+    TEXT_WEIGHT = 0.50
     CONTEXT_WEIGHT = 0.15
     
     total_score = (
         LOCATION_WEIGHT * location_score +
         TEXT_WEIGHT * text_score +
-        CONTEXT_WEIGHT * context_score
+        CONTEXT_WEIGHT * context_score -
+        primary_mismatch_penalty  # Apply penalty for wrong primary value
     )
+    
+    # Ensure score doesn't go negative
+    total_score = max(0.0, total_score)
     
     return Candidate(
         span=span,
