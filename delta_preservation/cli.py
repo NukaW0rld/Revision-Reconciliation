@@ -16,7 +16,7 @@ from delta_preservation.vision.alignment import estimate_transform
 from delta_preservation.vision.snippets import crop_with_padding, save_snippet
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
-from delta_preservation.reconcile.classify import classify_delta, DeltaItem as DeltaItemInternal
+from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 
@@ -137,6 +137,12 @@ def main():
         delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0)
         delta_items_internal.append(delta_item_internal)
     
+    # Detect added characteristics (new in Rev B, not in Rev A)
+    max_char_no = max(a.char_no for a in anchors) if anchors else 0
+    added_items = detect_added_characteristics(revB_text_spans, matches, next_char_no=max_char_no + 1)
+    delta_items_internal.extend(added_items)
+    print(f"  Found {len(added_items)} added characteristics in Rev B")
+    
     # Open PDF documents for coordinate conversion
     docA = fitz.open(revA_path)
     docB = fitz.open(revB_path)
@@ -145,12 +151,12 @@ def main():
     delta_items_pydantic: List[DeltaItem] = []
     
     for delta_internal in delta_items_internal:
-        # Find corresponding anchor
-        anchor = next(a for a in anchors if a.char_no == delta_internal.char_no)
+        # Find corresponding anchor (may not exist for added items)
+        anchor = next((a for a in anchors if a.char_no == delta_internal.char_no), None)
         
-        # Create Rev A evidence
+        # Create Rev A evidence (only for items with anchors)
         revA_evidence = None
-        if anchor.req_bbox is not None:
+        if anchor is not None and anchor.req_bbox is not None:
             # Render and crop Rev A snippet
             imgA_page = render_page(revA_path, page_index=anchor.page, dpi=args.dpi)
             pageA = docA.load_page(anchor.page)
@@ -173,8 +179,35 @@ def main():
         
         # Create Rev B evidence
         revB_evidence = None
+        
+        # For regular items with matches
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
+            page_b = 0  # Currently working with single-page PDFs (page 0)
+            bbox_b = span.bbox_pdf
+            
+            # Render and crop Rev B snippet
+            imgB_page = render_page(revB_path, page_index=page_b, dpi=args.dpi)
+            pageB = docB.load_page(page_b)
+            bbox_img_b = pdf_to_img_coords(bbox_b, pageB, dpi=args.dpi)
+            try:
+                crop_b = crop_with_padding(imgB_page, bbox_img_b, pad_px=20)
+                filename_b = save_snippet(crop_b, snippets_dir, delta_internal.char_no, "revB", page_b)
+                revB_evidence = Evidence(
+                    page=page_b,
+                    bbox=list(bbox_b),
+                    image_path=f"snippets/{filename_b}"
+                )
+            except ValueError:
+                # Bbox invalid, skip snippet
+                revB_evidence = Evidence(
+                    page=page_b,
+                    bbox=list(bbox_b),
+                    image_path=None
+                )
+        # For added items with added_span
+        elif delta_internal.added_span is not None:
+            span = delta_internal.added_span
             page_b = 0  # Currently working with single-page PDFs (page 0)
             bbox_b = span.bbox_pdf
             

@@ -133,31 +133,54 @@ def score_candidate(
         dist_mm = dist * 25.4 / 72.0  # Convert points to mm
         reasons.append(f"within {dist_mm:.1f} mm of predicted location")
     
-    # (2) Text score - weighted token overlap
-    anchor_tokens = set(anchor.requirement_norm.split())
-    span_parsed = parse_requirement(span.text)
-    span_tokens = set(span_parsed.norm_text.split())
+    # (2) Text score - semantic matching using parsed fingerprints
+    # This compares symbols (Ø, R), count patterns (2X, 4X), and numeric values
+    anchor_fp = parse_requirement(anchor.requirement_raw)
+    span_fp = parse_requirement(span.text)
     
-    # Categorize tokens
-    prefix_symbols = {'R', 'Ø', 'DRAWING', 'NOTES', 'EDGE', 'RADIUS', 'COUNTERBORE', 
-                      'COUNTERSINK', 'LENGTH', 'DIAMETER', 'DEPTH', 'ANGLE', 'THREAD'}
-    count_patterns = {t for t in anchor_tokens | span_tokens if t.endswith('X') and t[:-1].isdigit()}
+    # Compare symbols (e.g., Ø for diameter, R for radius)
+    anchor_symbols = set(anchor_fp.symbol_tokens)
+    span_symbols = set(span_fp.symbol_tokens)
+    symbol_match = len(anchor_symbols & span_symbols) / max(len(anchor_symbols), 1) if anchor_symbols else 0.0
     
-    # Weight tokens
-    matched_tokens = anchor_tokens & span_tokens
-    prefix_matches = matched_tokens & (prefix_symbols | count_patterns)
-    numeric_matches = matched_tokens - prefix_matches
+    # Compare count patterns (e.g., 2X, 4X, 6X)
+    anchor_counts = set(anchor_fp.count_tokens)
+    span_counts = set(span_fp.count_tokens)
+    # Count patterns present in both is a strong signal, even if values differ
+    has_count_pattern = bool(anchor_counts and span_counts)
+    count_exact_match = anchor_counts == span_counts if anchor_counts else True
     
-    # Weighted scoring
-    prefix_weight = 1.0
-    numeric_weight = 0.5
+    # Compare numeric values
+    anchor_numerics = set(val for val, _ in anchor_fp.numeric_tokens)
+    span_numerics = set(val for val, _ in span_fp.numeric_tokens)
+    if anchor_numerics:
+        numeric_overlap = len(anchor_numerics & span_numerics) / len(anchor_numerics)
+    else:
+        numeric_overlap = 1.0 if not span_numerics else 0.0
     
-    total_weight = len(prefix_matches) * prefix_weight + len(numeric_matches) * numeric_weight
-    max_weight = len(anchor_tokens) * prefix_weight  # Conservative denominator
-    text_score = min(total_weight / max_weight, 1.0) if max_weight > 0 else 0.0
+    # Compare pattern class (hole, dimension, note, etc.)
+    class_match = 1.0 if anchor_fp.pattern_class == span_fp.pattern_class else 0.0
     
-    if matched_tokens:
-        reasons.append(f"matched tokens: {', '.join(sorted(matched_tokens))}")
+    # Weighted combination for text score
+    # Symbols are most important (Ø indicates diameter requirement)
+    # Count patterns indicate same type of requirement
+    # Numeric overlap indicates matching values
+    text_score = (
+        0.4 * symbol_match +
+        0.2 * (1.0 if has_count_pattern else 0.0) +
+        0.2 * numeric_overlap +
+        0.2 * class_match
+    )
+    
+    matched_parts = []
+    if symbol_match > 0:
+        matched_parts.append(f"symbols: {anchor_symbols & span_symbols}")
+    if has_count_pattern:
+        matched_parts.append(f"counts: {anchor_counts} vs {span_counts}")
+    if numeric_overlap > 0:
+        matched_parts.append(f"numerics: {int(numeric_overlap*100)}%")
+    if matched_parts:
+        reasons.append(f"matched: {', '.join(matched_parts)}")
     
     # (3) Context score - Jaccard of neighboring spans
     CONTEXT_WINDOW = 50.0  # Points

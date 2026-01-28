@@ -76,7 +76,11 @@ def _detect_balloons_from_text(
     page_idx: int,
     dpi: int
 ) -> List[Balloon]:
-    """Extract balloons using PDF text spans with circle validation."""
+    """Extract balloons using PDF text spans with circle validation.
+    
+    Handles both single-number spans and combined spans like "24 25" where
+    the PDF text extraction merges adjacent balloon numbers.
+    """
     spans = extract_text_spans(pdf_path, page_idx)
     balloons = []
     
@@ -84,41 +88,67 @@ def _detect_balloons_from_text(
     img = render_page(pdf_path, page_idx, dpi=dpi)
     
     for span in spans:
-        # Check if text is a candidate integer 1-200
         text = span.text.strip()
-        if not text.isdigit():
-            continue
-        
-        char_no = int(text)
-        if char_no < 1 or char_no > 200:
-            continue
-        
-        # Check bbox is small and square-ish (balloon-like)
         x0, y0, x1, y1 = span.bbox_pdf
         width = x1 - x0
         height = y1 - y0
         
-        if width < 5 or height < 5 or width > 50 or height > 50:
-            continue
+        # Handle combined spans (e.g., "24 25") by splitting on whitespace
+        tokens = text.split()
+        num_tokens = len(tokens)
         
-        aspect_ratio = width / height
-        if aspect_ratio < 0.6 or aspect_ratio > 1.7:
-            continue
-        
-        # Validate with circle detection on tight crop
-        if _validate_circle_around_span(img, page, span, dpi):
-            cx = (x0 + x1) / 2
-            cy = (y0 + y1) / 2
-            confidence = 0.9  # High confidence for text-based detection
+        for token_idx, token in enumerate(tokens):
+            # Check if token is a candidate integer 1-200
+            if not token.isdigit():
+                continue
             
-            balloons.append(Balloon(
-                char_no=char_no,
-                page_index=page_idx,
-                bbox_pdf=(x0, y0, x1, y1),
-                center_pdf=(cx, cy),
-                method=DetectionMethod.PDF_TEXT,
-                confidence=confidence
-            ))
+            char_no = int(token)
+            if char_no < 1 or char_no > 200:
+                continue
+            
+            # Calculate sub-bbox for this token (approximate equal division)
+            if num_tokens > 1:
+                # Divide the span bbox among tokens
+                token_width = width / num_tokens
+                sub_x0 = x0 + token_idx * token_width
+                sub_x1 = sub_x0 + token_width
+                sub_bbox = (sub_x0, y0, sub_x1, y1)
+                sub_width = token_width
+            else:
+                sub_bbox = (x0, y0, x1, y1)
+                sub_width = width
+            
+            # Check bbox is small and square-ish (balloon-like)
+            if sub_width < 5 or height < 5 or sub_width > 50 or height > 50:
+                continue
+            
+            # Relax aspect ratio for single digits (which can be narrow, ~0.4)
+            # Two-digit numbers tend to be wider (~0.8+)
+            aspect_ratio = sub_width / height
+            if aspect_ratio < 0.3 or aspect_ratio > 2.0:
+                continue
+            
+            # Create a pseudo-span for circle validation
+            class PseudoSpan:
+                def __init__(self, bbox):
+                    self.bbox_pdf = bbox
+            
+            pseudo_span = PseudoSpan(sub_bbox)
+            
+            # Validate with circle detection on tight crop
+            if _validate_circle_around_span(img, page, pseudo_span, dpi):
+                cx = (sub_bbox[0] + sub_bbox[2]) / 2
+                cy = (sub_bbox[1] + sub_bbox[3]) / 2
+                confidence = 0.85 if num_tokens > 1 else 0.9  # Slightly lower for split spans
+                
+                balloons.append(Balloon(
+                    char_no=char_no,
+                    page_index=page_idx,
+                    bbox_pdf=sub_bbox,
+                    center_pdf=(cx, cy),
+                    method=DetectionMethod.PDF_TEXT,
+                    confidence=confidence
+                ))
     
     return balloons
 
