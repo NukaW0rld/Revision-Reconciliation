@@ -18,6 +18,8 @@ from delta_preservation.vision.bbox_utils import (
     compute_combined_evidence_bbox,
     expand_bbox_with_adjacent_spans,
     normalize_snippet_size,
+    union_bbox,
+    find_best_span_for_requirement,
 )
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
@@ -173,15 +175,87 @@ def main():
         revA_bbox_pdf = None
         revB_bbox_pdf = None
         
-        # --- Compute Rev A bbox (balloon + annotation combined) ---
+        # --- Compute Rev A bbox (centered on annotation, expanded to include balloon) ---
         if anchor is not None:
-            # Create combined bbox including balloon and annotation
-            revA_bbox_pdf = compute_combined_evidence_bbox(
-                balloon_bbox=anchor.balloon_bbox,
-                req_bbox=anchor.req_bbox,
-                min_width=240.0,
-                min_height=240.0
-            )
+            # Try to get annotation bbox - first from anchor, then search as fallback
+            annotation_bbox = anchor.req_bbox
+            
+            # Fallback: search for annotation span near balloon
+            if annotation_bbox is None:
+                bx0, by0, bx1, by1 = anchor.balloon_bbox
+                balloon_center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
+                found_span = find_best_span_for_requirement(
+                    requirement_text=anchor.requirement_raw,
+                    spans=revA_text_spans,
+                    reference_point=balloon_center,
+                    search_radius=200.0
+                )
+                if found_span is not None:
+                    annotation_bbox = found_span.bbox_pdf
+            
+            if annotation_bbox is not None:
+                # Center on the characteristic annotation, like Rev B
+                base_bbox_a = annotation_bbox
+                
+                # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
+                expanded = expand_bbox_with_adjacent_spans(
+                    center_bbox=base_bbox_a,
+                    all_spans=revA_text_spans,
+                    horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
+                    vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
+                    max_horizontal_expansion=150.0  # ~2 inch max expansion
+                )
+                
+                # Compute annotation center (this will be the snippet center)
+                ann_x0, ann_y0, ann_x1, ann_y1 = expanded.bbox
+                ann_cx = (ann_x0 + ann_x1) / 2
+                ann_cy = (ann_y0 + ann_y1) / 2
+                
+                # Get balloon bbox for inclusion in snippet
+                bx0, by0, bx1, by1 = anchor.balloon_bbox
+                
+                # Distance from annotation center to each edge needed
+                half_width = max(
+                    ann_cx - ann_x0,  # left edge of annotation
+                    ann_x1 - ann_cx,  # right edge of annotation
+                    ann_cx - bx0,     # left edge of balloon
+                    bx1 - ann_cx,     # right edge of balloon
+                    120.0             # minimum half-width
+                )
+                half_height = max(
+                    ann_cy - ann_y0,  # top edge of annotation
+                    ann_y1 - ann_cy,  # bottom edge of annotation
+                    ann_cy - by0,     # top edge of balloon
+                    by1 - ann_cy,     # bottom edge of balloon
+                    120.0             # minimum half-height
+                )
+                
+                # Build bbox centered on annotation
+                revA_bbox_pdf = (
+                    ann_cx - half_width,
+                    ann_cy - half_height,
+                    ann_cx + half_width,
+                    ann_cy + half_height
+                )
+            else:
+                # Last resort fallback: expand balloon bbox when no annotation found
+                bx0, by0, bx1, by1 = anchor.balloon_bbox
+                width = bx1 - bx0
+                height = by1 - by0
+                min_width, min_height = 240.0, 240.0
+                
+                # Ensure minimum dimensions
+                if width < min_width:
+                    expand = (min_width - width) / 2
+                    bx0 -= expand
+                    bx1 += expand
+                
+                if height < min_height:
+                    expand = (min_height - height) / 2
+                    by0 -= expand
+                    by1 += expand
+                
+                revA_bbox_pdf = (bx0, by0, bx1, by1)
                     
         # --- Compute Rev B bbox (expand to include adjacent spans) ---
         if delta_internal.match is not None:
