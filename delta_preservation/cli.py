@@ -20,6 +20,7 @@ from delta_preservation.vision.bbox_utils import (
     normalize_snippet_size,
     union_bbox,
     find_best_span_for_requirement,
+    expand_notes_block
 )
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
@@ -144,15 +145,21 @@ def main():
         delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0)
         delta_items_internal.append(delta_item_internal)
     
-    # Detect added characteristics (new in Rev B, not in Rev A)
-    max_char_no = max(a.char_no for a in anchors) if anchors else 0
-    added_items = detect_added_characteristics(revB_text_spans, matches, next_char_no=max_char_no + 1)
-    delta_items_internal.extend(added_items)
-    print(f"  Found {len(added_items)} added characteristics in Rev B")
-    
-    # Open PDF documents for coordinate conversion
+    # Open PDF documents for coordinate conversion and page dimensions
     docA = fitz.open(revA_path)
     docB = fitz.open(revB_path)
+    pageB_rect = docB.load_page(0).rect
+    page_width_b = pageB_rect.width
+    page_height_b = pageB_rect.height
+    
+    # Detect added characteristics (new in Rev B, not in Rev A)
+    max_char_no = max(a.char_no for a in anchors) if anchors else 0
+    added_items = detect_added_characteristics(
+        revB_text_spans, matches, next_char_no=max_char_no + 1,
+        page_width=page_width_b, page_height=page_height_b
+    )
+    delta_items_internal.extend(added_items)
+    print(f"  Found {len(added_items)} added characteristics in Rev B")
     
     # Convert internal DeltaItems to Pydantic models with Evidence
     delta_items_pydantic: List[DeltaItem] = []
@@ -197,14 +204,30 @@ def main():
                 # Center on the characteristic annotation, like Rev B
                 base_bbox_a = annotation_bbox
                 
-                # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
-                expanded = expand_bbox_with_adjacent_spans(
-                    center_bbox=base_bbox_a,
-                    all_spans=revA_text_spans,
-                    horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
-                    vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
-                    max_horizontal_expansion=150.0  # ~2 inch max expansion
-                )
+                # Check if this is a notes-type characteristic
+                is_notes_type = "NOTES" in anchor.requirement_raw.upper()
+                
+                if is_notes_type:
+                    # For notes blocks, expand vertically to include all numbered items
+                    expanded_bbox = expand_notes_block(
+                        notes_header_bbox=base_bbox_a,
+                        all_spans=revA_text_spans,
+                        max_vertical_expansion=150.0
+                    )
+                    # Create a simple wrapper to match the expected structure
+                    class ExpandedWrapper:
+                        def __init__(self, bbox):
+                            self.bbox = bbox
+                    expanded = ExpandedWrapper(expanded_bbox)
+                else:
+                    # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
+                    expanded = expand_bbox_with_adjacent_spans(
+                        center_bbox=base_bbox_a,
+                        all_spans=revA_text_spans,
+                        horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
+                        vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
+                        max_horizontal_expansion=150.0  # ~2 inch max expansion
+                    )
                 
                 # Compute annotation center (this will be the snippet center)
                 ann_x0, ann_y0, ann_x1, ann_y1 = expanded.bbox
@@ -258,19 +281,30 @@ def main():
                 revA_bbox_pdf = (bx0, by0, bx1, by1)
                     
         # --- Compute Rev B bbox (expand to include adjacent spans) ---
+        # Check if this is a notes-type characteristic
+        is_notes_type_b = anchor is not None and "NOTES" in anchor.requirement_raw.upper()
+        
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
             base_bbox_b = span.bbox_pdf
             
-            # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
-            expanded = expand_bbox_with_adjacent_spans(
-                center_bbox=base_bbox_b,
-                all_spans=revB_text_spans,
-                horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
-                vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
-                max_horizontal_expansion=150.0  # ~2 inch max expansion
-            )
-            revB_bbox_pdf = expanded.bbox
+            if is_notes_type_b:
+                # For notes blocks, expand vertically to include all numbered items
+                revB_bbox_pdf = expand_notes_block(
+                    notes_header_bbox=base_bbox_b,
+                    all_spans=revB_text_spans,
+                    max_vertical_expansion=150.0
+                )
+            else:
+                # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
+                expanded = expand_bbox_with_adjacent_spans(
+                    center_bbox=base_bbox_b,
+                    all_spans=revB_text_spans,
+                    horizontal_tolerance=20.0,  # ~0.28 inch gap tolerance
+                    vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
+                    max_horizontal_expansion=150.0  # ~2 inch max expansion
+                )
+                revB_bbox_pdf = expanded.bbox
             
         elif delta_internal.added_span is not None:
             span = delta_internal.added_span
@@ -284,7 +318,23 @@ def main():
                 vertical_tolerance=8.0,
                 max_horizontal_expansion=150.0
             )
-            revB_bbox_pdf = expanded.bbox
+            exp_bbox = expanded.bbox
+            
+            # Ensure minimum size for added characteristics (120x120 in PDF points)
+            min_size = 120.0
+            ex0, ey0, ex1, ey1 = exp_bbox
+            width = ex1 - ex0
+            height = ey1 - ey0
+            cx, cy = (ex0 + ex1) / 2, (ey0 + ey1) / 2
+            
+            if width < min_size:
+                ex0 = cx - min_size / 2
+                ex1 = cx + min_size / 2
+            if height < min_size:
+                ey0 = cy - min_size / 2
+                ey1 = cy + min_size / 2
+            
+            revB_bbox_pdf = (ex0, ey0, ex1, ey1)
         
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:

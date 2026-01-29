@@ -263,6 +263,71 @@ def normalize_snippet_size(
     return (norm_revA, norm_revB)
 
 
+def expand_notes_block(
+    notes_header_bbox: Tuple[float, float, float, float],
+    all_spans: List[TextSpan],
+    max_vertical_expansion: float = 150.0
+) -> Tuple[float, float, float, float]:
+    """
+    Expand a notes header bbox to include the entire notes block content.
+    
+    Notes blocks typically have a "NOTES" header followed by numbered items
+    (1., 2., 3., etc.) below it. This function expands downward to include
+    all spans that are part of the notes block.
+    
+    Args:
+        notes_header_bbox: Bounding box of the "NOTES" header span
+        all_spans: All text spans on the page
+        max_vertical_expansion: Maximum downward expansion allowed
+        
+    Returns:
+        Expanded bounding box including all notes content
+    """
+    import re
+    
+    x0, y0, x1, y1 = notes_header_bbox
+    header_left = x0
+    header_bottom = y1
+    
+    # Notes block items are typically:
+    # - Below the header (y > header_bottom)
+    # - Within a reasonable horizontal range (not too far right)
+    # - Start with a number followed by period (1., 2., etc.)
+    # - Or are continuation lines that align with numbered items
+    
+    notes_spans = []
+    max_y = y1
+    
+    for span in all_spans:
+        sx0, sy0, sx1, sy1 = span.bbox_pdf
+        text = span.text.strip()
+        
+        # Skip if above or at the same level as header
+        if sy0 < header_bottom - 5:  # Small tolerance
+            continue
+        
+        # Skip if too far below
+        if sy0 > header_bottom + max_vertical_expansion:
+            continue
+        
+        # Check if span starts with numbered item (1., 2., etc.) or is a continuation
+        # that aligns with the notes block horizontally
+        is_numbered = bool(re.match(r'^\d+\.\s*', text))
+        is_in_horizontal_range = abs(sx0 - header_left) < 50  # Aligned with header left
+        
+        if is_numbered or is_in_horizontal_range:
+            notes_spans.append(span)
+            # Expand bbox to include this span
+            x0 = min(x0, sx0)
+            x1 = max(x1, sx1)
+            max_y = max(max_y, sy1)
+    
+    # Set the bottom of bbox to include all notes spans
+    y1 = max_y
+    
+    return (x0, y0, x1, y1)
+
+
 def find_best_span_for_requirement(
     requirement_text: str,
     spans: List[TextSpan],

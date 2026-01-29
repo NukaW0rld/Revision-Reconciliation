@@ -81,9 +81,42 @@ def classify_delta(
     anchor_fp = parse_requirement(anchor.requirement_raw)
     matched_fp = parse_requirement(candidate.span.text)
     
+    # Check if this is a notes-type characteristic
+    # Notes blocks should be compared by text pattern, not numeric values
+    is_notes_type = anchor_fp.pattern_class == "note" or "NOTES" in anchor.requirement_raw.upper()
+    
+    if is_notes_type:
+        # For notes blocks, check if the matched span contains "NOTES" header
+        # The full notes text comparison is done by text matching, not numerics
+        if "NOTES" in matched_fp.norm_text or "NOTE" in matched_fp.norm_text:
+            return DeltaItem(
+                char_no=anchor.char_no,
+                status="unchanged",
+                confidence=0.85,
+                reasons=["Notes block header matched", "High location agreement after global alignment"],
+                component_scores={
+                    "location": location_score,
+                    "text": 1.0,
+                    "context": context_score
+                },
+                match=match_or_none
+            )
+    
     # Extract numeric values (the key comparison for dimensions)
     anchor_numerics = set(val for val, _ in anchor_fp.numeric_tokens)
     matched_numerics = set(val for val, _ in matched_fp.numeric_tokens)
+    
+    # Identify primary dimension value (largest numeric, typically the main dimension)
+    # Tolerances are usually small values like 0.1, 0.3 while dimensions are larger
+    anchor_primary = max(anchor_numerics) if anchor_numerics else None
+    matched_primary = max(matched_numerics) if matched_numerics else None
+    
+    # Check if primary dimension matches - this is the key indicator
+    primary_matches = (
+        anchor_primary is not None and 
+        matched_primary is not None and 
+        anchor_primary == matched_primary
+    )
     
     # Extract structural tokens (count patterns like "2X", "6X" and symbols like "Ø", "R")
     anchor_count = set(anchor_fp.count_tokens)
@@ -94,9 +127,13 @@ def classify_delta(
     
     # Compute overlap metrics
     # For numerics: check if anchor's key values appear in matched span
-    # (matched span may have additional values, that's OK)
+    # Focus on primary value match rather than all tolerances
     if anchor_numerics:
-        numeric_overlap = len(anchor_numerics & matched_numerics) / len(anchor_numerics)
+        # If primary matches, give high score even if tolerances not in span
+        if primary_matches:
+            numeric_overlap = max(0.5, len(anchor_numerics & matched_numerics) / len(anchor_numerics))
+        else:
+            numeric_overlap = len(anchor_numerics & matched_numerics) / len(anchor_numerics)
     else:
         numeric_overlap = 1.0 if not matched_numerics else 0.0
     
@@ -110,11 +147,22 @@ def classify_delta(
     symbol_match = anchor_symbols <= matched_symbols or not anchor_symbols
     
     # Classification decision tree
+    # Priority 1: Primary dimension value match is the strongest indicator
     if count_changed:
         # Count explicitly changed (e.g., "2 x Ø8" → "4 x Ø8") → changed
         status = "changed"
         confidence = 0.5 * location_score + 0.3 * numeric_overlap + 0.2
         reasons.append(f"Count changed: {anchor_count} → {matched_count}")
+    elif primary_matches:
+        # Primary dimension value matches - this is the key indicator of unchanged
+        # Even if tolerances differ or aren't visible in span, the main dimension is the same
+        status = "unchanged"
+        confidence = 0.4 * location_score + 0.5 * numeric_overlap + 0.1
+        reasons.append(f"Primary dimension matches: {anchor_primary}")
+        if numeric_overlap >= 0.5:
+            reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
+        if count_match and anchor_count:
+            reasons.append(f"Count tokens match: {anchor_count}")
     elif numeric_overlap >= 0.5 and symbol_match:
         # Good numeric overlap with matching symbols → unchanged
         # (count_missing is OK - just means span doesn't include count prefix)
@@ -123,7 +171,7 @@ def classify_delta(
         reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
         if count_match and anchor_count:
             reasons.append(f"Count tokens match: {anchor_count}")
-    elif numeric_overlap < 0.5 and symbol_match and not count_missing:
+    elif numeric_overlap < 0.5 and symbol_match and not count_missing and not primary_matches:
         # Same type (symbol) but different numeric values → changed
         status = "changed"
         confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
@@ -164,7 +212,9 @@ def classify_delta(
 def detect_added_characteristics(
     revB_spans: List[TextSpan],
     matches: Dict[int, Match],
-    next_char_no: int
+    next_char_no: int,
+    page_width: float = 612.0,
+    page_height: float = 792.0
 ) -> List[DeltaItem]:
     """Detect new characteristics in Rev B that don't exist in Rev A.
     
@@ -175,6 +225,8 @@ def detect_added_characteristics(
         revB_spans: All text spans from Rev B PDF
         matches: Dict of char_no to Match objects (matched spans)
         next_char_no: Starting char_no for added items (typically max_existing + 1)
+        page_width: Width of the page in PDF points (used for exclusion zones)
+        page_height: Height of the page in PDF points (used for exclusion zones)
         
     Returns:
         List of DeltaItems with status="added" for detected new characteristics
@@ -186,6 +238,23 @@ def detect_added_characteristics(
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         matched_span_keys.add(key)
     
+    # Define exclusion zones (revision table, title block)
+    # Revision table: typically top-right corner (x > 80% width, y < 15% height)
+    # Title block: typically bottom-right corner (x > 70% width, y > 85% height)
+    def is_in_exclusion_zone(bbox: tuple) -> bool:
+        x0, y0, x1, y1 = bbox
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        
+        # Revision table: top-right corner
+        if cx > page_width * 0.75 and cy < page_height * 0.15:
+            return True
+        
+        # Title block: bottom-right corner
+        if cx > page_width * 0.70 and cy > page_height * 0.85:
+            return True
+        
+        return False
+    
     added_items: List[DeltaItem] = []
     current_char_no = next_char_no
     
@@ -193,6 +262,10 @@ def detect_added_characteristics(
         # Skip already matched spans
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         if key in matched_span_keys:
+            continue
+        
+        # Skip spans in exclusion zones (revision table, title block)
+        if is_in_exclusion_zone(span.bbox_pdf):
             continue
         
         text = span.text.strip()

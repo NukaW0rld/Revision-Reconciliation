@@ -29,7 +29,9 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     norm_text = " ".join(requirement.upper().split())
     
     # Extract count tokens (e.g., 2X, 6 X, 12 x)
-    count_tokens = [f"{n}X" for n in re.findall(r'\b(\d+)\s*[Xx]\b', norm_text)]
+    # Avoid matching patterns like "10 x 90°" where x is multiplication between two numbers
+    # Use negative lookahead to exclude cases where x is followed by a space and digit
+    count_tokens = [f"{n}X" for n in re.findall(r'\b(\d+)\s*[Xx](?!\s*\d)', norm_text)]
     
     # Extract type/prefix tokens
     type_patterns = [
