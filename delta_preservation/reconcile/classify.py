@@ -275,14 +275,19 @@ def detect_added_characteristics(
         # Parse the span to check if it looks like a dimension requirement
         fp = parse_requirement(text)
         
+        # Angle callouts (e.g., "2 X 5 X 45°") often lack Ø/R symbols and explicit count
+        # tokens, so treat a degree marker plus multiple numeric values as dimension-like.
+        has_angle_token = "°" in text or "DEG" in fp.norm_text or "ANGLE" in fp.norm_text
+        has_angle_dimension = has_angle_token and len(fp.numeric_tokens) >= 2
+        
         # Filter for spans that look like dimension requirements:
         # - Must have numeric tokens (dimension values)
-        # - Must have symbols (Ø, R) OR count patterns (2X, 4X)
+        # - Must have symbols (Ø, R) OR count patterns (2X, 4X) OR angle-style callouts
         # - Skip spans that look like revision notes or title block text
         if not fp.numeric_tokens:
             continue
         
-        if not (fp.symbol_tokens or fp.count_tokens):
+        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension):
             continue
         
         # Skip spans that look like revision notes (contain "ADDED", "NEW", etc.)
@@ -298,6 +303,8 @@ def detect_added_characteristics(
             f"New requirement detected in Rev B: \"{text}\"",
             f"Symbols: {fp.symbol_tokens}, Counts: {fp.count_tokens}"
         ]
+        if has_angle_dimension and not fp.symbol_tokens and not fp.count_tokens:
+            reasons.append("Angle-style callout detected")
         
         # Calculate confidence based on how "dimension-like" the span is
         confidence = 0.6

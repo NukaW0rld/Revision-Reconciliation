@@ -335,26 +335,32 @@ def main():
                 ey1 = cy + min_size / 2
             
             revB_bbox_pdf = (ex0, ey0, ex1, ey1)
+
+        # For added characteristics, mirror the Rev B bbox into Rev A so the
+        # Rev A snippet shows the same location and size as Rev B.
+        if anchor is None and revB_bbox_pdf is not None and revA_bbox_pdf is None:
+            revA_bbox_pdf = revB_bbox_pdf
         
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:
             revA_bbox_pdf, revB_bbox_pdf = normalize_snippet_size(revA_bbox_pdf, revB_bbox_pdf)
         
         # --- Generate Rev A snippet ---
-        if anchor is not None and revA_bbox_pdf is not None:
+        if revA_bbox_pdf is not None:
+            page_a = anchor.page if anchor is not None else 0
             bbox_img_a = pdf_to_img_coords(revA_bbox_pdf, pageA, dpi=args.dpi)
             try:
                 crop_a = crop_with_padding(imgA_page, bbox_img_a, pad_px=10)
-                filename_a = save_snippet(crop_a, snippets_dir, delta_internal.char_no, "revA", anchor.page)
+                filename_a = save_snippet(crop_a, snippets_dir, delta_internal.char_no, "revA", page_a)
                 revA_evidence = Evidence(
-                    page=anchor.page,
+                    page=page_a,
                     bbox=list(revA_bbox_pdf),
                     image_path=f"snippets/{filename_a}"
                 )
             except ValueError as e:
                 # Bbox invalid, record evidence without image
                 revA_evidence = Evidence(
-                    page=anchor.page,
+                    page=page_a,
                     bbox=list(revA_bbox_pdf),
                     image_path=None
                 )
