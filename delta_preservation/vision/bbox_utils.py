@@ -71,10 +71,23 @@ def compute_combined_evidence_bbox(
         Combined bounding box in PDF coordinates
     """
     if req_bbox is None:
-        # Fallback: expand balloon bbox with generous padding
+        # Fallback: expand balloon bbox to meet minimum dimensions
         bx0, by0, bx1, by1 = balloon_bbox
-        pad = 40.0  # ~0.5 inch padding
-        return (bx0 - pad, by0 - pad, bx1 + pad, by1 + pad)
+        width = bx1 - bx0
+        height = by1 - by0
+        
+        # Ensure minimum dimensions
+        if width < min_width:
+            expand = (min_width - width) / 2
+            bx0 -= expand
+            bx1 += expand
+        
+        if height < min_height:
+            expand = (min_height - height) / 2
+            by0 -= expand
+            by1 += expand
+        
+        return (bx0, by0, bx1, by1)
     
     # Union of balloon and annotation
     combined = union_bbox(balloon_bbox, req_bbox)

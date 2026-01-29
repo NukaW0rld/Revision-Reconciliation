@@ -179,10 +179,10 @@ def main():
             revA_bbox_pdf = compute_combined_evidence_bbox(
                 balloon_bbox=anchor.balloon_bbox,
                 req_bbox=anchor.req_bbox,
-                min_width=60.0,  # ~0.8 inch minimum
-                min_height=30.0
+                min_width=240.0,
+                min_height=240.0
             )
-        
+                    
         # --- Compute Rev B bbox (expand to include adjacent spans) ---
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
