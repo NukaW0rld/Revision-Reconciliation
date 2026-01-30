@@ -1,3 +1,14 @@
+"""
+Balloon detection module for engineering drawings.
+
+This module provides hybrid balloon detection combining PDF text extraction with 
+computer vision techniques. Balloons are circular markers containing characteristic
+numbers that identify inspection points on engineering drawings.
+
+The detection strategy uses PDF text spans as the primary method, with OpenCV-based
+circle detection as a fallback for cases where text extraction is insufficient.
+"""
+
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
@@ -16,13 +27,33 @@ from delta_preservation.io.pdf import (
 
 
 class DetectionMethod(Enum):
+    """
+    Enumeration of balloon detection methods.
+    
+    PDF_TEXT: Detection using PDF text span extraction with circle validation
+    CV: Detection using pure computer vision (OpenCV circle detection + OCR)
+    """
     PDF_TEXT = "pdf_text"
     CV = "cv"
 
 
 @dataclass
 class Balloon:
-    """Represents a detected balloon with its characteristic number."""
+    """
+    Represents a detected balloon with its characteristic number and spatial information.
+    
+    Balloons are circular markers on engineering drawings that contain characteristic
+    numbers identifying specific inspection points. Each balloon is associated with
+    a requirement in the AS9102 Form 3.
+    
+    Attributes:
+        char_no: Characteristic number contained within the balloon (e.g., 1, 2, 17)
+        page_index: Zero-based page index where the balloon was found
+        bbox_pdf: Bounding box in PDF coordinates (x0, y0, x1, y1) in points
+        center_pdf: Center coordinates in PDF space (cx, cy) in points
+        method: Detection method used to find this balloon
+        confidence: Detection confidence score between 0.0 and 1.0
+    """
     char_no: int
     page_index: int
     bbox_pdf: Tuple[float, float, float, float]  # (x0, y0, x1, y1)
@@ -33,14 +64,29 @@ class Balloon:
 
 def detect_balloons(pdf_path: Path, dpi: int = 300) -> Dict[int, Balloon]:
     """
-    Detect balloons in a PDF using text extraction with CV fallback.
+    Detect characteristic balloons in a PDF using hybrid text/computer vision approach.
+    
+    This function implements a two-stage detection strategy:
+    1. Primary: Extract text spans from PDF and validate circular enclosures
+    2. Fallback: Use OpenCV circle detection with template matching OCR
+    
+    The hybrid approach provides robustness against various PDF rendering qualities
+    and balloon styles commonly found in engineering drawings.
     
     Args:
-        pdf_path: Path to PDF file
-        dpi: DPI for rendering (used in CV fallback)
+        pdf_path: Path to PDF file containing ballooned drawing
+        dpi: DPI for image rendering (used in computer vision fallback)
     
     Returns:
-        Dictionary mapping char_no to Balloon object
+        Dictionary mapping characteristic numbers to Balloon objects.
+        Multiple detections of the same char_no are deduplicated by keeping
+        the highest confidence detection.
+        
+    Notes:
+        - PDF text method is preferred for accuracy and speed
+        - CV fallback activates when insufficient text-based detections found
+        - Balloons are expected to contain integer numbers 1-200
+        - Confidence scores help prioritize detections during deduplication
     """
     doc = fitz.open(pdf_path)
     all_detections: List[Balloon] = []
@@ -51,17 +97,19 @@ def detect_balloons(pdf_path: Path, dpi: int = 300) -> Dict[int, Balloon]:
         # Try PDF text-based detection first
         text_balloons = _detect_balloons_from_text(pdf_path, page, page_idx, dpi)
         
-        # Always keep text detections
+        # Always keep text detections as they are more reliable
         all_detections.extend(text_balloons)
         
-        # If insufficient detections, add CV fallback detections
-        if len(text_balloons) < 3:  # Heuristic threshold
+        # Trigger CV fallback if insufficient text-based detections found
+        # Heuristic: drawings typically have more than 3 balloons
+        if len(text_balloons) < 3:
             cv_balloons = _detect_balloons_cv(pdf_path, page, page_idx, dpi)
             all_detections.extend(cv_balloons)
     
     doc.close()
     
-    # Deduplicate by keeping highest confidence per char_no
+    # Deduplicate detections by keeping highest confidence per characteristic number
+    # This handles cases where both methods detect the same balloon
     result: Dict[int, Balloon] = {}
     for balloon in all_detections:
         if balloon.char_no not in result or balloon.confidence > result[balloon.char_no].confidence:

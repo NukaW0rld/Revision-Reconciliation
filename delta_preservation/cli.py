@@ -1,3 +1,15 @@
+"""
+Command-line interface and main pipeline orchestration for delta preservation.
+
+This module provides the primary entry point for the revision reconciliation system,
+orchestrating all pipeline stages from input validation through final output generation.
+The main() function implements an 8-stage pipeline that processes engineering drawing
+revisions and produces structured delta analysis results.
+
+The CLI handles file validation, output directory management, and progress reporting
+while delegating specialized processing to domain-specific modules.
+"""
+
 import argparse
 import hashlib
 import json
@@ -30,18 +42,31 @@ from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 def main():
     """
-    Command-line entrypoint for the delta preservation prototype.
+    Main command-line entry point for the delta preservation pipeline.
 
-    Given:
-    - Rev A PDF (ballooned)
-    - Rev B PDF (unballooned)
-    - Rev A AS9102 Form 3 (xlsx, sheet "Form3")
+    This function orchestrates the complete 8-stage revision reconciliation process:
+    1. Load and parse AS9102 Form 3 inspection characteristics
+    2. Detect characteristic balloons in Rev A drawing
+    3. Extract text spans from Rev A for spatial anchoring
+    4. Build spatial-semantic anchors linking Form 3 to Rev A locations
+    5. Extract Rev B text spans and estimate geometric alignment
+    6. Generate candidate matches and assign Rev A characteristics to Rev B spans
+    7. Classify changes and detect new characteristics in Rev B
+    8. Generate visual evidence snippets and output structured delta packet
 
-    Creates:
-    out/<run_id>/
-    delta_packet.json        # stub for now; later filled with change queue + evidence paths
-    intermediate/            # debug artifacts per stage
-    snippets/                # evidence snippet images per item
+    Input Requirements:
+        - Rev A PDF: Ballooned engineering drawing with characteristic markers
+        - Rev B PDF: Updated drawing (may be unballooned) with potential changes
+        - Form 3 XLSX: AS9102 inspection document with characteristic requirements
+
+    Outputs (in out/<run_id>/ directory):
+        - delta_packet.json: Structured results with classification decisions and evidence
+        - snippets/: Visual evidence images for each characteristic comparison
+        - intermediate/: Debug artifacts and intermediate processing results
+
+    The pipeline handles various drawing revision scenarios including layout changes,
+    scaling differences, and characteristic additions/removals while maintaining
+    audit-ready traceability and human-reviewable evidence.
     """
     parser = argparse.ArgumentParser(
         description="Delta preservation pipeline for engineering drawings"

@@ -1,4 +1,11 @@
-# Form 3 parsing
+"""
+AS9102 Form 3 parsing utilities for extracting inspection characteristics from Excel files.
+
+This module handles the parsing of AS9102 Form 3 inspection documents, which contain
+detailed characteristic information including requirements, reference locations, and
+characteristic designators. The module provides robust column detection and fallback
+mechanisms to handle various Form 3 formats.
+"""
 
 from pathlib import Path
 from typing import List
@@ -23,8 +30,14 @@ class Characteristic:
         self.characteristic_designator = characteristic_designator
         self.requirement = requirement
     
-    def to_dict(self):
-        """Convert to dictionary for JSON serialization."""
+    def to_dict(self) -> dict:
+        """
+        Convert characteristic to dictionary for JSON serialization.
+        
+        Returns:
+            Dictionary representation of the characteristic with all fields
+            as key-value pairs suitable for JSON serialization or debugging output.
+        """
         return {
             "char_no": self.char_no,
             "reference_location": self.reference_location,
@@ -67,10 +80,11 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
         FileNotFoundError: If xlsx_path does not exist
         ValueError: If neither "Form3" nor "F3" worksheet is found
     """
-    # Load workbook and select Form3 sheet
+    # Load workbook with data_only=True to get calculated values instead of formulas
     wb = load_workbook(xlsx_path, data_only=True)
     
-    # Look for sheet containing "Form3" or "F3"
+    # Search for the Form 3 worksheet using flexible naming
+    # AS9102 forms may have variations like "Form3", "F3", "Form 3", etc.
     sheet_name = None
     for name in wb.sheetnames:
         if "Form3" in name or "F3" in name:
@@ -82,17 +96,18 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
     
     ws = wb[sheet_name]
     
-    # Default column indices
-    # Notes: When using ws.cell() method, column indices are 1-based
-    #        But when using ws.columns or ws.rows, column indices are 0-based
+    # Define fallback column positions for AS9102 Form 3 standard layout
+    # Note: openpyxl uses 1-based column indices when using ws.cell(row, column)
+    # These fallback positions correspond to the typical AS9102 Form 3 structure
     FALLBACK_COLUMNS = {
-        "char_no": 1,           # Column A
-        "reference_location": 2, # Column B
-        "characteristic_designator": 3,  # Column C
-        "requirement": 4         # Column D
+        "char_no": 1,           # Column A: Characteristic Number
+        "reference_location": 2, # Column B: Reference Location 
+        "characteristic_designator": 3,  # Column C: Characteristic Designator
+        "requirement": 4         # Column D: Requirement
     }
     
-    # Attempt to find columns by scanning header row 6
+    # Attempt intelligent column detection by scanning header row 6
+    # This allows the parser to adapt to Form 3 variations and custom layouts
     column_map = {}
     header_keywords = {
         "char_no": ["char", "no", "number"],

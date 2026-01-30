@@ -1,3 +1,15 @@
+"""
+Image alignment module for engineering drawing revision comparison.
+
+This module provides robust image alignment capabilities for comparing different 
+revisions of engineering drawings. It uses ORB feature detection and homography 
+estimation to establish geometric correspondence between drawing versions, even 
+when there are layout changes, scaling differences, or perspective variations.
+
+The alignment process is critical for the revision reconciliation pipeline as it 
+enables accurate spatial matching of characteristics between Rev A and Rev B drawings.
+"""
+
 from pathlib import Path
 from typing import Tuple
 from dataclasses import dataclass
@@ -8,7 +20,19 @@ import numpy as np
 
 @dataclass
 class Transform:
-    """Homography transform from Rev A to Rev B with quality metrics."""
+    """
+    Represents a geometric transformation between two drawing revisions with quality metrics.
+    
+    The Transform encapsulates a homography matrix that maps coordinates from Rev A 
+    to Rev B coordinate space, along with quality indicators to assess the reliability
+    of the alignment.
+    
+    Attributes:
+        H: 3x3 homography matrix for perspective transformation
+        inliers: Number of feature point correspondences that support the transform
+        inlier_ratio: Fraction of matches that are geometrically consistent (0.0 to 1.0)
+        quality_ok: Boolean indicating if the alignment meets minimum quality thresholds
+    """
     H: np.ndarray  # 3x3 homography matrix
     inliers: int
     inlier_ratio: float
@@ -16,29 +40,55 @@ class Transform:
 
 
 class AlignmentError(Exception):
-    """Raised when image alignment fails quality thresholds."""
+    """
+    Exception raised when image alignment fails to meet quality thresholds.
+    
+    This error indicates that the automatic alignment between drawing revisions
+    could not establish a reliable geometric transformation. This may occur with
+    severely distorted images, drawings with insufficient common features, or
+    when the layout changes are too dramatic for feature-based alignment.
+    """
     pass
 
 
 def estimate_transform(imgA: np.ndarray, imgB: np.ndarray) -> Transform:
     """
-    Estimate homography transform from Rev A to Rev B using ORB features.
+    Estimate homography transformation from Rev A to Rev B using ORB feature matching.
+    
+    This function implements a robust feature-based alignment pipeline:
+    1. Extract ORB features from both images 
+    2. Match features using brute-force matcher with cross-checking
+    3. Estimate homography using RANSAC to filter outliers
+    4. Validate alignment quality using inlier metrics
+    
+    The homography enables mapping of coordinates and bounding boxes from Rev A 
+    coordinate space to Rev B coordinate space, which is essential for characteristic
+    matching across drawing revisions.
     
     Args:
-        imgA: Rev A rendered page image (BGR)
-        imgB: Rev B rendered page image (BGR)
+        imgA: Rev A rendered page image in BGR format
+        imgB: Rev B rendered page image in BGR format
     
     Returns:
-        Transform object with homography and quality metrics
+        Transform object containing the 3x3 homography matrix and quality metrics
     
     Raises:
-        AlignmentError: If alignment fails quality thresholds
+        AlignmentError: If insufficient features found, homography estimation fails,
+                       or the resulting alignment doesn't meet quality thresholds
+                       (minimum 40 inliers and 15% inlier ratio)
+    
+    Notes:
+        - Uses ORB features for rotation and scale invariance
+        - RANSAC robustly handles outliers in feature matches
+        - Quality thresholds ensure reliable geometric transformation
+        - Higher inlier counts and ratios indicate better alignment confidence
     """
     # Convert to grayscale
     grayA = cv2.cvtColor(imgA, cv2.COLOR_BGR2GRAY)
     grayB = cv2.cvtColor(imgB, cv2.COLOR_BGR2GRAY)
     
-    # Detect and compute ORB features
+    # Detect and compute ORB features with generous feature count
+    # Higher feature count improves robustness for drawings with sparse detail
     orb = cv2.ORB_create(nfeatures=4000)
     kpA, descA = orb.detectAndCompute(grayA, None)
     kpB, descB = orb.detectAndCompute(grayB, None)
@@ -46,28 +96,31 @@ def estimate_transform(imgA: np.ndarray, imgB: np.ndarray) -> Transform:
     if descA is None or descB is None:
         raise AlignmentError("Failed to extract features from one or both images")
     
-    # Match features
+    # Match features using brute-force matcher with cross-checking
+    # Cross-checking ensures bidirectional consistency of matches
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(descA, descB)
     
     if len(matches) < 4:
         raise AlignmentError(f"Insufficient matches found: {len(matches)} < 4")
     
-    # Sort by distance and keep best matches
+    # Sort by match distance (lower is better) and limit to best matches
+    # This filtering improves RANSAC performance by reducing outlier noise
     matches = sorted(matches, key=lambda x: x.distance)
     matches = matches[:min(300, len(matches))]
     
-    # Extract matched point arrays
+    # Extract corresponding point coordinates for homography estimation
     ptsA = np.float32([kpA[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
     ptsB = np.float32([kpB[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
     
-    # Find homography with RANSAC
+    # Estimate homography using RANSAC for outlier rejection
+    # 3.0 pixel threshold balances precision with robustness
     H, mask = cv2.findHomography(ptsA, ptsB, cv2.RANSAC, ransacReprojThreshold=3.0)
     
     if H is None:
         raise AlignmentError("Failed to compute homography")
     
-    # Calculate quality metrics
+    # Evaluate alignment quality using inlier statistics
     inliers = int(np.sum(mask))
     inlier_ratio = inliers / len(matches)
     quality_ok = inliers >= 40 and inlier_ratio >= 0.15

@@ -1,3 +1,14 @@
+"""
+Test suite for balloon detection functionality.
+
+This module tests the hybrid balloon detection system that combines PDF text
+extraction with computer vision techniques to identify characteristic numbers
+in engineering drawings.
+
+The tests use fixture PDFs from the assets/ directory and validate detection
+accuracy, data structure integrity, and method selection logic.
+"""
+
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
