@@ -2,7 +2,7 @@
 
 **Advanced characteristic identity preservation across engineering drawing revisions**
 
-This repository contains a production-ready prototype that solves the critical problem of maintaining inspection characteristic identity when engineering drawings undergo revision changes. The system enables incremental AS9102 FAIR updates rather than complete re-inspections, saving significant time and cost in aerospace and defense manufacturing.
+This repository contains a prototype that solves the critical problem of maintaining inspection characteristic identity when engineering drawings undergo revision changes. The system enables incremental AS9102 FAIR updates rather than complete re-inspections, saving significant time and cost in aerospace and defense manufacturing.
 
 ## Problem Statement
 
@@ -12,7 +12,7 @@ When engineering drawings transition from Rev A → Rev B, quality teams must de
 - **Removed** (no longer applicable)
 - **Added** (new inspection requirements)
 
-Traditional approaches fail when layout changes, projections shift, or annotations move—forcing complete re-FAIRs even for minor revisions.
+Traditional approaches fail when layout changes, projections shift, or annotations move, which forces complete re-FAIRs even for minor revisions.
 
 ## Solution
 
@@ -22,7 +22,7 @@ Our **8-stage reconciliation pipeline** combines computer vision, spatial transf
 2. **Balloon Detection** - Hybrid PDF text + computer vision approach for characteristic markers
 3. **Text Extraction** - Precise coordinate mapping of requirement annotations
 4. **Anchor Building** - Link Form 3 requirements to Rev A spatial locations
-5. **Alignment Estimation** - Robust homography-based geometric transformation
+5. **Alignment Estimation** - Homography-based geometric transformation
 6. **Candidate Matching** - Multi-component scoring (location + semantic + context)
 7. **Delta Classification** - Intelligent unchanged/changed/removed/added decisions
 8. **Evidence Generation** - Visual snippets for human review and audit compliance
@@ -40,7 +40,7 @@ Our **8-stage reconciliation pipeline** combines computer vision, spatial transf
 - **73% accuracy** on true revision deltas (added/changed/removed detection)
 - **41% overall classification accuracy** including unchanged features under major layout shifts
 
-*Performance measured on real-world aerospace drawing pairs with ground truth validation*
+*Performance measured on real-world aerospace drawing pairs with ground truth validation.*
 
 ---
 
@@ -57,7 +57,7 @@ Our **8-stage reconciliation pipeline** combines computer vision, spatial transf
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/NukaW0rld/Revision-Reconciliation.git
 cd delta-preservation
 
 # Install with uv (recommended)
@@ -135,8 +135,7 @@ out/<part_name>_<timestamp>_<hash>/
 │   ├── char_001_revB_p0.png   # Rev B evidence snippets
 │   └── ...
 └── intermediate/               # Debug artifacts
-    ├── form3_chars.json       # Parsed Form 3 data
-    └── alignment_debug.png    # Alignment visualization
+    └── form3_chars.json       # Parsed Form 3 data
 ```
 
 ### Delta Packet Structure
@@ -192,7 +191,7 @@ The `delta_packet.json` contains structured results with full traceability:
 - **Circle validation** to reduce false positives from non-balloon text
 
 ### Advanced Spatial Matching
-- **Homography-based alignment** robust to scaling and perspective changes
+- **Homography-based alignment** to handle scaling and perspective changes
 - **Multi-component candidate scoring** (location + semantic + spatial context)
 - **Intelligent search radius adaptation** for major layout variations
 
@@ -205,22 +204,6 @@ The `delta_packet.json` contains structured results with full traceability:
 - **Visual evidence snippets** for every classification decision
 - **Detailed reasoning** with confidence scores and component breakdowns
 - **Audit-ready traceability** linking decisions back to spatial and semantic evidence
-
----
-
-## Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Run all tests
-python -m pytest tests/ -v
-
-# Run specific test modules
-python -m pytest tests/test_balloons.py -v
-python -m pytest tests/test_alignment.py -v
-python -m pytest tests/test_anchors.py -v
-```
 
 ---
 
