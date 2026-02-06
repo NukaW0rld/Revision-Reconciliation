@@ -10,6 +10,7 @@ mechanisms to handle various Form 3 formats.
 from pathlib import Path
 from typing import List
 import json
+import html
 from openpyxl import load_workbook
 
 
@@ -52,33 +53,31 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
     
     This function:
     1. Opens the workbook and selects the "Form3" or "F3" worksheet
-    2. Scans header row 6 to identify column positions for:
+    2. Scans all rows to identify the header row containing column positions for:
        - Char no
        - Reference location
        - Characteristic Designator
        - Requirement
-    3. Falls back to a fixed column map if headers are not found:
-       - Char no: column A (index 1)
-       - Reference location: column B (index 2)
-       - Characteristic Designator: column C (index 3)
-       - Requirement: column D (index 4)
-    4. Iterates from row 7 downward until Char no cell is empty
-    5. Parses each row into a Characteristic object with minimal cleanup:
+    3. Uses keyword matching to identify headers (requires at least 3 matching columns)
+    4. Raises an error if no valid header row is found or if required columns are missing
+    5. Iterates from the row immediately after headers until Char no cell is empty
+    6. Parses each row into a Characteristic object with minimal cleanup:
        - Char no: parsed as integer
        - Other fields: stripped strings (empty string if blank/None)
-    6. Writes raw parsed data to intermediate/form3_chars.json for debugging
-    7. Returns the list of Characteristic objects
+    7. Writes raw parsed data to intermediate/form3_chars.json for debugging
+    8. Returns the list of Characteristic objects
     
     Args:
         xlsx_path: Path to the Form 3 Excel file
         intermediate_dir: Directory for debug output (form3_chars.json)
     
     Returns:
-        List of Characteristic objects, one per valid row starting at row 7
+        List of Characteristic objects, one per valid row starting after headers
     
     Raises:
         FileNotFoundError: If xlsx_path does not exist
         ValueError: If neither "Form3" nor "F3" worksheet is found
+        ValueError: If no valid header row is found or required columns are missing
     """
     # Load workbook with data_only=True to get calculated values instead of formulas
     wb = load_workbook(xlsx_path, data_only=True)
@@ -96,17 +95,7 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
     
     ws = wb[sheet_name]
     
-    # Define fallback column positions for AS9102 Form 3 standard layout
-    # Note: openpyxl uses 1-based column indices when using ws.cell(row, column)
-    # These fallback positions correspond to the typical AS9102 Form 3 structure
-    FALLBACK_COLUMNS = {
-        "char_no": 1,           # Column A: Characteristic Number
-        "reference_location": 2, # Column B: Reference Location 
-        "characteristic_designator": 3,  # Column C: Characteristic Designator
-        "requirement": 4         # Column D: Requirement
-    }
-    
-    # Attempt intelligent column detection by scanning header row 6
+    # Attempt intelligent column detection by scanning all rows for headers
     # This allows the parser to adapt to Form 3 variations and custom layouts
     column_map = {}
     header_keywords = {
@@ -116,29 +105,60 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
         "requirement": ["requirement", "req"]
     }
     
-    # Scan row 6 for headers
-    for col_idx in range(1, ws.max_column + 1):
-        cell_value = ws.cell(row=6, column=col_idx).value
-        if cell_value is None:
-            continue
-        
-        cell_text = str(cell_value).lower().strip()
-        
-        # Check each field we're looking for
-        for field_name, keywords in header_keywords.items():
-            if field_name not in column_map:
-                # Check if all keywords appear in cell text
-                if all(kw in cell_text for kw in keywords):
-                    column_map[field_name] = col_idx
+    header_row_idx = None
     
-    # Use fallback for any missing columns
-    for field_name, fallback_col in FALLBACK_COLUMNS.items():
-        if field_name not in column_map:
-            column_map[field_name] = fallback_col
+    # Scan all rows to find the header row
+    for row_idx in range(1, ws.max_row + 1):
+        temp_column_map = {}
+        
+        # Scan current row for potential headers
+        for col_idx in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=row_idx, column=col_idx).value
+            if cell_value is None:
+                continue
+            
+            cell_text = str(cell_value).lower().strip()
+            
+            # Check each field we're looking for
+            for field_name, keywords in header_keywords.items():
+                if field_name not in temp_column_map:
+                    # Apply field-specific matching logic
+                    if field_name == "char_no":
+                        # Require "char" AND ("no" OR "number")
+                        if "char" in cell_text and ("no" in cell_text or "number" in cell_text):
+                            temp_column_map[field_name] = col_idx
+                    elif field_name == "requirement":
+                        # Require "requirement" OR "req"
+                        if "requirement" in cell_text or "req" in cell_text:
+                            temp_column_map[field_name] = col_idx
+                    elif field_name == "reference_location":
+                        # Require "ref" OR "reference"
+                        if "ref" in cell_text or "reference" in cell_text:
+                            temp_column_map[field_name] = col_idx
+                    elif field_name == "characteristic_designator":
+                        # Require "characteristic" OR "designator"
+                        if "characteristic" in cell_text or "designator" in cell_text:
+                            temp_column_map[field_name] = col_idx
+        
+        # If we found at least 3 matching columns, consider this the header row
+        if len(temp_column_map) >= 3:
+            column_map = temp_column_map
+            header_row_idx = row_idx
+            break
     
-    # Parse characteristics starting from row 7
+    # If no header row found, raise an error
+    if header_row_idx is None:
+        raise ValueError(f"No valid header row found in {xlsx_path}. Could not locate AS9102 Form 3 headers.")
+    
+    # Ensure all required columns are found
+    required_fields = ["char_no", "reference_location", "characteristic_designator", "requirement"]
+    missing_fields = [field for field in required_fields if field not in column_map]
+    if missing_fields:
+        raise ValueError(f"Missing required columns in header row {header_row_idx}: {missing_fields}")
+    
+    # Parse characteristics starting immediately after the header row
     characteristics = []
-    row_idx = 7
+    row_idx = header_row_idx + 1
     
     while True:
         # Read Char no cell
