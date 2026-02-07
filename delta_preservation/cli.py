@@ -62,7 +62,7 @@ def main():
     Outputs (in out/<run_id>/ directory):
         - delta_packet.json: Structured results with classification decisions and evidence
         - snippets/: Visual evidence images for each characteristic comparison
-        - intermediate/: Debug artifacts and intermediate processing results
+        - debug/: Debug artifacts and intermediate processing results
 
     The pipeline handles various drawing revision scenarios including layout changes,
     scaling differences, and characteristic additions/removals while maintaining
@@ -109,11 +109,11 @@ def main():
     # Create output directory structure
     run_dir = Path(args.out_dir) / run_id
     snippets_dir = run_dir / "snippets"
-    intermediate_dir = run_dir / "intermediate"
+    debug_dir = run_dir / "debug"
     
     run_dir.mkdir(parents=True, exist_ok=False)
     snippets_dir.mkdir(parents=True, exist_ok=False)
-    intermediate_dir.mkdir(parents=True, exist_ok=False)
+    debug_dir.mkdir(parents=True, exist_ok=False)
     
     print(f"Run ID: {run_id}")
     print(f"Output: {run_dir.absolute()}")
@@ -121,7 +121,7 @@ def main():
     
     # Stage 1: Load Form 3
     print("[1/8] Loading Form 3...")
-    form3_chars_list = load_form3(form3_path, intermediate_dir)
+    form3_chars_list = load_form3(form3_path, debug_dir)
     form3_chars = {char.char_no: char.requirement for char in form3_chars_list}
     print(f"  Loaded {len(form3_chars)} characteristics")
     

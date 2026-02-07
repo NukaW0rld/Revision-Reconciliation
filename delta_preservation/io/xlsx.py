@@ -8,9 +8,10 @@ mechanisms to handle various Form 3 formats.
 """
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
 import json
 import html
+import re
 from openpyxl import load_workbook
 
 
@@ -23,13 +24,24 @@ class Characteristic:
         reference_location: Reference location string from Form 3
         characteristic_designator: Characteristic designator string
         requirement: Requirement text string
+        upper_tolerance: Parsed +tolerance value when tolerance is present
+        lower_tolerance: Parsed -tolerance value when tolerance is present
     """
-    def __init__(self, char_no: int, reference_location: str, 
-                 characteristic_designator: str, requirement: str):
+    def __init__(
+        self,
+        char_no: int,
+        reference_location: str,
+        characteristic_designator: str,
+        requirement: str,
+        upper_tolerance: Optional[float] = None,
+        lower_tolerance: Optional[float] = None
+    ):
         self.char_no = char_no
         self.reference_location = reference_location
         self.characteristic_designator = characteristic_designator
         self.requirement = requirement
+        self.upper_tolerance = upper_tolerance
+        self.lower_tolerance = lower_tolerance
     
     def to_dict(self) -> dict:
         """
@@ -43,8 +55,93 @@ class Characteristic:
             "char_no": self.char_no,
             "reference_location": self.reference_location,
             "characteristic_designator": self.characteristic_designator,
-            "requirement": self.requirement
+            "requirement": self.requirement,
+            "upper_tolerance": self.upper_tolerance,
+            "lower_tolerance": self.lower_tolerance
         }
+
+
+def parse_tolerance(requirement: str) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Parse bilateral and unilateral tolerances from a requirement string.
+    
+    Supported formats:
+        Bilateral: "([dimension value] +/- [tolerance value] [unit])"
+        Positive unilateral: "([dimension value] +[upper tolerance] / +[lower tolerance] [unit])"
+        Negative unilateral: "([dimension value] -[upper tolerance] / -[lower tolerance] [unit])"
+    
+    Examples:
+        "12.5 +/- 0.2 MM" -> (0.2, -0.2)
+        "12.5 +0.3 / +0.1 MM" -> (0.3, 0.1)
+        "12.5 -0.1 / -0.3 MM" -> (-0.1, -0.3)
+    
+    Args:
+        requirement: Raw requirement text string from Form 3.
+    
+    Returns:
+        Tuple of (upper_tolerance, lower_tolerance) or (None, None) if no match.
+    """
+    # Try bilateral tolerance first: "12.5 +/- 0.2"
+    bilateral_pattern = r"\(?\s*(\d+\.?\d*)\s*\+/-\s*(\d+\.?\d*)\s*([^\)]*)\s*\)?"
+    match = re.search(bilateral_pattern, requirement)
+    if match:
+        tolerance_value = match.group(2)
+        try:
+            tol = float(tolerance_value)
+            return tol, -tol
+        except ValueError:
+            return None, None
+    
+    # Try positive unilateral tolerance: "12.5 +0.3 / +0.1"
+    positive_unilateral_pattern = r"\(?\s*(\d+\.?\d*)[^\+]*\+(\d+\.?\d*)[^\+]*\/[^\+]*\+(\d+\.?\d*)\s*([^\)]*)\s*\)?"
+    match = re.search(positive_unilateral_pattern, requirement)
+    if match:
+        upper_tol_str = match.group(2)
+        lower_tol_str = match.group(3)
+        try:
+            upper_tol = float(upper_tol_str)
+            lower_tol = float(lower_tol_str)
+            return upper_tol, lower_tol
+        except ValueError:
+            return None, None
+    
+    # Try negative unilateral tolerance: "12.5 -0.1 / -0.3"
+    negative_unilateral_pattern = r"\(?\s*(\d+\.?\d*)[^\-]*-(\d+\.?\d*)[^\-]*\/[^\-]*-(\d+\.?\d*)\s*([^\)]*)\s*\)?"
+    match = re.search(negative_unilateral_pattern, requirement)
+    if match:
+        upper_tol_str = match.group(2)
+        lower_tol_str = match.group(3)
+        try:
+            upper_tol = float(upper_tol_str)
+            lower_tol = float(lower_tol_str)
+            return -upper_tol, -lower_tol
+        except ValueError:
+            return None, None
+    
+    return None, None
+
+
+def parse_bilateral_tolerance(requirement: str) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Parse bilateral tolerances from a requirement string.
+    
+    Expected format (per current scope):
+        "([dimension value] +/- [tolerance value] [unit])"
+    
+    Example:
+        "12.5 +/- 0.2 MM" -> (0.2, -0.2)
+    
+    Args:
+        requirement: Raw requirement text string from Form 3.
+    
+    Returns:
+        Tuple of (upper_tolerance, lower_tolerance) or (None, None) if no match.
+    
+    Note:
+        This function is deprecated. Use parse_tolerance() instead which supports
+        both bilateral and unilateral tolerances.
+    """
+    return parse_tolerance(requirement)
 
 
 def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
@@ -185,13 +282,16 @@ def load_form3(xlsx_path: Path, intermediate_dir: Path) -> List[Characteristic]:
         
         req_cell = ws.cell(row=row_idx, column=column_map["requirement"]).value
         requirement = str(req_cell).strip() if req_cell is not None else ""
+        upper_tolerance, lower_tolerance = parse_tolerance(requirement)
         
         # Create Characteristic object
         char = Characteristic(
             char_no=char_no,
             reference_location=reference_location,
             characteristic_designator=characteristic_designator,
-            requirement=requirement
+            requirement=requirement,
+            upper_tolerance=upper_tolerance,
+            lower_tolerance=lower_tolerance
         )
         characteristics.append(char)
         
