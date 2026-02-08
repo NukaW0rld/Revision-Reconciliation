@@ -37,6 +37,7 @@ from delta_preservation.vision.bbox_utils import (
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
+from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 
@@ -99,7 +100,7 @@ def main():
         raise FileNotFoundError(f"Form 3 XLSX not found: {form3_path}")
     if not form3_path.suffix.lower() == ".xlsx":
         raise ValueError(f"Form 3 must be an XLSX file, got: {form3_path.suffix}")
-    
+
     # Generate deterministic run_id
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     hash_input = f"{revA_path.absolute()}{revB_path.absolute()}{form3_path.absolute()}"
@@ -185,6 +186,17 @@ def main():
     )
     delta_items_internal.extend(added_items)
     print(f"  Found {len(added_items)} added characteristics in Rev B")
+
+    export_run_tolerance_debug(
+        debug_dir=debug_dir,
+        run_id=run_id,
+        revA_pdf_path=revA_path,
+        revB_pdf_path=revB_path,
+        items=delta_items_internal,
+        anchors=anchors,
+        revA_spans=revA_text_spans,
+        revB_spans=revB_text_spans,
+    )
     
     # Convert internal DeltaItems to Pydantic models with Evidence
     delta_items_pydantic: List[DeltaItem] = []
