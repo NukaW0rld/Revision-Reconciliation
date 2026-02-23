@@ -41,11 +41,18 @@ from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debu
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 
-def main():
+def run_pipeline(
+    revA_pdf,
+    revB_pdf,
+    form3_xlsx,
+    out_dir="./out",
+    dpi=300,
+    part_name="part",
+) -> Path:
     """
-    Main command-line entry point for the delta preservation pipeline.
+    Run the complete delta preservation pipeline.
 
-    This function orchestrates the complete 8-stage revision reconciliation process:
+    Orchestrates all 8 pipeline stages from input validation through final output:
     1. Load and parse AS9102 Form 3 inspection characteristics
     2. Detect characteristic balloons in Rev A drawing
     3. Extract text spans from Rev A for spatial anchoring
@@ -55,47 +62,24 @@ def main():
     7. Classify changes and detect new characteristics in Rev B
     8. Generate visual evidence snippets and output structured delta packet
 
-    Input Requirements:
-        - Rev A PDF: Ballooned engineering drawing with characteristic markers
-        - Rev B PDF: Updated drawing (may be unballooned) with potential changes
-        - Form 3 XLSX: AS9102 inspection document with characteristic requirements
-
-    Outputs (in out/<run_id>/ directory):
-        - delta_packet.json: Structured results with classification decisions and evidence
-        - snippets/: Visual evidence images for each characteristic comparison
-        - debug/: Debug artifacts and intermediate processing results
-
-    The pipeline handles various drawing revision scenarios including layout changes,
-    scaling differences, and characteristic additions/removals while maintaining
-    audit-ready traceability and human-reviewable evidence.
+    Returns:
+        Path to the run output directory.
     """
-    parser = argparse.ArgumentParser(
-        description="Delta preservation pipeline for engineering drawings"
-    )
-    parser.add_argument("--revA_pdf", required=True, help="Path to Revision A PDF")
-    parser.add_argument("--revB_pdf", required=True, help="Path to Revision B PDF")
-    parser.add_argument("--form3_xlsx", required=True, help="Path to Form 3 XLSX")
-    parser.add_argument("--out_dir", default="./out", help="Output directory (default: ./out)")
-    parser.add_argument("--dpi", type=int, default=300, help="DPI for rendering (default: 300)")
-    parser.add_argument("--part_name", default="part", help="Part name (default: part)")
-    
-    args = parser.parse_args()
-    
     # Validate input files
-    revA_path = Path(args.revA_pdf)
-    revB_path = Path(args.revB_pdf)
-    form3_path = Path(args.form3_xlsx)
-    
+    revA_path = Path(revA_pdf)
+    revB_path = Path(revB_pdf)
+    form3_path = Path(form3_xlsx)
+
     if not revA_path.exists():
         raise FileNotFoundError(f"Revision A PDF not found: {revA_path}")
     if not revA_path.suffix.lower() == ".pdf":
         raise ValueError(f"Revision A must be a PDF file, got: {revA_path.suffix}")
-    
+
     if not revB_path.exists():
         raise FileNotFoundError(f"Revision B PDF not found: {revB_path}")
     if not revB_path.suffix.lower() == ".pdf":
         raise ValueError(f"Revision B must be a PDF file, got: {revB_path.suffix}")
-    
+
     if not form3_path.exists():
         raise FileNotFoundError(f"Form 3 XLSX not found: {form3_path}")
     if not form3_path.suffix.lower() == ".xlsx":
@@ -105,79 +89,79 @@ def main():
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     hash_input = f"{revA_path.absolute()}{revB_path.absolute()}{form3_path.absolute()}"
     short_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:8]
-    run_id = f"{args.part_name}_{timestamp}_{short_hash}"
-    
+    run_id = f"{part_name}_{timestamp}_{short_hash}"
+
     # Create output directory structure
-    run_dir = Path(args.out_dir) / run_id
+    run_dir = Path(out_dir) / run_id
     snippets_dir = run_dir / "snippets"
     debug_dir = run_dir / "debug"
-    
+
     run_dir.mkdir(parents=True, exist_ok=False)
     snippets_dir.mkdir(parents=True, exist_ok=False)
     debug_dir.mkdir(parents=True, exist_ok=False)
-    
+
     print(f"Run ID: {run_id}")
     print(f"Output: {run_dir.absolute()}")
     print()
-    
+
     # Stage 1: Load Form 3
     print("[1/8] Loading Form 3...")
     form3_chars_list = load_form3(form3_path, debug_dir)
     form3_chars = {char.char_no: char.requirement for char in form3_chars_list}
     print(f"  Loaded {len(form3_chars)} characteristics")
-    
+
     # Stage 2: Detect balloons in Rev A
     print("[2/8] Detecting balloons in Rev A...")
-    balloons = detect_balloons(revA_path, dpi=args.dpi)
+    balloons = detect_balloons(revA_path, dpi=dpi)
     print(f"  Detected {len(balloons)} balloons")
-    
+
     # Stage 3: Extract text from Rev A
     print("[3/8] Extracting text from Rev A...")
     revA_text_spans = extract_text_spans(revA_path, page_index=0)
     print(f"  Extracted {len(revA_text_spans)} text spans")
-    
+
     # Stage 4: Build Rev A anchors
     print("[4/8] Building Rev A anchors...")
     anchors = build_revA_anchors(form3_chars, balloons, revA_text_spans)
     print(f"  Built {len(anchors)} anchors")
-    
+
     # Stage 5: Extract text from Rev B and estimate alignment
     print("[5/8] Extracting text from Rev B and aligning...")
     revB_text_spans = extract_text_spans(revB_path, page_index=0)
     print(f"  Extracted {len(revB_text_spans)} text spans")
-    
+
     # Render pages for alignment (use first page for now)
-    imgA = render_page(revA_path, page_index=0, dpi=args.dpi)
-    imgB = render_page(revB_path, page_index=0, dpi=args.dpi)
+    imgA = render_page(revA_path, page_index=0, dpi=dpi)
+    imgB = render_page(revB_path, page_index=0, dpi=dpi)
     transform = estimate_transform(imgA, imgB)
     print(f"  Alignment: {transform.inliers} inliers, ratio={transform.inlier_ratio:.2f}")
-    
+
     # Stage 6: Generate candidates and assign matches
     print("[6/8] Generating candidates and assigning matches...")
     candidates_by_anchor = {}
     for anchor in anchors:
         candidates = generate_candidates(anchor, revB_text_spans, transform, top_k=5)
         candidates_by_anchor[anchor.char_no] = candidates
-    
+
     matches = assign_matches(anchors, candidates_by_anchor)
     print(f"  Assigned {len(matches)} matches")
-    
+
     # Stage 7: Classify deltas and save snippets
     print("[7/8] Classifying deltas and saving evidence snippets...")
     delta_items_internal: List[DeltaItemInternal] = []
-    
+
     for anchor in anchors:
         match_or_none = matches.get(anchor.char_no)
         delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0)
         delta_items_internal.append(delta_item_internal)
-    
+
     # Open PDF documents for coordinate conversion and page dimensions
     docA = fitz.open(revA_path)
     docB = fitz.open(revB_path)
     pageB_rect = docB.load_page(0).rect
     page_width_b = pageB_rect.width
     page_height_b = pageB_rect.height
-    
+
     # Detect added characteristics (new in Rev B, not in Rev A)
     max_char_no = max(a.char_no for a in anchors) if anchors else 0
     added_items = detect_added_characteristics(
@@ -197,33 +181,33 @@ def main():
         revA_spans=revA_text_spans,
         revB_spans=revB_text_spans,
     )
-    
+
     # Convert internal DeltaItems to Pydantic models with Evidence
     delta_items_pydantic: List[DeltaItem] = []
-    
+
     # Render pages once for all snippets
-    imgA_page = render_page(revA_path, page_index=0, dpi=args.dpi)
-    imgB_page = render_page(revB_path, page_index=0, dpi=args.dpi)
+    imgA_page = render_page(revA_path, page_index=0, dpi=dpi)
+    imgB_page = render_page(revB_path, page_index=0, dpi=dpi)
     pageA = docA.load_page(0)
     pageB = docB.load_page(0)
-    
+
     for delta_internal in delta_items_internal:
         # Find corresponding anchor (may not exist for added items)
         anchor = next((a for a in anchors if a.char_no == delta_internal.char_no), None)
-        
+
         # Initialize evidence objects
         revA_evidence = None
         revB_evidence = None
-        
+
         # Compute bboxes for both revA and revB to enable consistent sizing
         revA_bbox_pdf = None
         revB_bbox_pdf = None
-        
+
         # --- Compute Rev A bbox (centered on annotation, expanded to include balloon) ---
         if anchor is not None:
             # Try to get annotation bbox - first from anchor, then search as fallback
             annotation_bbox = anchor.req_bbox
-            
+
             # Fallback: search for annotation span near balloon
             if annotation_bbox is None:
                 bx0, by0, bx1, by1 = anchor.balloon_bbox
@@ -236,14 +220,14 @@ def main():
                 )
                 if found_span is not None:
                     annotation_bbox = found_span.bbox_pdf
-            
+
             if annotation_bbox is not None:
                 # Center on the characteristic annotation, like Rev B
                 base_bbox_a = annotation_bbox
-                
+
                 # Check if this is a notes-type characteristic
                 is_notes_type = "NOTES" in anchor.requirement_raw.upper()
-                
+
                 if is_notes_type:
                     # For notes blocks, expand vertically to include all numbered items
                     expanded_bbox = expand_notes_block(
@@ -265,15 +249,15 @@ def main():
                         vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
                         max_horizontal_expansion=150.0  # ~2 inch max expansion
                     )
-                
+
                 # Compute annotation center (this will be the snippet center)
                 ann_x0, ann_y0, ann_x1, ann_y1 = expanded.bbox
                 ann_cx = (ann_x0 + ann_x1) / 2
                 ann_cy = (ann_y0 + ann_y1) / 2
-                
+
                 # Get balloon bbox for inclusion in snippet
                 bx0, by0, bx1, by1 = anchor.balloon_bbox
-                
+
                 # Distance from annotation center to each edge needed
                 half_width = max(
                     ann_cx - ann_x0,  # left edge of annotation
@@ -289,7 +273,7 @@ def main():
                     by1 - ann_cy,     # bottom edge of balloon
                     120.0             # minimum half-height
                 )
-                
+
                 # Build bbox centered on annotation
                 revA_bbox_pdf = (
                     ann_cx - half_width,
@@ -303,28 +287,28 @@ def main():
                 width = bx1 - bx0
                 height = by1 - by0
                 min_width, min_height = 240.0, 240.0
-                
+
                 # Ensure minimum dimensions
                 if width < min_width:
                     expand = (min_width - width) / 2
                     bx0 -= expand
                     bx1 += expand
-                
+
                 if height < min_height:
                     expand = (min_height - height) / 2
                     by0 -= expand
                     by1 += expand
-                
+
                 revA_bbox_pdf = (bx0, by0, bx1, by1)
-                    
+
         # --- Compute Rev B bbox (expand to include adjacent spans) ---
         # Check if this is a notes-type characteristic
         is_notes_type_b = anchor is not None and "NOTES" in anchor.requirement_raw.upper()
-        
+
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
             base_bbox_b = span.bbox_pdf
-            
+
             if is_notes_type_b:
                 # For notes blocks, expand vertically to include all numbered items
                 revB_bbox_pdf = expand_notes_block(
@@ -342,11 +326,11 @@ def main():
                     max_horizontal_expansion=150.0  # ~2 inch max expansion
                 )
                 revB_bbox_pdf = expanded.bbox
-            
+
         elif delta_internal.added_span is not None:
             span = delta_internal.added_span
             base_bbox_b = span.bbox_pdf
-            
+
             # Expand for added items too
             expanded = expand_bbox_with_adjacent_spans(
                 center_bbox=base_bbox_b,
@@ -356,36 +340,36 @@ def main():
                 max_horizontal_expansion=150.0
             )
             exp_bbox = expanded.bbox
-            
+
             # Ensure minimum size for added characteristics (120x120 in PDF points)
             min_size = 120.0
             ex0, ey0, ex1, ey1 = exp_bbox
             width = ex1 - ex0
             height = ey1 - ey0
             cx, cy = (ex0 + ex1) / 2, (ey0 + ey1) / 2
-            
+
             if width < min_size:
                 ex0 = cx - min_size / 2
                 ex1 = cx + min_size / 2
             if height < min_size:
                 ey0 = cy - min_size / 2
                 ey1 = cy + min_size / 2
-            
+
             revB_bbox_pdf = (ex0, ey0, ex1, ey1)
 
         # For added characteristics, mirror the Rev B bbox into Rev A so the
         # Rev A snippet shows the same location and size as Rev B.
         if anchor is None and revB_bbox_pdf is not None and revA_bbox_pdf is None:
             revA_bbox_pdf = revB_bbox_pdf
-        
+
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:
             revA_bbox_pdf, revB_bbox_pdf = normalize_snippet_size(revA_bbox_pdf, revB_bbox_pdf)
-        
+
         # --- Generate Rev A snippet ---
         if revA_bbox_pdf is not None:
             page_a = anchor.page if anchor is not None else 0
-            bbox_img_a = pdf_to_img_coords(revA_bbox_pdf, pageA, dpi=args.dpi)
+            bbox_img_a = pdf_to_img_coords(revA_bbox_pdf, pageA, dpi=dpi)
             try:
                 crop_a = crop_with_padding(imgA_page, bbox_img_a, pad_px=10)
                 filename_a = save_snippet(crop_a, snippets_dir, delta_internal.char_no, "revA", page_a)
@@ -401,11 +385,11 @@ def main():
                     bbox=list(revA_bbox_pdf),
                     image_path=None
                 )
-        
+
         # --- Generate Rev B snippet ---
         if revB_bbox_pdf is not None:
             page_b = 0
-            bbox_img_b = pdf_to_img_coords(revB_bbox_pdf, pageB, dpi=args.dpi)
+            bbox_img_b = pdf_to_img_coords(revB_bbox_pdf, pageB, dpi=dpi)
             try:
                 crop_b = crop_with_padding(imgB_page, bbox_img_b, pad_px=10)
                 filename_b = save_snippet(crop_b, snippets_dir, delta_internal.char_no, "revB", page_b)
@@ -421,7 +405,7 @@ def main():
                     bbox=list(revB_bbox_pdf),
                     image_path=None
                 )
-        
+
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
             char_no=delta_internal.char_no,
@@ -433,14 +417,14 @@ def main():
             revB=revB_evidence
         )
         delta_items_pydantic.append(delta_pydantic)
-    
+
     # Close PDF documents
     docA.close()
     docB.close()
-    
+
     print(f"  Classified {len(delta_items_pydantic)} delta items")
     print(f"  Saved evidence snippets to {snippets_dir}")
-    
+
     # Stage 8: Construct and write DeltaPacket
     print("[8/8] Writing delta packet...")
     packet = DeltaPacket(
@@ -449,19 +433,39 @@ def main():
             "revA_pdf": str(revA_path.absolute()),
             "revB_pdf": str(revB_path.absolute()),
             "form3_xlsx": str(form3_path.absolute()),
-            "dpi": str(args.dpi)
+            "dpi": str(dpi)
         },
         items=delta_items_pydantic
     )
-    
+
     packet_path = run_dir / "delta_packet.json"
     with open(packet_path, "w") as f:
         f.write(packet.model_dump_json(indent=2))
-    
+
     print(f"  Written to {packet_path}")
     print()
     print("Pipeline complete!")
     print(f"Review delta packet: {packet_path}")
+
+    return run_dir
+
+
+def main():
+    """
+    Main command-line entry point for the delta preservation pipeline.
+    """
+    parser = argparse.ArgumentParser(
+        description="Delta preservation pipeline for engineering drawings"
+    )
+    parser.add_argument("--revA_pdf", required=True, help="Path to Revision A PDF")
+    parser.add_argument("--revB_pdf", required=True, help="Path to Revision B PDF")
+    parser.add_argument("--form3_xlsx", required=True, help="Path to Form 3 XLSX")
+    parser.add_argument("--out_dir", default="./out", help="Output directory (default: ./out)")
+    parser.add_argument("--dpi", type=int, default=300, help="DPI for rendering (default: 300)")
+    parser.add_argument("--part_name", default="part", help="Part name (default: part)")
+
+    args = parser.parse_args()
+    run_pipeline(**vars(args))
 
 
 if __name__ == "__main__":

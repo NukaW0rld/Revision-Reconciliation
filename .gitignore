@@ -15,5 +15,7 @@ uv.lock
 out/
 *:Zone.Identifier
 
-# AGENTS
+# Claude
+.claude/
+CLAUDE.md
 AGENTS.md

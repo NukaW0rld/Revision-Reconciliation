@@ -73,11 +73,12 @@ pip install -e .
 
 ```
 delta-preservation/
+├── run.py                       # Convenience entry point (uv run python run.py part1)
 ├── delta_preservation/           # Main package
 │   ├── io/                      # PDF and Excel I/O modules
 │   ├── vision/                  # Computer vision (balloons, alignment)
 │   ├── reconcile/               # Core matching and classification logic
-│   ├── cli.py                   # Command-line interface
+│   ├── cli.py                   # Pipeline orchestration and CLI
 │   ├── types.py                 # Pydantic data models
 │   └── config.py                # Configuration constants
 ├── tests/                       # Comprehensive test suite
@@ -94,29 +95,30 @@ delta-preservation/
 Run the complete pipeline on provided test data:
 
 ```bash
-# Process stable layout test case (Part 1)
+# Short form (recommended)
+uv run python run.py part1
+uv run python run.py part2
+uv run python run.py part1 --dpi 150
+
+# Long-form (useful for custom asset paths)
 python -m delta_preservation.cli \
   --revA_pdf assets/part1/revA.pdf \
   --revB_pdf assets/part1/revB.pdf \
   --form3_xlsx assets/part1/FAIR.xlsx \
   --part_name part1
-
-# Process major layout shift test case (Part 2)  
-python -m delta_preservation.cli \
-  --revA_pdf assets/part2/revA.pdf \
-  --revB_pdf assets/part2/revB.pdf \
-  --form3_xlsx assets/part2/FAIR.xlsx \
-  --part_name part2
 ```
 
 ### Command-Line Arguments
 
-**Required:**
-- `--revA_pdf` - Path to Rev A PDF (ballooned with characteristic numbers)
-- `--revB_pdf` - Path to Rev B PDF (may be unballooned)  
-- `--form3_xlsx` - Path to AS9102 Form 3 Excel file
+**`run.py` (short form):**
+- `part_name` - Part name matching `assets/` subdirectory (e.g. `part1`, `part2`)
+- `--dpi` - Rendering DPI for image processing (default: `300`)
+- `--out_dir` - Output directory (default: `<repo_root>/out`)
 
-**Optional:**
+**`delta_preservation.cli` (long form):**
+- `--revA_pdf` - Path to Rev A PDF (ballooned with characteristic numbers)
+- `--revB_pdf` - Path to Rev B PDF (may be unballooned)
+- `--form3_xlsx` - Path to AS9102 Form 3 Excel file
 - `--out_dir` - Output directory (default: `./out`)
 - `--dpi` - Rendering DPI for image processing (default: `300`)
 - `--part_name` - Part identifier for run naming (default: `part`)
