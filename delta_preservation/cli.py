@@ -37,7 +37,7 @@ from delta_preservation.vision.bbox_utils import (
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
-from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug
+from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 
@@ -148,11 +148,18 @@ def run_pipeline(
 
     # Stage 7: Classify deltas and save snippets
     print("[7/8] Classifying deltas and saving evidence snippets...")
+
+    tolerance_comparisons = extract_tolerances_for_items(
+        anchors=anchors, matches=matches,
+        revA_spans=revA_text_spans, revB_spans=revB_text_spans,
+    )
+
     delta_items_internal: List[DeltaItemInternal] = []
 
     for anchor in anchors:
         match_or_none = matches.get(anchor.char_no)
-        delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0)
+        tol_cmp = tolerance_comparisons.get(anchor.char_no)
+        delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0, tolerance_comparison=tol_cmp)
         delta_items_internal.append(delta_item_internal)
 
     # Open PDF documents for coordinate conversion and page dimensions

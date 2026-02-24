@@ -1,10 +1,15 @@
-from typing import Optional, Dict, List, Set, Tuple
+from __future__ import annotations
+
+from typing import Optional, Dict, List, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
 from delta_preservation.reconcile.normalize import parse_requirement
 from delta_preservation.io.pdf import TextSpan
+
+if TYPE_CHECKING:
+    from delta_preservation.reconcile.tolerance_pdf import ToleranceComparison
 
 
 @dataclass
@@ -31,7 +36,8 @@ class AddedCharacteristic:
 def classify_delta(
     anchor: Anchor,
     match_or_none: Optional[Match],
-    location_search_coverage: float = 1.0
+    location_search_coverage: float = 1.0,
+    tolerance_comparison: Optional[ToleranceComparison] = None,
 ) -> DeltaItem:
     """Classify delta status for a single Rev A anchor.
     
@@ -191,7 +197,28 @@ def classify_delta(
     # Add location-based reason
     if location_score > 0.7:
         reasons.append("High location agreement after global alignment")
-    
+
+    # --- Tolerance refinement ---
+    if tolerance_comparison is not None:
+        if tolerance_comparison.tolerances_match:
+            if status == "unchanged":
+                confidence += 0.05
+                reasons.extend(tolerance_comparison.reasons)
+            elif status == "uncertain":
+                status = "unchanged"
+                confidence += 0.1
+                reasons.append("Tolerance agreement resolves uncertainty")
+                reasons.extend(tolerance_comparison.reasons)
+        elif tolerance_comparison.tolerances_differ:
+            if status == "unchanged":
+                status = "changed"
+                reasons.append("Tolerance changed despite same dimension")
+                reasons.extend(tolerance_comparison.reasons)
+            elif status == "uncertain":
+                status = "changed"
+                reasons.append("Tolerance difference resolves uncertainty")
+                reasons.extend(tolerance_comparison.reasons)
+
     # Clip confidence
     confidence = max(0.0, min(1.0, confidence))
     

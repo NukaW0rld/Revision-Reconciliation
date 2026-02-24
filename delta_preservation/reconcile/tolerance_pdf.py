@@ -93,6 +93,63 @@ class PdfTolerance:
         }
 
 
+@dataclass(frozen=True)
+class ToleranceComparison:
+    """Result of comparing Rev A and Rev B tolerances for a single characteristic."""
+
+    char_no: int
+    revA_tolerance: PdfTolerance
+    revB_tolerance: PdfTolerance
+    tolerances_match: bool
+    tolerances_differ: bool
+    has_tolerance: bool
+    reasons: List[str]
+
+
+def compare_tolerances(
+    revA_tol: PdfTolerance,
+    revB_tol: PdfTolerance,
+    epsilon: float = 0.01,
+) -> Tuple[bool, bool, bool, List[str]]:
+    """Compare two PdfTolerance objects by absolute limits.
+
+    Returns:
+        (tolerances_match, tolerances_differ, has_tolerance, reasons)
+
+        - tolerances_match: True only when both sides have a real tolerance and limits agree
+        - tolerances_differ: True only when both sides have a real tolerance and limits disagree
+        - has_tolerance: True when both sides have a non-"none" tolerance
+        - reasons: human-readable notes
+    """
+    a_has = revA_tol.kind != "none" and revA_tol.upper_limit is not None
+    b_has = revB_tol.kind != "none" and revB_tol.upper_limit is not None
+
+    if not a_has and not b_has:
+        return False, False, False, ["neither rev has tolerance"]
+
+    if a_has and not b_has:
+        return False, False, False, ["only Rev A has tolerance"]
+
+    if not a_has and b_has:
+        return False, False, False, ["only Rev B has tolerance"]
+
+    # Both have tolerance — compare limits
+    upper_ok = abs((revA_tol.upper_limit or 0) - (revB_tol.upper_limit or 0)) < epsilon
+    lower_ok = abs((revA_tol.lower_limit or 0) - (revB_tol.lower_limit or 0)) < epsilon
+
+    if upper_ok and lower_ok:
+        reasons = [
+            f"tolerances match: upper={revA_tol.upper_limit}, lower={revA_tol.lower_limit}"
+        ]
+        return True, False, True, reasons
+    else:
+        reasons = [
+            f"tolerances differ: revA=[{revA_tol.lower_limit}, {revA_tol.upper_limit}] "
+            f"vs revB=[{revB_tol.lower_limit}, {revB_tol.upper_limit}]"
+        ]
+        return False, True, True, reasons
+
+
 def _span_key(span: TextSpan) -> Tuple[int, int, int, Tuple[float, float, float, float]]:
     return (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
 
@@ -603,6 +660,87 @@ def _check_duplicate_tolerance(
     return False
 
 
+def _parse_rev_tolerance(
+    *,
+    seed_bbox: Optional[Tuple[float, float, float, float]],
+    all_spans: Sequence[TextSpan],
+    page_index: Optional[int],
+    is_notes_type: bool,
+    balloon_exclusion_locations: Optional[List[Tuple[float, float]]],
+    char_no: int,
+    detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]],
+    default_reason: str,
+) -> Tuple[PdfTolerance, List[TextSpan]]:
+    """Parse tolerance for one revision side (Rev A or Rev B).
+
+    Shared logic extracted from the duplicated blocks in export_run_tolerance_debug().
+
+    Returns:
+        (tolerance, group_spans) — the parsed tolerance and the collected nearby spans
+        (group_spans is needed by debug export for JSON output).
+    """
+    group_spans: List[TextSpan] = []
+
+    if is_notes_type:
+        tol = PdfTolerance(
+            kind="none",
+            nominal_value=None,
+            upper_limit=None,
+            lower_limit=None,
+            confidence=0.0,
+            source_spans=[],
+            reasons=["NOTES type characteristic - tolerance parsing skipped"],
+        )
+        return tol, group_spans
+
+    if seed_bbox is None:
+        tol = PdfTolerance(
+            kind="none",
+            nominal_value=None,
+            upper_limit=None,
+            lower_limit=None,
+            confidence=0.0,
+            source_spans=[],
+            reasons=[default_reason],
+        )
+        return tol, group_spans
+
+    group_spans = _collect_spans_near_bbox(
+        all_spans,
+        seed_bbox,
+        page_index=page_index,
+        balloon_exclusion_locations=balloon_exclusion_locations,
+        balloon_exclusion_radius=25.0,
+    )
+    tol = parse_pdf_tolerance(group_spans)
+
+    # Check for duplicate detection with previously processed characteristics
+    if tol.kind != "none":
+        is_duplicate = _check_duplicate_tolerance(
+            char_no=char_no,
+            tolerance=tol,
+            seed_bbox=seed_bbox,
+            detected_tolerances=detected_tolerances,
+            min_distance=100.0,
+        )
+        if is_duplicate:
+            tol = PdfTolerance(
+                kind="none",
+                nominal_value=None,
+                upper_limit=None,
+                lower_limit=None,
+                confidence=0.0,
+                source_spans=tol.source_spans,
+                reasons=["duplicate detection - tolerance already assigned to nearby characteristic"]
+                + tol.reasons,
+            )
+        else:
+            # Register this tolerance as detected
+            detected_tolerances.append((char_no, tol, seed_bbox))
+
+    return tol, group_spans
+
+
 def _span_to_debug_dict(span: TextSpan) -> Dict[str, Any]:
     return {
         "text": span.text,
@@ -612,6 +750,84 @@ def _span_to_debug_dict(span: TextSpan) -> Dict[str, Any]:
         "span_id": getattr(span, "span_id", None),
         "font_size": getattr(span, "font_size", None),
     }
+
+
+def extract_tolerances_for_items(
+    *,
+    anchors: Sequence[Anchor],
+    matches: Dict[int, Any],
+    revA_spans: Sequence[TextSpan],
+    revB_spans: Sequence[TextSpan],
+) -> Dict[int, ToleranceComparison]:
+    """Extract and compare tolerances for all anchors, callable BEFORE classification.
+
+    Args:
+        anchors: Rev A anchors from Stage 4.
+        matches: Dict mapping char_no → Match from Stage 6.
+        revA_spans: All text spans from Rev A PDF.
+        revB_spans: All text spans from Rev B PDF.
+
+    Returns:
+        Dict mapping char_no → ToleranceComparison for each anchor.
+    """
+    # Build balloon exclusion centers
+    balloon_exclusion_locations: List[Tuple[float, float]] = []
+    for anchor in anchors:
+        if hasattr(anchor, "balloon_bbox") and anchor.balloon_bbox:
+            bx0, by0, bx1, by1 = anchor.balloon_bbox
+            balloon_exclusion_locations.append(((bx0 + bx1) / 2, (by0 + by1) / 2))
+
+    detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]] = []
+    result: Dict[int, ToleranceComparison] = {}
+
+    for anchor in anchors:
+        char_no = int(anchor.char_no)
+        is_notes_type = "NOTES" in anchor.requirement_raw.upper()
+
+        # Rev A seed bbox
+        revA_seed_bbox = getattr(anchor, "req_bbox", None) or getattr(anchor, "balloon_bbox", None)
+        revA_page = int(getattr(anchor, "page", 0))
+
+        revA_tol, _ = _parse_rev_tolerance(
+            seed_bbox=revA_seed_bbox,
+            all_spans=revA_spans,
+            page_index=revA_page,
+            is_notes_type=is_notes_type,
+            balloon_exclusion_locations=balloon_exclusion_locations,
+            char_no=char_no,
+            detected_tolerances=detected_tolerances,
+            default_reason="no Rev A seed bbox",
+        )
+
+        # Rev B seed bbox from match
+        revB_seed_bbox: Optional[Tuple[float, float, float, float]] = None
+        match = matches.get(char_no)
+        if match is not None and getattr(match, "candidate", None) is not None:
+            revB_seed_bbox = match.candidate.span.bbox_pdf
+
+        revB_tol, _ = _parse_rev_tolerance(
+            seed_bbox=revB_seed_bbox,
+            all_spans=revB_spans,
+            page_index=0,
+            is_notes_type=is_notes_type,
+            balloon_exclusion_locations=balloon_exclusion_locations,
+            char_no=char_no,
+            detected_tolerances=detected_tolerances,
+            default_reason="no Rev B seed span (removed/unmatched)",
+        )
+
+        tol_match, tol_differ, has_tol, reasons = compare_tolerances(revA_tol, revB_tol)
+        result[char_no] = ToleranceComparison(
+            char_no=char_no,
+            revA_tolerance=revA_tol,
+            revB_tolerance=revB_tol,
+            tolerances_match=tol_match,
+            tolerances_differ=tol_differ,
+            has_tolerance=has_tol,
+            reasons=reasons,
+        )
+
+    return result
 
 
 def export_run_tolerance_debug(
@@ -647,14 +863,13 @@ def export_run_tolerance_debug(
     for anchor in anchors:
         if hasattr(anchor, 'balloon_bbox') and anchor.balloon_bbox:
             bx0, by0, bx1, by1 = anchor.balloon_bbox
-            balloon_center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
-            balloon_exclusion_locations.append(balloon_center)
+            balloon_exclusion_locations.append(((bx0 + bx1) / 2, (by0 + by1) / 2))
 
     records: List[Dict[str, Any]] = []
     errors: List[str] = []
-    
+
     # Track detected tolerances to prevent duplicates for spatially aligned characteristics
-    detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]] = []  # (char_no, tolerance, bbox)
+    detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]] = []
 
     for item in items:
         try:
@@ -668,125 +883,40 @@ def export_run_tolerance_debug(
                 revA_page = int(getattr(anchor, "page", 0))
                 revA_seed_bbox = getattr(anchor, "req_bbox", None) or getattr(anchor, "balloon_bbox", None)
 
-            revA_group_spans: List[TextSpan] = []
-            revA_tol = PdfTolerance(
-                kind="none",
-                nominal_value=None,
-                upper_limit=None,
-                lower_limit=None,
-                confidence=0.0,
-                source_spans=[],
-                reasons=["no Rev A seed bbox"],
-            )
-            
-            # Check if this is a NOTES type characteristic - skip tolerance parsing
             is_notes_type = False
             if anchor is not None:
                 is_notes_type = "NOTES" in anchor.requirement_raw.upper()
-                
-            if is_notes_type:
-                revA_tol = PdfTolerance(
-                    kind="none",
-                    nominal_value=None,
-                    upper_limit=None,
-                    lower_limit=None,
-                    confidence=0.0,
-                    source_spans=[],
-                    reasons=["NOTES type characteristic - tolerance parsing skipped"],
-                )
-            elif revA_seed_bbox is not None:
-                revA_group_spans = _collect_spans_near_bbox(
-                    revA_spans,
-                    revA_seed_bbox,
-                    page_index=revA_page,
-                    balloon_exclusion_locations=balloon_exclusion_locations,
-                    balloon_exclusion_radius=25.0,
-                )
-                revA_tol = parse_pdf_tolerance(revA_group_spans)
-                
-                # Check for duplicate detection with previously processed characteristics
-                if revA_tol.kind != "none":
-                    is_duplicate = _check_duplicate_tolerance(
-                        char_no=char_no,
-                        tolerance=revA_tol,
-                        seed_bbox=revA_seed_bbox,
-                        detected_tolerances=detected_tolerances,
-                        min_distance=100.0,  # Minimum distance to consider as separate
-                    )
-                    if is_duplicate:
-                        revA_tol = PdfTolerance(
-                            kind="none",
-                            nominal_value=None,
-                            upper_limit=None,
-                            lower_limit=None,
-                            confidence=0.0,
-                            source_spans=revA_tol.source_spans,
-                            reasons=["duplicate detection - tolerance already assigned to nearby characteristic"] + revA_tol.reasons,
-                        )
-                    else:
-                        # Register this tolerance as detected
-                        detected_tolerances.append((char_no, revA_tol, revA_seed_bbox))
+
+            revA_tol, revA_group_spans = _parse_rev_tolerance(
+                seed_bbox=revA_seed_bbox,
+                all_spans=revA_spans,
+                page_index=revA_page,
+                is_notes_type=is_notes_type,
+                balloon_exclusion_locations=balloon_exclusion_locations,
+                char_no=char_no,
+                detected_tolerances=detected_tolerances,
+                default_reason="no Rev A seed bbox",
+            )
 
             # Rev B seed bbox from match span or added span.
             match = getattr(item, "match", None)
             added_span = getattr(item, "added_span", None)
             revB_seed_bbox: Optional[Tuple[float, float, float, float]] = None
             if match is not None and getattr(match, "candidate", None) is not None:
-                span = match.candidate.span
-                revB_seed_bbox = span.bbox_pdf
+                revB_seed_bbox = match.candidate.span.bbox_pdf
             elif added_span is not None:
                 revB_seed_bbox = added_span.bbox_pdf
 
-            revB_group_spans: List[TextSpan] = []
-            revB_tol = PdfTolerance(
-                kind="none",
-                nominal_value=None,
-                upper_limit=None,
-                lower_limit=None,
-                confidence=0.0,
-                source_spans=[],
-                reasons=["no Rev B seed span (removed/unmatched)"],
+            revB_tol, revB_group_spans = _parse_rev_tolerance(
+                seed_bbox=revB_seed_bbox,
+                all_spans=revB_spans,
+                page_index=0,
+                is_notes_type=is_notes_type,
+                balloon_exclusion_locations=balloon_exclusion_locations,
+                char_no=char_no,
+                detected_tolerances=detected_tolerances,
+                default_reason="no Rev B seed span (removed/unmatched)",
             )
-            
-            if is_notes_type:
-                revB_tol = PdfTolerance(
-                    kind="none",
-                    nominal_value=None,
-                    upper_limit=None,
-                    lower_limit=None,
-                    confidence=0.0,
-                    source_spans=[],
-                    reasons=["NOTES type characteristic - tolerance parsing skipped"],
-                )
-            elif revB_seed_bbox is not None:
-                revB_group_spans = _collect_spans_near_bbox(
-                    revB_spans,
-                    revB_seed_bbox,
-                    page_index=0,
-                    balloon_exclusion_locations=balloon_exclusion_locations,
-                    balloon_exclusion_radius=25.0,
-                )
-                revB_tol = parse_pdf_tolerance(revB_group_spans)
-                
-                # Check for duplicate detection in Rev B
-                if revB_tol.kind != "none":
-                    is_duplicate_b = _check_duplicate_tolerance(
-                        char_no=char_no,
-                        tolerance=revB_tol,
-                        seed_bbox=revB_seed_bbox,
-                        detected_tolerances=[(cn, tol, bbox) for cn, tol, bbox in detected_tolerances],
-                        min_distance=100.0,
-                    )
-                    if is_duplicate_b:
-                        revB_tol = PdfTolerance(
-                            kind="none",
-                            nominal_value=None,
-                            upper_limit=None,
-                            lower_limit=None,
-                            confidence=0.0,
-                            source_spans=revB_tol.source_spans,
-                            reasons=["duplicate detection - tolerance already assigned to nearby characteristic"] + revB_tol.reasons,
-                        )
 
             records.append(
                 {
