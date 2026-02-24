@@ -660,6 +660,71 @@ def _check_duplicate_tolerance(
     return False
 
 
+def _is_closest_balloon(
+    current_balloon_center: Tuple[float, float],
+    source_spans: List[Tuple[int, int, int, Tuple[float, float, float, float]]],
+    all_balloon_centers: List[Tuple[float, float]],
+    all_balloon_char_nos: List[int],
+    current_char_no: int,
+    group_spans: Sequence[TextSpan],
+) -> Tuple[bool, Optional[int]]:
+    """Check whether the current balloon is the closest to the tolerance source spans.
+
+    Args:
+        current_balloon_center: (x, y) center of the balloon being evaluated.
+        source_spans: PdfTolerance.source_spans identifying the tolerance text.
+        all_balloon_centers: Centers of every balloon in the drawing.
+        all_balloon_char_nos: Corresponding char_no for each center.
+        current_char_no: char_no of the balloon being evaluated.
+        group_spans: The TextSpan objects collected for this annotation group
+            (used to identify which source_spans carry tolerance notation).
+
+    Returns:
+        (is_closest, closer_char_no) — True if no other balloon is strictly closer;
+        otherwise False and the char_no of the closer balloon.
+    """
+    if not source_spans or not all_balloon_centers:
+        return True, None
+
+    # Build a map from span key → text so we can filter to tolerance-bearing spans
+    _TOL_MARKER_RE = re.compile(r"[±]|[+]/-|[+-]\s*\d")
+    span_text_map: Dict[Tuple[int, int, int, Tuple[float, float, float, float]], str] = {}
+    for s in group_spans:
+        span_text_map[_span_key(s)] = s.text
+
+    # Filter source_spans to only those containing tolerance markers (±, +/-, signed numbers)
+    tol_spans = [
+        sp for sp in source_spans
+        if sp in span_text_map and _TOL_MARKER_RE.search(span_text_map[sp])
+    ]
+
+    # If no spans matched the filter, fall back to all source_spans
+    target_spans = tol_spans if tol_spans else source_spans
+
+    # Average center of tolerance-bearing span bboxes
+    sum_x = 0.0
+    sum_y = 0.0
+    for _b, _l, _s, bbox in target_spans:
+        sum_x += (bbox[0] + bbox[2]) / 2
+        sum_y += (bbox[1] + bbox[3]) / 2
+    tol_cx = sum_x / len(target_spans)
+    tol_cy = sum_y / len(target_spans)
+
+    current_dist = (
+        (current_balloon_center[0] - tol_cx) ** 2
+        + (current_balloon_center[1] - tol_cy) ** 2
+    ) ** 0.5
+
+    for center, cno in zip(all_balloon_centers, all_balloon_char_nos):
+        if cno == current_char_no:
+            continue
+        dist = ((center[0] - tol_cx) ** 2 + (center[1] - tol_cy) ** 2) ** 0.5
+        if dist < current_dist:
+            return False, cno
+
+    return True, None
+
+
 def _parse_rev_tolerance(
     *,
     seed_bbox: Optional[Tuple[float, float, float, float]],
@@ -670,6 +735,9 @@ def _parse_rev_tolerance(
     char_no: int,
     detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]],
     default_reason: str,
+    current_balloon_center: Optional[Tuple[float, float]] = None,
+    all_balloon_centers: Optional[List[Tuple[float, float]]] = None,
+    all_balloon_char_nos: Optional[List[int]] = None,
 ) -> Tuple[PdfTolerance, List[TextSpan]]:
     """Parse tolerance for one revision side (Rev A or Rev B).
 
@@ -713,6 +781,37 @@ def _parse_rev_tolerance(
         balloon_exclusion_radius=25.0,
     )
     tol = parse_pdf_tolerance(group_spans)
+
+    # Ownership check: is this balloon the closest to the tolerance source spans?
+    if (
+        tol.kind != "none"
+        and current_balloon_center is not None
+        and all_balloon_centers is not None
+        and all_balloon_char_nos is not None
+    ):
+        is_closest, closer_char = _is_closest_balloon(
+            current_balloon_center=current_balloon_center,
+            source_spans=tol.source_spans,
+            all_balloon_centers=all_balloon_centers,
+            all_balloon_char_nos=all_balloon_char_nos,
+            current_char_no=char_no,
+            group_spans=group_spans,
+        )
+        if not is_closest:
+            tol = PdfTolerance(
+                kind="none",
+                nominal_value=None,
+                upper_limit=None,
+                lower_limit=None,
+                confidence=0.0,
+                source_spans=tol.source_spans,
+                reasons=[
+                    f"tolerance source closer to another balloon (char {closer_char})"
+                ]
+                + tol.reasons,
+            )
+            # Do NOT register in detected_tolerances so the rightful owner can claim it
+            return tol, group_spans
 
     # Check for duplicate detection with previously processed characteristics
     if tol.kind != "none":
@@ -770,12 +869,17 @@ def extract_tolerances_for_items(
     Returns:
         Dict mapping char_no → ToleranceComparison for each anchor.
     """
-    # Build balloon exclusion centers
+    # Build balloon exclusion centers and closest-balloon lookup lists
     balloon_exclusion_locations: List[Tuple[float, float]] = []
+    all_balloon_centers: List[Tuple[float, float]] = []
+    all_balloon_char_nos: List[int] = []
     for anchor in anchors:
         if hasattr(anchor, "balloon_bbox") and anchor.balloon_bbox:
             bx0, by0, bx1, by1 = anchor.balloon_bbox
-            balloon_exclusion_locations.append(((bx0 + bx1) / 2, (by0 + by1) / 2))
+            center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
+            balloon_exclusion_locations.append(center)
+            all_balloon_centers.append(center)
+            all_balloon_char_nos.append(int(anchor.char_no))
 
     detected_tolerances: List[Tuple[int, PdfTolerance, Tuple[float, float, float, float]]] = []
     result: Dict[int, ToleranceComparison] = {}
@@ -788,6 +892,12 @@ def extract_tolerances_for_items(
         revA_seed_bbox = getattr(anchor, "req_bbox", None) or getattr(anchor, "balloon_bbox", None)
         revA_page = int(getattr(anchor, "page", 0))
 
+        # Compute current balloon center for ownership check
+        current_balloon_center: Optional[Tuple[float, float]] = None
+        if hasattr(anchor, "balloon_bbox") and anchor.balloon_bbox:
+            bx0, by0, bx1, by1 = anchor.balloon_bbox
+            current_balloon_center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
+
         revA_tol, _ = _parse_rev_tolerance(
             seed_bbox=revA_seed_bbox,
             all_spans=revA_spans,
@@ -797,6 +907,9 @@ def extract_tolerances_for_items(
             char_no=char_no,
             detected_tolerances=detected_tolerances,
             default_reason="no Rev A seed bbox",
+            current_balloon_center=current_balloon_center,
+            all_balloon_centers=all_balloon_centers,
+            all_balloon_char_nos=all_balloon_char_nos,
         )
 
         # Rev B seed bbox from match
@@ -814,6 +927,9 @@ def extract_tolerances_for_items(
             char_no=char_no,
             detected_tolerances=detected_tolerances,
             default_reason="no Rev B seed span (removed/unmatched)",
+            current_balloon_center=current_balloon_center,
+            all_balloon_centers=all_balloon_centers,
+            all_balloon_char_nos=all_balloon_char_nos,
         )
 
         tol_match, tol_differ, has_tol, reasons = compare_tolerances(revA_tol, revB_tol)
@@ -858,12 +974,17 @@ def export_run_tolerance_debug(
 
     anchors_by_char: Dict[int, Anchor] = {int(a.char_no): a for a in anchors}
 
-    # Extract balloon centers for exclusion filtering
+    # Extract balloon centers for exclusion filtering and closest-balloon lookup
     balloon_exclusion_locations: List[Tuple[float, float]] = []
+    all_balloon_centers: List[Tuple[float, float]] = []
+    all_balloon_char_nos: List[int] = []
     for anchor in anchors:
         if hasattr(anchor, 'balloon_bbox') and anchor.balloon_bbox:
             bx0, by0, bx1, by1 = anchor.balloon_bbox
-            balloon_exclusion_locations.append(((bx0 + bx1) / 2, (by0 + by1) / 2))
+            center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
+            balloon_exclusion_locations.append(center)
+            all_balloon_centers.append(center)
+            all_balloon_char_nos.append(int(anchor.char_no))
 
     records: List[Dict[str, Any]] = []
     errors: List[str] = []
@@ -887,6 +1008,12 @@ def export_run_tolerance_debug(
             if anchor is not None:
                 is_notes_type = "NOTES" in anchor.requirement_raw.upper()
 
+            # Compute current balloon center for ownership check
+            current_balloon_center: Optional[Tuple[float, float]] = None
+            if anchor is not None and hasattr(anchor, "balloon_bbox") and anchor.balloon_bbox:
+                bx0, by0, bx1, by1 = anchor.balloon_bbox
+                current_balloon_center = ((bx0 + bx1) / 2, (by0 + by1) / 2)
+
             revA_tol, revA_group_spans = _parse_rev_tolerance(
                 seed_bbox=revA_seed_bbox,
                 all_spans=revA_spans,
@@ -896,6 +1023,9 @@ def export_run_tolerance_debug(
                 char_no=char_no,
                 detected_tolerances=detected_tolerances,
                 default_reason="no Rev A seed bbox",
+                current_balloon_center=current_balloon_center,
+                all_balloon_centers=all_balloon_centers,
+                all_balloon_char_nos=all_balloon_char_nos,
             )
 
             # Rev B seed bbox from match span or added span.
@@ -916,6 +1046,9 @@ def export_run_tolerance_debug(
                 char_no=char_no,
                 detected_tolerances=detected_tolerances,
                 default_reason="no Rev B seed span (removed/unmatched)",
+                current_balloon_center=current_balloon_center,
+                all_balloon_centers=all_balloon_centers,
+                all_balloon_char_nos=all_balloon_char_nos,
             )
 
             records.append(
