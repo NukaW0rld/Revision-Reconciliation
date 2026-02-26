@@ -110,9 +110,18 @@ def generate_candidates(
         - Handles cases where anchor has no requirement text bbox (uses balloon fallback)
         - All candidates include detailed scoring breakdown for transparency
     """
-    # Define search radius to handle layout variations between revisions
-    # 144 PDF points ≈ 2 inches at 72 DPI - generous enough for significant layout changes
-    SEARCH_RADIUS = 144.0
+    # Define search radius to handle layout variations between revisions.
+    # 288 PDF points ≈ 4 inches at 72 DPI.
+    # A generous radius is needed because:
+    # 1. Text-span alignment computes the dominant translation (median of shifted pairs).
+    # 2. Drawing revisions may have multiple view groups shifting by different amounts
+    #    (e.g., main view +362 pts, side view +212 pts when dominant is +362).
+    # 3. Features in the secondary shift group land ~150 pts off from predicted.
+    # 4. Features whose anchor has req_bbox=None (balloon-only) have ~30 pt extra error
+    #    compared to annotation-centered predictions.
+    # 5. Incorrect candidates are still rejected by text scoring and the primary-
+    #    mismatch penalty — false matches from far-away wrong spans get suppressed.
+    SEARCH_RADIUS = 288.0
     
     # Determine the Rev A coordinate to transform (prefer requirement text over balloon)
     # Requirement text location is more precise than balloon center for matching
@@ -123,22 +132,42 @@ def generate_candidates(
         # Fall back to balloon center when requirement text location is unknown
         center_a = np.array([[(anchor.balloon_bbox[0] + anchor.balloon_bbox[2]) / 2,
                              (anchor.balloon_bbox[1] + anchor.balloon_bbox[3]) / 2]], dtype=np.float32)
-    
-    # Apply homography transformation to predict Rev B location
+
+    # For notes-type characteristics, skip the homography: drawing notes blocks
+    # are static and do not move between revisions even when annotation content shifts.
+    # Applying the content-shift transform to a static element produces a wrong prediction.
+    anchor_fp = parse_requirement(anchor.requirement_raw)
+    is_notes_anchor = (
+        anchor_fp.pattern_class == "note"
+        or "NOTES" in anchor.requirement_raw.upper()
+    )
+
     center_a = center_a.reshape(-1, 1, 2)
-    center_b = cv2.perspectiveTransform(center_a, transform.H)[0][0]
-    pred_x, pred_y = center_b
+    if is_notes_anchor:
+        # Use Rev A location directly (identity transform for static notes block)
+        pred_x, pred_y = float(center_a[0, 0, 0]), float(center_a[0, 0, 1])
+    else:
+        center_b = cv2.perspectiveTransform(center_a, transform.H)[0][0]
+        pred_x, pred_y = center_b
     
-    # Build candidate pool from spans within search radius
-    # Pre-filter to reduce computational cost of detailed scoring
+    # Build candidate pool from spans within search radius.
+    # Pre-filter to reduce computational cost of detailed scoring.
+    # For notes-type anchors, restrict candidates to spans that look like notes headers
+    # (contain "NOTE" or "NOTES") — note item number spans (e.g., "3.", "2.") are too
+    # common and score higher on location than the actual header, causing wrong matches.
     candidate_pool = []
     for span in revB_spans:
         sx0, sy0, sx1, sy1 = span.bbox_pdf
         span_cx = (sx0 + sx1) / 2
         span_cy = (sy0 + sy1) / 2
         dist = math.sqrt((span_cx - pred_x)**2 + (span_cy - pred_y)**2)
-        
+
         if dist <= SEARCH_RADIUS:
+            if is_notes_anchor:
+                # Only include spans that are actual notes headers
+                span_upper = span.text.strip().upper()
+                if "NOTE" not in span_upper and "DRAWING" not in span_upper:
+                    continue
             candidate_pool.append((span, dist, span_cx, span_cy))
     
     # Apply detailed multi-component scoring to each candidate
@@ -245,14 +274,46 @@ def score_candidate(
         anchor_primary == span_primary
     )
     
-    # Strong penalty if primary values exist but don't match
-    # This prevents matching "110" to "120" even if they're close in location
+    # Strong penalty if primary values exist but don't match.
+    # This prevents matching "110" to "120" even if they're close in location.
+    #
+    # However, engineering drawing PDFs often express tolerances in "limits form":
+    # instead of "0.150 ± 0.010" the drawing shows ".160" (upper) and ".140" (lower)
+    # as stacked numbers.  In this case anchor_primary=0.15 and span_primary=0.16 —
+    # they differ by 6.7%, which is within the tolerance band of the characteristic.
+    # We apply a reduced penalty when the primary values are "close" (within 20%),
+    # recognising that the span might be the upper or lower tolerance limit.
+    #
+    # Also penalise spans with NO numeric content when the anchor expects numerics,
+    # BUT ONLY when the anchor is a dimension-type requirement (not notes/text blocks).
+    # This prevents non-numeric title-block text from outscoring the correct annotation
+    # when the predicted location accidentally falls near the title block.
+    # Notes-type anchors are excluded because their header span ("DRAWING NOTES:") is
+    # intentionally non-numeric.
+    is_notes_anchor = anchor_fp.pattern_class == "note" or "NOTES" in anchor.requirement_raw.upper()
     primary_mismatch_penalty = 0.0
-    if anchor_primary is not None and span_numerics:
-        if anchor_primary not in span_numerics:
-            # The anchor's primary value is NOT in the span - strong penalty
-            primary_mismatch_penalty = 0.4
-            reasons.append(f"primary value {anchor_primary} not found in span")
+    if anchor_primary is not None and not is_notes_anchor:
+        if not span_numerics:
+            # Anchor expects numeric content but this span has none — penalise
+            primary_mismatch_penalty = 0.35
+            reasons.append(f"anchor expects numeric {anchor_primary} but span has no numerics")
+        elif anchor_primary not in span_numerics:
+            # Check whether the difference could be explained by tolerance notation.
+            # If span_primary is within 20% of anchor_primary, apply a reduced penalty.
+            if span_primary is not None and anchor_primary != 0:
+                relative_diff = abs(anchor_primary - span_primary) / abs(anchor_primary)
+                if relative_diff <= 0.20:
+                    # Likely limits-form notation or a changed dimension close to anchor.
+                    # Apply a small penalty that doesn't totally suppress the location score.
+                    primary_mismatch_penalty = 0.05
+                    reasons.append(f"primary value {anchor_primary} close to span {span_primary} (±{relative_diff*100:.0f}%)")
+                else:
+                    # The anchor's primary value is NOT in the span — strong penalty
+                    primary_mismatch_penalty = 0.4
+                    reasons.append(f"primary value {anchor_primary} not found in span")
+            else:
+                primary_mismatch_penalty = 0.4
+                reasons.append(f"primary value {anchor_primary} not found in span")
     
     # Compare pattern class (hole, dimension, note, etc.)
     class_match = 1.0 if anchor_fp.pattern_class == span_fp.pattern_class else 0.0
@@ -288,16 +349,17 @@ def score_candidate(
         ctx_parsed = parse_requirement(ctx_span.text)
         anchor_context_tokens.update(ctx_parsed.norm_text.split())
     
-    # Get candidate context tokens
+    # Get candidate context tokens from nearby Rev B spans.
+    # Use spatial proximity only — do NOT filter by block_id because each annotation
+    # in an engineering drawing PDF is typically its own block, so the block_id filter
+    # would exclude all neighboring spans and make context score always 0.
     candidate_context_tokens = set()
     for other_span in all_spans:
-        if other_span.block_id != span.block_id:
-            continue
         ox0, oy0, ox1, oy1 = other_span.bbox_pdf
         other_cx = (ox0 + ox1) / 2
         other_cy = (oy0 + oy1) / 2
         other_dist = math.sqrt((other_cx - span_cx)**2 + (other_cy - span_cy)**2)
-        
+
         if other_dist <= CONTEXT_WINDOW and other_dist > 0:
             other_parsed = parse_requirement(other_span.text)
             candidate_context_tokens.update(other_parsed.norm_text.split())
@@ -343,27 +405,36 @@ def assign_matches(
     candidates_by_anchor: dict[int, List[Candidate]]
 ) -> dict[int, Match]:
     """Greedily assign anchors to Rev B spans using a global matching strategy.
-    
+
     This function implements a greedy bipartite matching algorithm that ensures:
     1. Each characteristic (char_no) is assigned at most once
-    2. Each Rev B span is matched to at most one characteristic
-    
+    2. Each Rev B span is matched to at most one characteristic (with shared-span exception)
+
     The algorithm flattens all candidate edges, sorts by score, and greedily
     accepts edges that don't conflict with previous assignments.
-    
+
+    Shared-span fallback: Engineering drawings sometimes encode multiple characteristics
+    in a single callout (e.g., "10 x 90°" encodes both depth=10 and angle=90°).
+    After the main greedy pass, any unmatched anchor whose primary value IS present
+    in an already-used span is allowed to share that span rather than being classified
+    as "removed".
+
     Args:
         anchors: List of Rev A anchors with characteristic numbers
         candidates_by_anchor: Dict mapping char_no to list of candidates
-        
+
     Returns:
         Dict mapping assigned char_no to its Match object
     """
+    # Build anchor lookup by char_no for the shared-span fallback
+    anchor_by_char: dict[int, Anchor] = {a.char_no: a for a in anchors}
+
     # Build list of all edges: (total_score, char_no, span_key, candidate)
     edges = []
     for anchor in anchors:
         char_no = anchor.char_no
         candidates = candidates_by_anchor.get(char_no, [])
-        
+
         for candidate in candidates:
             # Create unique span key using TextSpan attributes
             span = candidate.span
@@ -373,23 +444,32 @@ def assign_matches(
                 span.span_id,
                 span.bbox_pdf
             )
-            
+
             edges.append((
                 candidate.total_score,
                 char_no,
                 span_key,
                 candidate
             ))
-    
+
     # Sort edges by total_score descending
     edges.sort(key=lambda e: e[0], reverse=True)
-    
+
     # Greedy assignment
     assigned_chars = set()
     used_spans = set()
     matches = {}
-    
+
+    # Minimum total score threshold to accept a match.
+    # Scores at or near 0.0 indicate no meaningful candidate was found
+    # (only location component contributed, text/context both 0, penalty applied).
+    # Unmatched anchors will be classified as "removed".
+    MIN_MATCH_SCORE = 0.02
+
     for total_score, char_no, span_key, candidate in edges:
+        # Skip implausibly low-scoring matches — they indicate no real candidate
+        if total_score < MIN_MATCH_SCORE:
+            continue
         # Accept edge only if both char_no and span are available
         if char_no not in assigned_chars and span_key not in used_spans:
             matches[char_no] = Match(
@@ -399,5 +479,51 @@ def assign_matches(
             )
             assigned_chars.add(char_no)
             used_spans.add(span_key)
-    
+
+    # Shared-span fallback: handle combined annotation spans that encode multiple
+    # characteristics (e.g., "10 x 90°" for countersink depth=10 AND angle=90°).
+    # For any anchor that remained unmatched, check if its primary numeric value
+    # is present in a span that was already assigned to another anchor.  If yes,
+    # allow the span to be reused — the annotation collectively describes both
+    # characteristics and both should be classified (not marked "removed").
+    for anchor in anchors:
+        char_no = anchor.char_no
+        if char_no in assigned_chars:
+            continue  # Already matched
+
+        candidates = candidates_by_anchor.get(char_no, [])
+        anchor_fp = parse_requirement(anchor.requirement_raw)
+        anchor_primary = max(
+            (v for v, _ in anchor_fp.numeric_tokens), default=None
+        )
+
+        for candidate in candidates:
+            if candidate.total_score < MIN_MATCH_SCORE:
+                continue
+            span = candidate.span
+            span_key = (
+                span.block_id,
+                span.line_id,
+                span.span_id,
+                span.bbox_pdf
+            )
+            # Only consider spans already used by another anchor (shared annotation)
+            if span_key not in used_spans:
+                continue
+            # Allow reuse only when the anchor's primary value appears in the span
+            if anchor_primary is None:
+                continue
+            span_fp = parse_requirement(span.text)
+            span_numerics = {v for v, _ in span_fp.numeric_tokens}
+            if anchor_primary not in span_numerics:
+                continue
+            # Primary value is confirmed in the span — allow shared match
+            matches[char_no] = Match(
+                char_no=char_no,
+                candidate=candidate,
+                pred_center_b=None
+            )
+            assigned_chars.add(char_no)
+            break  # One shared match per anchor
+
     return matches

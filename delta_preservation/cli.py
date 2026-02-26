@@ -24,7 +24,11 @@ from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_im
 import fitz
 from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.balloons import detect_balloons
-from delta_preservation.vision.alignment import estimate_transform
+from delta_preservation.vision.alignment import (
+    estimate_transform,
+    estimate_transform_from_text_spans,
+    _homography_is_near_identity,
+)
 from delta_preservation.vision.snippets import crop_with_padding, save_snippet
 from delta_preservation.vision.bbox_utils import (
     compute_combined_evidence_bbox,
@@ -133,8 +137,37 @@ def run_pipeline(
     # Render pages for alignment (use first page for now)
     imgA = render_page(revA_path, page_index=0, dpi=dpi)
     imgB = render_page(revB_path, page_index=0, dpi=dpi)
-    transform = estimate_transform(imgA, imgB)
-    print(f"  Alignment: {transform.inliers} inliers, ratio={transform.inlier_ratio:.2f}")
+    orb_transform = estimate_transform(imgA, imgB)
+    print(f"  ORB alignment: {orb_transform.inliers} inliers, ratio={orb_transform.inlier_ratio:.2f}")
+
+    # Text-span alignment: use matching annotation texts as point correspondences.
+    # This is more reliable than ORB for engineering drawings where the static title
+    # block dominates feature matching and can produce a spurious near-identity
+    # transform even when annotation content has shifted significantly.
+    text_transform = estimate_transform_from_text_spans(revA_text_spans, revB_text_spans)
+
+    if text_transform is not None:
+        print(f"  Text-span alignment: {text_transform.inliers} inliers, ratio={text_transform.inlier_ratio:.2f}")
+        tx = text_transform.H[0, 2]
+        ty = text_transform.H[1, 2]
+        print(f"  Text-span translation: tx={tx:.1f} ty={ty:.1f} PDF pts")
+
+        # Use the text-span transform when the ORB transform is near-identity but
+        # the text-span transform indicates significant content shift (> 20 PDF pts).
+        orb_near_identity = _homography_is_near_identity(orb_transform.H, translation_threshold=20.0)
+        text_has_shift = (tx ** 2 + ty ** 2) ** 0.5 > 20.0
+
+        if orb_near_identity and text_has_shift:
+            transform = text_transform
+            print("  Using text-span alignment (ORB produced near-identity transform)")
+        else:
+            transform = orb_transform
+            print("  Using ORB alignment")
+    else:
+        transform = orb_transform
+        print("  Text-span alignment: insufficient common spans, using ORB alignment")
+
+    print(f"  Final transform: {transform.inliers} inliers, ratio={transform.inlier_ratio:.2f}")
 
     # Stage 6: Generate candidates and assign matches
     print("[6/8] Generating candidates and assigning matches...")
@@ -364,10 +397,18 @@ def run_pipeline(
 
             revB_bbox_pdf = (ex0, ey0, ex1, ey1)
 
-        # For added characteristics, mirror the Rev B bbox into Rev A so the
-        # Rev A snippet shows the same location and size as Rev B.
+        # For added characteristics, map the Rev B bbox back to Rev A coordinate space
+        # using the inverse homography so the Rev A snippet shows the corresponding
+        # region in the original drawing (which should be blank/different there).
+        # If no inverse is available, leave revA_bbox_pdf as None (no revA snippet).
         if anchor is None and revB_bbox_pdf is not None and revA_bbox_pdf is None:
-            revA_bbox_pdf = revB_bbox_pdf
+            from delta_preservation.vision.alignment import apply_transform_bbox
+            try:
+                H_inv = np.linalg.inv(transform.H)
+                revA_bbox_pdf = apply_transform_bbox(revB_bbox_pdf, H_inv)
+            except np.linalg.LinAlgError:
+                # Singular matrix: leave revA snippet as None
+                pass
 
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:

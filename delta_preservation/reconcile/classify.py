@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import re
 from typing import Optional, Dict, List, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 
@@ -170,19 +172,78 @@ def classify_delta(
         if count_match and anchor_count:
             reasons.append(f"Count tokens match: {anchor_count}")
     elif numeric_overlap >= 0.5 and symbol_match:
-        # Good numeric overlap with matching symbols → unchanged
-        # (count_missing is OK - just means span doesn't include count prefix)
-        status = "unchanged"
-        confidence = 0.4 * location_score + 0.4 * numeric_overlap + 0.2
-        reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
-        if count_match and anchor_count:
-            reasons.append(f"Count tokens match: {anchor_count}")
+        # Good numeric overlap with matching symbols.
+        # However, the overlap may come purely from matching a shared tolerance value
+        # (e.g., both have 0.01) while the primary dimension differs (4.93 vs 5.04).
+        # In that case, the primary mismatch dominates and the status should be "changed".
+        #
+        # We distinguish true primary mismatches from limits-form notation by comparing
+        # the primary difference against the anchor's own tolerance band:
+        # - Extract the smallest non-zero numeric as the tolerance value.
+        # - If primary difference > 1.5 * tolerance, it's a true change.
+        # - If within 1.5 * tolerance, it's likely limits-form notation (same characteristic).
+        primary_mismatch = False
+        if (
+            anchor_primary is not None
+            and matched_primary is not None
+            and not primary_matches
+            and anchor_primary != 0
+        ):
+            primary_diff = abs(anchor_primary - matched_primary)
+            # Estimate the tolerance as the smallest numeric in the anchor (> 0)
+            small_numerics = [v for v in anchor_numerics if 0 < v < anchor_primary]
+            if small_numerics:
+                tolerance_estimate = min(small_numerics)
+                # True change if primary difference exceeds 1.5x the tolerance band
+                primary_mismatch = primary_diff > 1.5 * tolerance_estimate
+            else:
+                # No tolerance value in anchor — use a 3% relative threshold
+                primary_mismatch = primary_diff / abs(anchor_primary) > 0.03
+
+        if primary_mismatch:
+            status = "changed"
+            confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
+            reasons.append(f"Primary dimension changed: {anchor_primary} → {matched_primary}")
+            reasons.append(f"Numeric overlap from tolerance only ({int(numeric_overlap*100)}%)")
+        else:
+            # (count_missing is OK - just means span doesn't include count prefix)
+            status = "unchanged"
+            confidence = 0.4 * location_score + 0.4 * numeric_overlap + 0.2
+            reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
+            if count_match and anchor_count:
+                reasons.append(f"Count tokens match: {anchor_count}")
     elif numeric_overlap < 0.5 and symbol_match and not count_missing and not primary_matches:
-        # Same type (symbol) but different numeric values → changed
-        status = "changed"
-        confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
-        reasons.append(f"Numeric values changed (only {int(numeric_overlap*100)}% overlap)")
-        reasons.append(f"Anchor: {sorted(anchor_numerics)}, Matched: {sorted(matched_numerics)}")
+        # Same type (symbol) but different numeric values.
+        # First check if this is limits-form notation: the matched primary might be
+        # the upper or lower tolerance limit of the anchor's nominal value.
+        # e.g., anchor "0.150 ± 0.010" vs matched ".160" (upper limit = 0.150+0.010)
+        limits_form_match = False
+        if anchor_primary is not None and matched_primary is not None and anchor_primary != 0:
+            primary_diff = abs(anchor_primary - matched_primary)
+            small_numerics = [v for v in anchor_numerics if 0 < v < anchor_primary]
+            if small_numerics:
+                tolerance_estimate = min(small_numerics)
+                relative_tolerance = tolerance_estimate / abs(anchor_primary)
+                # Only apply limits-form check when the tolerance is tight (< 15% of nominal).
+                # Tight tolerances (e.g., ±0.010 on 0.150) produce limits like 0.160/0.140
+                # that fall within the 1.5x tolerance band.  Loose tolerances (e.g., ±0.3 on
+                # 1.570) are too permissive — a genuine change of 0.110 would also pass.
+                if relative_tolerance < 0.15:
+                    limits_form_match = primary_diff <= 1.5 * tolerance_estimate
+            else:
+                limits_form_match = primary_diff / abs(anchor_primary) <= 0.03
+
+        if limits_form_match:
+            # Limits-form notation: matched span is within the anchor's tolerance band
+            status = "unchanged"
+            confidence = 0.4 * location_score + 0.2 + 0.1  # No numeric overlap bonus
+            reasons.append(f"Limits-form match: {anchor_primary} ± tolerance ≈ {matched_primary}")
+        else:
+            # Genuinely different numeric values → changed
+            status = "changed"
+            confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
+            reasons.append(f"Numeric values changed (only {int(numeric_overlap*100)}% overlap)")
+            reasons.append(f"Anchor: {sorted(anchor_numerics)}, Matched: {sorted(matched_numerics)}")
     elif location_score > 0.6:
         # Good location match but text doesn't align well → likely unchanged
         status = "unchanged"
@@ -244,17 +305,24 @@ def detect_added_characteristics(
     page_height: float = 792.0
 ) -> List[DeltaItem]:
     """Detect new characteristics in Rev B that don't exist in Rev A.
-    
-    Looks for unmatched Rev B text spans that appear to be dimension requirements
-    (have numeric tokens and symbols/count patterns).
-    
+
+    Looks for unmatched Rev B text spans that appear to be dimension requirements.
+    Detects three categories:
+    1. Standard annotated dimensions: symbol (Ø, R) or count prefix (2X, 4X)
+    2. Angle-style callouts: degree marker with multiple numerics
+    3. Leading-decimal single values: ".900", ".625" — engineering-drawing notation
+       for plain length/depth dimensions without prefix symbols
+    4. Stacked tolerance-limit pairs: two numeric-only spans at the same x position
+       and adjacent y positions (e.g., ".635" above ".615") representing an upper/lower
+       tolerance pair (equivalent to 0.625 ± 0.010)
+
     Args:
         revB_spans: All text spans from Rev B PDF
         matches: Dict of char_no to Match objects (matched spans)
         next_char_no: Starting char_no for added items (typically max_existing + 1)
         page_width: Width of the page in PDF points (used for exclusion zones)
         page_height: Height of the page in PDF points (used for exclusion zones)
-        
+
     Returns:
         List of DeltaItems with status="added" for detected new characteristics
     """
@@ -264,67 +332,215 @@ def detect_added_characteristics(
         span = match.candidate.span
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         matched_span_keys.add(key)
-    
+
     # Define exclusion zones (revision table, title block)
     # Revision table: typically top-right corner (x > 80% width, y < 15% height)
     # Title block: typically bottom-right corner (x > 70% width, y > 85% height)
     def is_in_exclusion_zone(bbox: tuple) -> bool:
         x0, y0, x1, y1 = bbox
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        
+
         # Revision table: top-right corner
         if cx > page_width * 0.75 and cy < page_height * 0.15:
             return True
-        
+
         # Title block: bottom-right corner
         if cx > page_width * 0.70 and cy > page_height * 0.85:
             return True
-        
+
         return False
-    
-    added_items: List[DeltaItem] = []
-    current_char_no = next_char_no
-    
+
+    # Collect unmatched candidate spans (filtered for drawing content area)
+    unmatched_spans: List[TextSpan] = []
     for span in revB_spans:
-        # Skip already matched spans
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         if key in matched_span_keys:
             continue
-        
-        # Skip spans in exclusion zones (revision table, title block)
         if is_in_exclusion_zone(span.bbox_pdf):
             continue
-        
         text = span.text.strip()
-        if len(text) < 3:
+        if len(text) < 2:
             continue
-        
+        unmatched_spans.append(span)
+
+    # Set of span keys consumed by stacked-pair detection (to avoid double-counting)
+    stacked_pair_keys: Set[Tuple] = set()
+
+    added_items: List[DeltaItem] = []
+    current_char_no = next_char_no
+
+    # Build set of matched span centre positions for proximity checks below.
+    # Used to suppress unmatched spans that are companion tolerance limits of
+    # already-matched annotations (e.g., the ".140" lower-limit span sitting
+    # 12 pts below the matched ".160" upper-limit span).
+    matched_centers: List[Tuple[float, float]] = []
+    for match in matches.values():
+        s = match.candidate.span
+        sx0, sy0, sx1, sy1 = s.bbox_pdf
+        matched_centers.append(((sx0 + sx1) / 2, (sy0 + sy1) / 2))
+
+    def is_near_matched_span(bbox: tuple, threshold: float = 25.0) -> bool:
+        x0, y0, x1, y1 = bbox
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        for mx, my in matched_centers:
+            if math.sqrt((cx - mx) ** 2 + (cy - my) ** 2) <= threshold:
+                return True
+        return False
+
+    # --- Pass 1: detect stacked tolerance-limit pairs ---
+    # Stacked pairs: two numeric-only spans at the same horizontal position and
+    # adjacent vertical positions that together express a tolerance band.
+    # Example: ".635" (upper) stacked above ".615" (lower) → 0.625 ± 0.010
+    # Criteria:
+    #   - Both spans are numeric-only (no symbol, no count)
+    #   - Not a trailing-dot list number (e.g., "1.", "2.", "3.")
+    #   - Horizontal centres within 10 pts of each other (same column)
+    #   - Vertical separation ≤ 30 pts (adjacent lines)
+    #   - Upper value > lower value (ordered pair)
+    #   - Difference ≤ 20% of mean (tight tolerance, not two unrelated dims)
+    #   - Neither span is close to an already-matched span (would be a companion
+    #     tolerance limit of an existing characteristic, not a new one)
+    leading_decimal_re = re.compile(r'^\.\d+$')
+    trailing_dot_re = re.compile(r'^\d+\.$')  # List item numbers: "1.", "2.", "3."
+    numeric_only_spans = [
+        s for s in unmatched_spans
+        if (leading_decimal_re.match(s.text.strip()) or
+            re.match(r'^\d+\.?\d*$', s.text.strip()))
+        and not trailing_dot_re.match(s.text.strip())
+        and not is_near_matched_span(s.bbox_pdf)
+    ]
+
+    for i, span_a in enumerate(numeric_only_spans):
+        key_a = (span_a.block_id, span_a.line_id, span_a.span_id, span_a.bbox_pdf)
+        if key_a in stacked_pair_keys:
+            continue
+        ax0, ay0, ax1, ay1 = span_a.bbox_pdf
+        acx = (ax0 + ax1) / 2
+        acy = (ay0 + ay1) / 2
+        val_a_str = span_a.text.strip()
+        try:
+            val_a = float(val_a_str)
+        except ValueError:
+            continue
+
+        for span_b in numeric_only_spans[i + 1:]:
+            key_b = (span_b.block_id, span_b.line_id, span_b.span_id, span_b.bbox_pdf)
+            if key_b in stacked_pair_keys:
+                continue
+            bx0, by0, bx1, by1 = span_b.bbox_pdf
+            bcx = (bx0 + bx1) / 2
+            bcy = (by0 + by1) / 2
+            val_b_str = span_b.text.strip()
+            try:
+                val_b = float(val_b_str)
+            except ValueError:
+                continue
+
+            # Horizontal alignment check
+            if abs(acx - bcx) > 10.0:
+                continue
+            # Vertical proximity check
+            vertical_gap = abs(acy - bcy)
+            if vertical_gap > 30.0:
+                continue
+            # Must be an ordered pair (upper > lower)
+            upper_val = max(val_a, val_b)
+            lower_val = min(val_a, val_b)
+            if upper_val <= lower_val:
+                continue
+            # Tolerance check: difference must be tight (≤ 20% of mean)
+            # A tighter threshold rejects numeric pairs that are two unrelated
+            # dimension values happening to be adjacent (e.g., "3." and "4." note
+            # numbers have a ratio of ~29%, which tighter threshold excludes).
+            mean_val = (upper_val + lower_val) / 2.0
+            if mean_val == 0:
+                continue
+            if (upper_val - lower_val) / mean_val > 0.20:
+                continue
+
+            # Valid stacked pair found
+            nominal = mean_val
+            half_tol = (upper_val - lower_val) / 2.0
+            pair_text = f"{upper_val} / {lower_val}"
+            # Use the upper span as the representative span
+            upper_span = span_a if val_a >= val_b else span_b
+            reasons = [
+                f"New stacked-limits dimension in Rev B: {pair_text}",
+                f"Interpreted as {nominal:.4g} \u00b1 {half_tol:.4g}",
+                "Leading-decimal stacked tolerance limits detected",
+            ]
+            confidence = 0.65
+
+            added_item = DeltaItem(
+                char_no=current_char_no,
+                status="added",
+                confidence=confidence,
+                reasons=reasons,
+                component_scores={
+                    "location": 0.0,
+                    "text": 1.0,
+                    "context": 0.0
+                },
+                match=None,
+                added_span=upper_span
+            )
+            added_items.append(added_item)
+            current_char_no += 1
+            stacked_pair_keys.add(key_a)
+            stacked_pair_keys.add(key_b)
+            break  # Each span_a pairs with at most one span_b
+
+    # --- Pass 2: standard span-by-span detection ---
+    for span in unmatched_spans:
+        key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+        # Skip spans already consumed by stacked-pair detection
+        if key in stacked_pair_keys:
+            continue
+
+        text = span.text.strip()
+
         # Parse the span to check if it looks like a dimension requirement
         fp = parse_requirement(text)
-        
+
         # Angle callouts (e.g., "2 X 5 X 45°") often lack Ø/R symbols and explicit count
         # tokens, so treat a degree marker plus multiple numeric values as dimension-like.
         has_angle_token = "°" in text or "DEG" in fp.norm_text or "ANGLE" in fp.norm_text
         has_angle_dimension = has_angle_token and len(fp.numeric_tokens) >= 2
-        
+
+        # Leading-decimal format: ".900", ".625" are engineering-drawing shorthand for
+        # dimension values without a leading zero.  These may be plain length/depth
+        # annotations without a prefix symbol (Ø, R) or count (2X).
+        # Only match the pure leading-decimal form (exactly ".<digits>") to avoid
+        # false-positives from mid-sentence decimal numbers.
+        is_leading_decimal_single = bool(
+            leading_decimal_re.match(text)
+            and len(fp.numeric_tokens) == 1
+        )
+
         # Filter for spans that look like dimension requirements:
         # - Must have numeric tokens (dimension values)
         # - Must have symbols (Ø, R) OR count patterns (2X, 4X) OR angle-style callouts
-        # - Skip spans that look like revision notes or title block text
+        #   OR be a pure leading-decimal single value (engineering notation for length)
         if not fp.numeric_tokens:
             continue
-        
-        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension):
+
+        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single):
             continue
-        
+
         # Skip spans that look like revision notes (contain "ADDED", "NEW", etc.)
         if any(word in fp.norm_text for word in ["ADDED", "NEW", "REVISED", "DELETED"]):
             continue
-        
-        # Skip single numeric values (likely just dimension labels)
-        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens:
+
+        # Skip non-leading-decimal single numeric values (likely dimension labels)
+        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single:
             continue
-        
+
+        # For leading-decimal single values, suppress spans that sit close to an already-
+        # matched span — they are likely companion tolerance limits (e.g., the ".140" lower
+        # limit that pairs with a matched ".160" upper limit), not new characteristics.
+        if is_leading_decimal_single and is_near_matched_span(span.bbox_pdf):
+            continue
+
         # This looks like a new characteristic
         reasons = [
             f"New requirement detected in Rev B: \"{text}\"",
@@ -332,7 +548,9 @@ def detect_added_characteristics(
         ]
         if has_angle_dimension and not fp.symbol_tokens and not fp.count_tokens:
             reasons.append("Angle-style callout detected")
-        
+        if is_leading_decimal_single:
+            reasons.append("Leading-decimal dimension annotation detected")
+
         # Calculate confidence based on how "dimension-like" the span is
         confidence = 0.6
         if fp.symbol_tokens:
@@ -341,8 +559,10 @@ def detect_added_characteristics(
             confidence += 0.15
         if fp.pattern_class in ["hole", "dimension", "fillet"]:
             confidence += 0.1
+        if is_leading_decimal_single:
+            confidence = 0.55  # Slightly lower confidence for bare decimal values
         confidence = min(confidence, 0.95)
-        
+
         added_item = DeltaItem(
             char_no=current_char_no,
             status="added",
@@ -358,5 +578,5 @@ def detect_added_characteristics(
         )
         added_items.append(added_item)
         current_char_no += 1
-    
+
     return added_items

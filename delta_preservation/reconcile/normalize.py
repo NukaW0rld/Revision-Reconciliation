@@ -57,8 +57,14 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     numeric_tokens = []
     
     # General numeric values (without word boundary to catch Ø8, R2.5, etc.)
-    numeric_matches = re.findall(r'\d+\.?\d*', norm_text)
-    for match in numeric_matches:
+    # Pattern matches:
+    #   \d+\.?\d*   — standard decimal numbers (e.g., "0.750", "1.25", "120")
+    #   \.\d+       — leading-decimal numbers (e.g., ".750", ".010")
+    # Leading-decimal numbers are common in inch-unit engineering drawings
+    # (e.g., ".750" = 0.750 inch).  They must be normalized to their float value
+    # so that ".750" and "0.750" compare equal.
+    numeric_raw = re.findall(r'\d+\.?\d*|\.\d+', norm_text)
+    for match in numeric_raw:
         try:
             numeric_tokens.append((float(match), match))
         except ValueError:
