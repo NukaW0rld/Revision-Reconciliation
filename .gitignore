@@ -19,3 +19,6 @@ out/
 .claude/
 CLAUDE.md
 AGENTS.md
+
+# GSD
+.planning/
