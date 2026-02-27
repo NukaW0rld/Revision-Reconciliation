@@ -211,6 +211,28 @@ def expand_bbox_with_adjacent_spans(
     )
 
 
+def expand_bbox_coverage(
+    bbox: Tuple[float, float, float, float],
+    scale_factor: float = 2.0
+) -> Tuple[float, float, float, float]:
+    """
+    Expand a bbox by a scale factor while preserving its center.
+
+    Args:
+        bbox: Bounding box (x0, y0, x1, y1) in PDF coordinates
+        scale_factor: Factor to multiply width and height (2.0 = double coverage)
+
+    Returns:
+        Expanded bounding box with the same center point
+    """
+    x0, y0, x1, y1 = bbox
+    cx = (x0 + x1) / 2
+    cy = (y0 + y1) / 2
+    half_w = (x1 - x0) / 2 * scale_factor
+    half_h = (y1 - y0) / 2 * scale_factor
+    return (cx - half_w, cy - half_h, cx + half_w, cy + half_h)
+
+
 def normalize_snippet_size(
     revA_bbox: Tuple[float, float, float, float],
     revB_bbox: Tuple[float, float, float, float]

@@ -34,6 +34,7 @@ from delta_preservation.vision.bbox_utils import (
     compute_combined_evidence_bbox,
     expand_bbox_with_adjacent_spans,
     normalize_snippet_size,
+    expand_bbox_coverage,
     union_bbox,
     find_best_span_for_requirement,
     expand_notes_block
@@ -413,6 +414,12 @@ def run_pipeline(
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:
             revA_bbox_pdf, revB_bbox_pdf = normalize_snippet_size(revA_bbox_pdf, revB_bbox_pdf)
+
+        # --- Expand snippet bboxes to 2x coverage for more context ---
+        if revA_bbox_pdf is not None:
+            revA_bbox_pdf = expand_bbox_coverage(revA_bbox_pdf, scale_factor=2.0)
+        if revB_bbox_pdf is not None:
+            revB_bbox_pdf = expand_bbox_coverage(revB_bbox_pdf, scale_factor=2.0)
 
         # --- Generate Rev A snippet ---
         if revA_bbox_pdf is not None:
