@@ -1,4 +1,4 @@
-# Delta Preservation v0.1
+# Delta Preservation
 
 **Advanced characteristic identity preservation across engineering drawing revisions**
 
@@ -22,25 +22,10 @@ Our **8-stage reconciliation pipeline** combines computer vision, spatial transf
 2. **Balloon Detection** - Hybrid PDF text + computer vision approach for characteristic markers
 3. **Text Extraction** - Precise coordinate mapping of requirement annotations
 4. **Anchor Building** - Link Form 3 requirements to Rev A spatial locations
-5. **Alignment Estimation** - Homography-based geometric transformation
+5. **Alignment Estimation** - ORB feature matching + RANSAC homography; text-span fallback for near-identity transforms
 6. **Candidate Matching** - Multi-component scoring (location + semantic + context)
 7. **Delta Classification** - Intelligent unchanged/changed/removed/added decisions
 8. **Evidence Generation** - Visual snippets for human review and audit compliance
-
----
-
-## Performance Metrics
-
-### Part 1 (Stable Layout)
-- **~100% accuracy** across all classification categories
-- Handles minor annotation movement and formatting changes
-
-### Part 2 (Major Layout Shift)
-- **100% accuracy** detecting newly added characteristics
-- **73% accuracy** on true revision deltas (added/changed/removed detection)
-- **41% overall classification accuracy** including unchanged features under major layout shifts
-
-*Performance measured on real-world aerospace drawing pairs with ground truth validation.*
 
 ---
 
@@ -136,8 +121,9 @@ out/<part_name>_<timestamp>_<hash>/
 │   ├── char_001_revA_p0.png   # Rev A evidence snippets
 │   ├── char_001_revB_p0.png   # Rev B evidence snippets
 │   └── ...
-└── intermediate/               # Debug artifacts
-    └── form3_chars.json       # Parsed Form 3 data
+└── debug/                      # Debug artifacts
+    ├── form3_chars.json        # Parsed Form 3 data
+    └── tolerance_parsing_tests.json  # Per-characteristic tolerance debug data
 ```
 
 ### Delta Packet Structure
@@ -193,7 +179,7 @@ The `delta_packet.json` contains structured results with full traceability:
 - **Circle validation** to reduce false positives from non-balloon text
 
 ### Advanced Spatial Matching
-- **Homography-based alignment** to handle scaling and perspective changes
+- **Hybrid alignment** using ORB feature matching + RANSAC homography, with text-span-based fallback when ORB produces a near-identity transform
 - **Multi-component candidate scoring** (location + semantic + spatial context)
 - **Intelligent search radius adaptation** for major layout variations
 
