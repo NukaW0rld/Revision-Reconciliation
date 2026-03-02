@@ -18,7 +18,8 @@ out/
 # Claude
 .claude/
 CLAUDE.md
-AGENTS.md
 
-# GSD
-.planning/
+
+# Git
+.git/
+.gitignore
