@@ -29,7 +29,17 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. First admin login triggers the setup wizard; the wizard cannot be dismissed until shop name, admin password, first engineer account, and Form 3 column mapping are complete
   4. Admin can upload a sample Form 3 Excel and map columns to char_no, requirement, and reference location via a UI; fatal file errors surface before the mapping screen; minor mapping issues surface in the mapping UI
   5. Shop runs via `docker compose up` with no external services and no outbound internet access required; all dependencies are bundled in the image
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Test infrastructure scaffold (pytest config, conftest, test stubs)
+- [ ] 01-02-PLAN.md — Core shop package: DB models, auth service, app factory, dependencies
+- [ ] 01-03-PLAN.md — Auth routes: login/logout/session + HTMX base template + static assets
+- [ ] 01-04-PLAN.md — Admin user management: create/view/deactivate engineers + RBAC enforcement
+- [ ] 01-05-PLAN.md — Setup wizard middleware guard + steps 1-3 (shop name, password, engineer)
+- [ ] 01-06-PLAN.md — Wizard step 4: Form 3 column mapping UI + admin settings reconfiguration
+- [ ] 01-07-PLAN.md — Docker multi-stage build: Tailwind/DaisyUI compile + uv runtime + docker-compose
+- [ ] 01-08-PLAN.md — Deploy checkpoint: automated suite + human Docker verification
 
 ### Phase 2: Pipeline Bridge
 **Goal**: Engineers can submit a drawing comparison run and watch it progress stage by stage to completion or failure, with upload validation catching bad files before the pipeline starts
@@ -70,11 +80,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/8 | Planning done | - |
 | 2. Pipeline Bridge | 0/TBD | Not started | - |
 | 3. Review and Sign-Off | 0/TBD | Not started | - |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |
