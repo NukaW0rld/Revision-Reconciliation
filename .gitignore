@@ -19,7 +19,9 @@ out/
 .claude/
 CLAUDE.md
 
-
 # Git
 .git/
 .gitignore
+
+# GSD
+.planning/

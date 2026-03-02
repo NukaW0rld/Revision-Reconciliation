@@ -138,23 +138,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 through AUTH-06 | Phase 1 | Pending |
-| SETUP-01 through SETUP-04 | Phase 1 | Pending |
-| DEPLOY-01 through DEPLOY-03 | Phase 1 | Pending |
-| UPLOAD-01 through UPLOAD-05 | Phase 2 | Pending |
-| PIPE-01 through PIPE-11 | Phase 2 | Pending |
-| REVIEW-01 through REVIEW-07 | Phase 3 | Pending |
-| SIGNOFF-01 through SIGNOFF-03 | Phase 3 | Pending |
-| PACKET-01 through PACKET-03 | Phase 4 | Pending |
-| WORK-01 through WORK-04 | Phase 4 | Pending |
-| HISTORY-01 through HISTORY-04 | Phase 4 | Pending |
-| AMEND-01 through AMEND-03 | Phase 4 | Pending |
+| AUTH-01 through AUTH-06 | Phase 1 — Foundation | Pending |
+| SETUP-01 through SETUP-04 | Phase 1 — Foundation | Pending |
+| DEPLOY-01 through DEPLOY-03 | Phase 1 — Foundation | Pending |
+| UPLOAD-01 through UPLOAD-05 | Phase 2 — Pipeline Bridge | Pending |
+| PIPE-01 through PIPE-11 | Phase 2 — Pipeline Bridge | Pending |
+| REVIEW-01 through REVIEW-07 | Phase 3 — Review and Sign-Off | Pending |
+| SIGNOFF-01 through SIGNOFF-03 | Phase 3 — Review and Sign-Off | Pending |
+| PACKET-01 through PACKET-03 | Phase 4 — Exports, History, and Amendments | Pending |
+| WORK-01 through WORK-04 | Phase 4 — Exports, History, and Amendments | Pending |
+| HISTORY-01 through HISTORY-04 | Phase 4 — Exports, History, and Amendments | Pending |
+| AMEND-01 through AMEND-03 | Phase 4 — Exports, History, and Amendments | Pending |
 
 **Coverage:**
-- v1 requirements: 48 total
-- Mapped to phases: 48
-- Unmapped: 0 ✓
+- v1 requirements: 53 total
+- Mapped to phases: 53
+- Unmapped: 0
+
+**By phase:**
+- Phase 1 (Foundation): AUTH-01..06, SETUP-01..04, DEPLOY-01..03 = 13 requirements
+- Phase 2 (Pipeline Bridge): UPLOAD-01..05, PIPE-01..11 = 16 requirements
+- Phase 3 (Review and Sign-Off): REVIEW-01..07, SIGNOFF-01..03 = 10 requirements
+- Phase 4 (Exports, History, and Amendments): PACKET-01..03, WORK-01..04, HISTORY-01..04, AMEND-01..03 = 14 requirements
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Last updated: 2026-03-01 after roadmap creation*
