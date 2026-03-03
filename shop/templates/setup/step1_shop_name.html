@@ -1,0 +1,12 @@
+{% extends "setup/wizard_layout.html" %}
+{% block step_content %}
+<h2 class="text-xl font-bold mb-4">Step 1: Shop Name</h2>
+<form method="post" action="/setup/step1">
+    <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Shop Name</span></label>
+        <input type="text" name="shop_name" class="input input-bordered"
+               value="{{ config.shop_name or '' }}" required placeholder="e.g. Acme Quality Lab">
+    </div>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+</form>
+{% endblock %}

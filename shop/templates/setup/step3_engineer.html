@@ -1,0 +1,15 @@
+{% extends "setup/wizard_layout.html" %}
+{% block step_content %}
+<h2 class="text-xl font-bold mb-4">Step 3: Create First Engineer Account</h2>
+<form method="post" action="/setup/step3">
+    <div class="form-control mb-3">
+        <label class="label"><span class="label-text">Engineer Email</span></label>
+        <input type="email" name="engineer_email" class="input input-bordered" required>
+    </div>
+    <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Temporary Password</span></label>
+        <input type="password" name="engineer_password" class="input input-bordered" required minlength="8">
+    </div>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+</form>
+{% endblock %}
