@@ -116,6 +116,15 @@ None - no external service configuration required.
 - Ready for Plan 05 (setup wizard) and Phase 2 feature work
 - HTMX partial pattern established for future inline UI interactions
 
+## Self-Check: PASSED
+
+- shop/routers/admin.py: FOUND
+- shop/templates/admin/users.html: FOUND
+- shop/templates/admin/users_row.html: FOUND
+- 01-04-SUMMARY.md: FOUND
+- Commit b2ec4ee (templates): FOUND
+- Commit 756e930 (admin router): FOUND
+
 ---
 *Phase: 01-foundation*
 *Completed: 2026-03-03*

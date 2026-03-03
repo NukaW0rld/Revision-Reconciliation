@@ -12,7 +12,7 @@ The existing Python pipeline is the computation core. This roadmap builds the pr
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Running Docker container with FastAPI, SQLite, auth, roles, setup wizard, and deployment configuration
+- [x] **Phase 1: Foundation** - Running Docker container with FastAPI, SQLite, auth, roles, setup wizard, and deployment configuration (completed 2026-03-03)
 - [ ] **Phase 2: Pipeline Bridge** - File upload, validation, async job queue, stage-by-stage pipeline progress, and run status tracking
 - [ ] **Phase 3: Review and Sign-Off** - Per-item review queue with image evidence, approve/override with mandatory notes, hard sign-off gate, and atomic audit packet generation
 - [ ] **Phase 4: Exports, History, and Amendments** - Partial FAI work order, run history with reopen and re-download, admin retention controls, and amendment model with versioned packets
@@ -84,7 +84,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 7/8 | In Progress|  |
+| 1. Foundation | 8/8 | Complete   | 2026-03-03 |
 | 2. Pipeline Bridge | 0/TBD | Not started | - |
 | 3. Review and Sign-Off | 0/TBD | Not started | - |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |

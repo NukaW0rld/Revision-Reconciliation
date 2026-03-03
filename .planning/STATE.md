@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-03T03:09:56.150Z"
+status: phase-complete
+last_updated: "2026-03-03T16:07:36Z"
 progress:
-  total_phases: 1
-  completed_phases: 0
+  total_phases: 4
+  completed_phases: 1
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -18,33 +18,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Every characteristic classification is confirmed by a human engineer with image evidence before the change packet becomes an audit artifact — the system accelerates the review, never bypasses it.
-**Current focus:** Phase 1 — Foundation
+**Current focus:** Phase 2 — Pipeline Integration
 
 ## Current Position
 
-Phase: 1 of 4 (Foundation)
-Plan: 7 of 8 in current phase
-Status: In progress
-Last activity: 2026-03-03 — Plan 01-07 complete: Docker multi-stage build (Node tailwind, uv builder, python:3.11-slim runtime), docker-compose volume mounts, admin-seeding entrypoint
+Phase: 1 of 4 (Foundation) — COMPLETE
+Plan: 8 of 8 in Phase 1 — all plans complete
+Status: Phase 1 complete; ready for Phase 2
+Last activity: 2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified
 
-Progress: [███████░░░] 21%
+Progress: [██████████░░░░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 7 min
-- Total execution time: 37 min
+- Total plans completed: 8
+- Average duration: ~13 min (includes 01-08 human verification time)
+- Total execution time: ~6h 45min (41 min automated + ~6h human Docker verification)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 7 | 41 min | 6 min |
+| 1. Foundation | 8 | ~6h 45min | ~50 min (incl. human gate) |
 
 **Recent Trend:**
-- Last 7 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min), 01-05 (2 min), 01-06 (3 min), 01-07 (4 min)
-- Trend: -
+- Last 8 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min), 01-05 (2 min), 01-06 (3 min), 01-07 (4 min), 01-08 (~6h human gate)
+- Trend: Phase 1 complete
 
 *Updated after each plan completion*
 
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - [01-07]: Node.js confined to tailwind-builder stage only — not present in runtime image (DEPLOY-03)
 - [01-07]: DATABASE_URL env var in database.py enables Docker volume path override without code changes
 - [01-07]: Admin seed is idempotent — checks for existing admin role before inserting
+- [01-08]: Root redirect GET / -> /login added to auth router (co-located with auth entry-point logic)
+- [01-08]: Admin email displayed on wizard step 2 from ShopConfig.admin_email to prevent first-run confusion
+- [01-08]: Role-gated dashboard navigation via Jinja2 conditional on request.state.user.role — no JavaScript needed
+- [01-08]: Human verification approved with note "revisions to the process will need to be made in the future" — UX iteration deferred to Phase 2
 
 ### Pending Todos
 
@@ -91,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Plan 01-07 complete — Docker multi-stage build, docker-compose.yml, admin-seeding run_web.py entrypoint
+Stopped at: Plan 01-08 complete — Docker e2e human verification approved; Phase 1 Foundation complete
 Resume file: None

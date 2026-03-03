@@ -138,9 +138,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 through AUTH-06 | Phase 1 — Foundation | Pending |
-| SETUP-01 through SETUP-04 | Phase 1 — Foundation | Pending |
-| DEPLOY-01 through DEPLOY-03 | Phase 1 — Foundation | Pending |
+| AUTH-01 through AUTH-06 | Phase 1 — Foundation | Complete |
+| SETUP-01 through SETUP-04 | Phase 1 — Foundation | Complete |
+| DEPLOY-01 through DEPLOY-03 | Phase 1 — Foundation | Complete |
 | UPLOAD-01 through UPLOAD-05 | Phase 2 — Pipeline Bridge | Pending |
 | PIPE-01 through PIPE-11 | Phase 2 — Pipeline Bridge | Pending |
 | REVIEW-01 through REVIEW-07 | Phase 3 — Review and Sign-Off | Pending |
