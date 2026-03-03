@@ -1,6 +1,6 @@
 """
-Admin user management tests: AUTH-04 (create/deactivate engineer).
-Tests written TDD-style — RED first, then implementation makes them GREEN.
+Admin user management tests: AUTH-01, AUTH-04 (create/deactivate engineer).
+Tests written TDD-style for Plan 04 — admin router implementation.
 """
 from datetime import datetime, timedelta
 from sqlalchemy.orm import sessionmaker

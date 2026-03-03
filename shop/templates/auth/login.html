@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Log In{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center">
+    <div class="card w-96 bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Delta Preservation</h2>
+            {% if error %}
+            <div class="alert alert-error mb-4">
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+            <form method="post" action="/login">
+                <div class="form-control mb-3">
+                    <label class="label"><span class="label-text">Email</span></label>
+                    <input type="email" name="email" class="input input-bordered" required autofocus>
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Password</span></label>
+                    <input type="password" name="password" class="input input-bordered" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Log In</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

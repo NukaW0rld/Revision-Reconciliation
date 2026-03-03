@@ -28,7 +28,38 @@ def db_engine():
 
 @pytest.fixture(scope="function")
 def client(db_engine):
-    """Return a TestClient with the FastAPI app wired to the in-memory DB."""
+    """Return a TestClient with the FastAPI app wired to the in-memory DB.
+
+    Seeds setup_complete=True so SetupGuardMiddleware does not block route tests.
+    Passes TestingSessionLocal to create_app so the middleware uses the test DB.
+    Route tests for /setup/... use the `client_setup_incomplete` fixture instead.
+    """
+    TestingSessionLocal = sessionmaker(bind=db_engine)
+
+    # Seed setup_complete=True so middleware does not redirect during auth/admin tests
+    db = TestingSessionLocal()
+    try:
+        db.add(ShopConfig(setup_complete=True, wizard_step=0))
+        db.commit()
+    finally:
+        db.close()
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app = create_app(session_factory=TestingSessionLocal)
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+
+
+@pytest.fixture(scope="function")
+def client_setup_incomplete(db_engine):
+    """Return a TestClient where setup_complete=False (tests setup wizard middleware)."""
     TestingSessionLocal = sessionmaker(bind=db_engine)
 
     def override_get_db():
@@ -38,7 +69,7 @@ def client(db_engine):
         finally:
             db.close()
 
-    app = create_app()
+    app = create_app(session_factory=TestingSessionLocal)
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c

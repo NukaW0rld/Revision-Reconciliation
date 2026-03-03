@@ -10,18 +10,28 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message
 templates = Jinja2Templates(directory="shop/templates")
 
 
-def create_app() -> FastAPI:
+def create_app(session_factory=None) -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Args:
+        session_factory: Optional SQLAlchemy session factory for test isolation.
+            When provided, SetupGuardMiddleware checks this DB instead of the
+            global SessionLocal (shop.db).
+    """
     app = FastAPI(title="Delta Preservation")
-    # Create all DB tables on startup (Base.metadata.create_all)
+    # Create all DB tables on startup
     Base.metadata.create_all(bind=engine)
     # Middleware (outermost registered = executes last)
-    app.add_middleware(SetupGuardMiddleware)
+    app.add_middleware(SetupGuardMiddleware, session_factory=session_factory)
     # Static files
     try:
         app.mount("/static", StaticFiles(directory="static"), name="static")
     except RuntimeError:
         pass  # static/ dir may not exist in tests
-    # Routers registered by subsequent plans (03-05)
+    # Routers
+    from shop.routers import auth, admin
+    app.include_router(auth.router)
+    app.include_router(admin.router, prefix="/admin")
     return app
 
 

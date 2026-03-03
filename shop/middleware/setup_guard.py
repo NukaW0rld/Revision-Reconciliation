@@ -11,12 +11,14 @@ logger = logging.getLogger(__name__)
 SETUP_EXEMPT_PATHS = {"/setup", "/login", "/logout", "/static", "/favicon.ico"}
 
 
-def _is_setup_complete() -> bool:
+def _is_setup_complete(session_factory=None) -> bool:
     """Check shop_config table for setup_complete flag.
 
     Returns False if no row exists (treat as setup incomplete).
+    Accepts an optional session_factory for test isolation.
     """
-    db = SessionLocal()
+    factory = session_factory if session_factory is not None else SessionLocal
+    db = factory()
     try:
         config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()
         if config is None:
@@ -35,7 +37,17 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
     Handles HTMX requests differently from plain browser navigations:
     - HTMX: return HTTP 200 with HX-Redirect header (302 would cause partial DOM swap)
     - Browser: return 302 RedirectResponse
+
+    Args:
+        app: The ASGI application.
+        session_factory: Optional SQLAlchemy session factory. When provided (e.g. in
+            tests), the middleware checks the provided DB instead of the global
+            SessionLocal (which connects to shop.db).
     """
+
+    def __init__(self, app, session_factory=None):
+        super().__init__(app)
+        self._session_factory = session_factory
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -44,8 +56,8 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(exempt) for exempt in SETUP_EXEMPT_PATHS):
             return await call_next(request)
 
-        # Check if setup is complete
-        if not _is_setup_complete():
+        # Check if setup is complete (pass factory for test isolation)
+        if not _is_setup_complete(self._session_factory):
             redirect_url = "/setup/step1"
             is_htmx = request.headers.get("HX-Request") == "true"
             if is_htmx:
