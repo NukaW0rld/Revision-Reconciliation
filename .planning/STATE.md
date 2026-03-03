@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 3 of 8 in current phase
+Plan: 4 of 8 in current phase
 Status: In progress
-Last activity: 2026-03-03 — Plan 01-03 complete: auth routes (login/logout/dashboard), base Jinja2 template, HTMX bundled locally
+Last activity: 2026-03-03 — Plan 01-04 complete: admin router (create/list/deactivate engineers), DaisyUI HTMX templates
 
-Progress: [███░░░░░░░] 9%
+Progress: [████░░░░░░] 12%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 7 min
-- Total execution time: 24 min
+- Total plans completed: 4
+- Average duration: 8 min
+- Total execution time: 32 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 3 | 24 min | 8 min |
+| 1. Foundation | 4 | 32 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min)
+- Last 5 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -54,6 +54,9 @@ Recent decisions affecting current work:
 - [01-03]: Standard HTML POST (not HTMX POST) for login/logout — browser follows 302 redirect natively; HTMX intercepts redirects as partial DOM swaps causing broken navigation
 - [01-03]: Router imports deferred inside create_app() body to break circular import (auth.py imports templates from shop.app; shop.app imports auth.router)
 - [01-03]: HTMX 2.x and htmx-sse bundled locally via curl from unpkg — no CDN dependency at runtime (DEPLOY-03)
+- [01-04]: TemplateResponse uses new Starlette 0.52 signature (request first) matching auth.py convention throughout codebase
+- [01-04]: Deactivation is soft-delete only (is_active=False) — user record preserved for audit trail
+- [01-04]: hx-confirm for browser-native deactivation confirm dialog — no custom JavaScript needed
 
 ### Pending Todos
 
@@ -67,5 +70,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Plan 01-03 complete — auth routes (login/logout/dashboard), base template, HTMX bundled locally
+Stopped at: Plan 01-04 complete — admin router (create/list/deactivate engineers), HTMX templates
 Resume file: None
