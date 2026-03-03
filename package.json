@@ -1,0 +1,12 @@
+{
+  "name": "delta-preservation-ui",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "tailwindcss": "^4.0.0",
+    "daisyui": "^5.0.0"
+  },
+  "scripts": {
+    "build:css": "npx tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify"
+  }
+}
