@@ -11,19 +11,19 @@ Requirements for initial release. Each maps to a roadmap phase.
 
 ### Authentication (AUTH)
 
-- [ ] **AUTH-01**: User can create an account with email and password (admin-initiated; no self-registration)
-- [ ] **AUTH-02**: User can log in and maintain a session across browser refresh
-- [ ] **AUTH-03**: User can log out from any page
-- [ ] **AUTH-04**: Admin can create, view, and deactivate engineer accounts
-- [ ] **AUTH-05**: Admin role can access shop configuration; engineer role cannot
-- [ ] **AUTH-06**: Reviewer name and timestamp are permanently attached to every approve, override, and sign-off action
+- [x] **AUTH-01**: User can create an account with email and password (admin-initiated; no self-registration)
+- [x] **AUTH-02**: User can log in and maintain a session across browser refresh
+- [x] **AUTH-03**: User can log out from any page
+- [x] **AUTH-04**: Admin can create, view, and deactivate engineer accounts
+- [x] **AUTH-05**: Admin role can access shop configuration; engineer role cannot
+- [x] **AUTH-06**: Reviewer name and timestamp are permanently attached to every approve, override, and sign-off action
 
 ### Shop Setup (SETUP)
 
-- [ ] **SETUP-01**: First admin login triggers an undismissable setup wizard (shop name, admin password, first engineer account, Form 3 column mapping sample upload)
-- [ ] **SETUP-02**: Admin can upload a sample Form 3 Excel and map columns to expected fields (char_no, requirement, reference location) via a UI mapping interface
-- [ ] **SETUP-03**: Fatal upload errors (unreadable file, empty sheet) are caught before the mapping UI is shown; minor column-mapping issues surface in the mapping UI itself
-- [ ] **SETUP-04**: System accepts non-contiguous or non-standard characteristic numbering without normalization
+- [x] **SETUP-01**: First admin login triggers an undismissable setup wizard (shop name, admin password, first engineer account, Form 3 column mapping sample upload)
+- [x] **SETUP-02**: Admin can upload a sample Form 3 Excel and map columns to expected fields (char_no, requirement, reference location) via a UI mapping interface
+- [x] **SETUP-03**: Fatal upload errors (unreadable file, empty sheet) are caught before the mapping UI is shown; minor column-mapping issues surface in the mapping UI itself
+- [x] **SETUP-04**: System accepts non-contiguous or non-standard characteristic numbering without normalization
 
 ### File Upload & Input (UPLOAD)
 
@@ -91,9 +91,9 @@ Requirements for initial release. Each maps to a roadmap phase.
 
 ### Deployment (DEPLOY)
 
-- [ ] **DEPLOY-01**: Application runs via `docker compose up` from a single `docker-compose.yml`; no external services required beyond what is bundled in the Docker image
+- [x] **DEPLOY-01**: Application runs via `docker compose up` from a single `docker-compose.yml`; no external services required beyond what is bundled in the Docker image
 - [ ] **DEPLOY-02**: All pipeline dependencies (PyMuPDF, OpenCV, NumPy) and web dependencies (FastAPI, Dramatiq, WeasyPrint) are bundled in the Docker image
-- [ ] **DEPLOY-03**: Application functions in an air-gapped shop network with no outbound internet access required at runtime
+- [x] **DEPLOY-03**: Application functions in an air-gapped shop network with no outbound internet access required at runtime
 
 ---
 

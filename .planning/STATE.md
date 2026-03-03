@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 2 of 8 in current phase
+Plan: 3 of 8 in current phase
 Status: In progress
-Last activity: 2026-03-03 — Plan 01-02 complete: core shop/ package (DB models, auth service, app factory, dependencies, middleware)
+Last activity: 2026-03-03 — Plan 01-03 complete: auth routes (login/logout/dashboard), base Jinja2 template, HTMX bundled locally
 
-Progress: [██░░░░░░░░] 6%
+Progress: [███░░░░░░░] 9%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 4.5 min
-- Total execution time: 9 min
+- Total plans completed: 3
+- Average duration: 7 min
+- Total execution time: 24 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 2 | 9 min | 4.5 min |
+| 1. Foundation | 3 | 24 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2 min), 01-02 (7 min)
+- Last 5 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - [01-02]: secrets.token_urlsafe(32) chosen over itsdangerous for session tokens — DB is authority, signing overhead unnecessary for this threat model
 - [01-02]: bcrypt pinned <5.0.0 to avoid HasherNotAvailable bug in pwdlib 0.3.0 when bcrypt 5.x removes __about__
 - [01-02]: Routers NOT registered in app.py — Plans 03-05 register auth, setup, admin routers respectively
+- [01-03]: Standard HTML POST (not HTMX POST) for login/logout — browser follows 302 redirect natively; HTMX intercepts redirects as partial DOM swaps causing broken navigation
+- [01-03]: Router imports deferred inside create_app() body to break circular import (auth.py imports templates from shop.app; shop.app imports auth.router)
+- [01-03]: HTMX 2.x and htmx-sse bundled locally via curl from unpkg — no CDN dependency at runtime (DEPLOY-03)
 
 ### Pending Todos
 
@@ -64,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Plan 01-02 complete — core shop/ package implemented (DB models, auth service, app factory, dependencies, middleware)
+Stopped at: Plan 01-03 complete — auth routes (login/logout/dashboard), base template, HTMX bundled locally
 Resume file: None
