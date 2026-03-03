@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<div class="container mx-auto p-8">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">User Management</h1>
+        <a href="/dashboard" class="btn btn-outline btn-sm">Back to Dashboard</a>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-error mb-4">
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="card bg-base-100 shadow mb-8">
+        <div class="card-body p-0">
+            <table id="users-table" class="table w-full">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr id="user-{{ user.id }}">
+                        <td>{{ user.email }}</td>
+                        <td>
+                            <span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if user.is_active %}badge-success{% else %}badge-error{% endif %}">
+                                {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if user.role == 'engineer' and user.is_active %}
+                            <button class="btn btn-xs btn-warning"
+                                hx-post="/admin/users/{{ user.id }}/deactivate"
+                                hx-target="closest tr"
+                                hx-swap="outerHTML"
+                                hx-confirm="Deactivate {{ user.email }}?">
+                                Deactivate
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+        <div class="card-body">
+            <h2 class="card-title">Add Engineer</h2>
+            <form hx-post="/admin/users"
+                  hx-target="#users-table tbody"
+                  hx-swap="beforeend"
+                  class="space-y-4">
+                <input type="hidden" name="role" value="engineer">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Email</span></label>
+                    <input type="email" name="email" required
+                           class="input input-bordered" placeholder="engineer@example.com">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Password</span></label>
+                    <input type="password" name="password" required minlength="8"
+                           class="input input-bordered" placeholder="Min 8 characters">
+                </div>
+                <button type="submit" class="btn btn-primary">Create Engineer</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
