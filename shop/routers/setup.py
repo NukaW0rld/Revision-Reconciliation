@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, Depends, Form, Request
+from io import BytesIO
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from shop.app import templates
 from shop.dependencies import get_db
 from shop.models import ShopConfig, User
 from shop.services.auth import hash_password
+from shop.services.form3 import parse_excel_preview, REQUIRED_FIELDS
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -161,3 +163,79 @@ def step3_post(
         config.wizard_step = 3
         db.commit()
     return _step_redirect(4)
+
+
+@router.get("/step4", response_class=HTMLResponse)
+def step4_get(request: Request, db: Session = Depends(get_db)):
+    config = _get_or_create_config(db)
+    if config.wizard_step < 3:
+        return _step_redirect(config.wizard_step + 1)
+    return templates.TemplateResponse(
+        request,
+        "setup/step4_column_mapping.html",
+        {"config": config, "current_step": 4},
+    )
+
+
+@router.post("/step4/upload", response_class=HTMLResponse)
+async def step4_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    content = await file.read()
+    try:
+        headers, preview_rows, detected = parse_excel_preview(content)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "setup/step4_error.html",
+            {"error": str(exc)},
+            status_code=200,
+        )
+    return templates.TemplateResponse(
+        request,
+        "setup/step4_mapping_partial.html",
+        {
+            "headers": headers,
+            "preview_rows": preview_rows,
+            "detected": detected,
+            "required_fields": REQUIRED_FIELDS,
+            "form_action": "/setup/step4/save",
+        },
+        status_code=200,
+    )
+
+
+@router.post("/step4/save")
+async def step4_save(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    form_data = await request.form()
+    mapping: dict[str, int] = {}
+    for field in REQUIRED_FIELDS:
+        val = form_data.get(field)
+        if val and val != "ignore":
+            try:
+                mapping[field] = int(val)
+            except ValueError:
+                pass
+    # Validate minimum required fields
+    if "char_no" not in mapping or "requirement" not in mapping:
+        config = _get_or_create_config(db)
+        return templates.TemplateResponse(
+            request,
+            "setup/step4_column_mapping.html",
+            {
+                "config": config,
+                "current_step": 4,
+                "error": "char_no and requirement columns must be mapped before saving.",
+            },
+        )
+    config = _get_or_create_config(db)
+    config.column_mapping = mapping
+    config.wizard_step = 4
+    config.setup_complete = True
+    db.commit()
+    return RedirectResponse("/dashboard", status_code=302)
