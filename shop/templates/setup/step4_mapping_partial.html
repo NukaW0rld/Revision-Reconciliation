@@ -1,0 +1,67 @@
+{% set detected_by_col = {} %}
+{% for field, col_idx in detected.items() %}
+  {% if detected_by_col.update({col_idx: field}) %}{% endif %}
+{% endfor %}
+
+<form method="post" action="{{ form_action }}">
+    <div class="overflow-x-auto mb-4">
+        <table class="table table-sm w-full border border-base-300">
+            <thead>
+                <tr>
+                    {% for col_idx in range(headers|length) %}
+                    <th class="text-center min-w-[120px]">
+                        {% set matched_field = detected_by_col.get(col_idx) %}
+                        {% if matched_field %}
+                        <select name="{{ matched_field }}"
+                                class="select select-bordered select-sm w-full"
+                                data-col="{{ col_idx }}">
+                            <option value="ignore">(ignore)</option>
+                            {% for field in required_fields %}
+                            <option value="{{ field }}"
+                                {% if matched_field == field %}selected{% endif %}>
+                                {{ field }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <select name="col_{{ col_idx }}"
+                                class="select select-bordered select-sm w-full bg-amber-100 border-amber-400"
+                                data-col="{{ col_idx }}">
+                            <option value="ignore" selected>(ignore)</option>
+                            {% for field in required_fields %}
+                            <option value="{{ field }}">{{ field }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                </tr>
+                <tr class="bg-base-200">
+                    {% for header in headers %}
+                    <th class="text-center font-semibold text-xs">
+                        {{ header if header is not none else "(empty)" }}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr>
+                    {% for cell in row %}
+                    <td class="text-center text-sm">
+                        {{ cell if cell is not none else "" }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-sm text-base-content/60 mb-3">
+        <span class="inline-block w-3 h-3 bg-amber-100 border border-amber-400 rounded mr-1"></span>
+        Amber columns were not auto-detected. Select the matching field or leave as (ignore).
+    </div>
+
+    <button type="submit" class="btn btn-primary w-full">Save Column Mapping</button>
+</form>
