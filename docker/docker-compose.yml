@@ -1,0 +1,19 @@
+version: "3.9"
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent data: SQLite DB and pipeline outputs
+      - ../data/shop.db:/app/shop.db
+      - ../data/out:/app/out
+    environment:
+      # Default admin credentials — CHANGE IN PRODUCTION via .env or env override
+      ADMIN_EMAIL: admin@shop.local
+      ADMIN_DEFAULT_PASSWORD: changeme
+      # SQLite database path (must match volume mount)
+      DATABASE_URL: sqlite:////app/shop.db
+    restart: unless-stopped
