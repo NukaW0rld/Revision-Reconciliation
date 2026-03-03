@@ -152,11 +152,10 @@ async def settings_save(
 
     form_data = await request.form()
     mapping: dict[str, int] = {}
-    for field in REQUIRED_FIELDS:
-        val = form_data.get(field)
-        if val and val != "ignore":
+    for key, val in form_data.multi_items():
+        if key.startswith("col_") and val and val != "ignore" and val in REQUIRED_FIELDS:
             try:
-                mapping[field] = int(val)
+                mapping[val] = int(key[4:])
             except ValueError:
                 pass
     config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()

@@ -11,11 +11,10 @@
                     {% for col_idx in range(headers|length) %}
                     <th class="text-center min-w-[120px]">
                         {% set matched_field = detected_by_col.get(col_idx) %}
-                        {% if matched_field %}
-                        <select name="{{ matched_field }}"
-                                class="select select-bordered select-sm w-full"
+                        <select name="col_{{ col_idx }}"
+                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-amber-100 border-amber-400{% endif %}"
                                 data-col="{{ col_idx }}">
-                            <option value="ignore">(ignore)</option>
+                            <option value="ignore" {% if not matched_field %}selected{% endif %}>(ignore)</option>
                             {% for field in required_fields %}
                             <option value="{{ field }}"
                                 {% if matched_field == field %}selected{% endif %}>
@@ -23,16 +22,6 @@
                             </option>
                             {% endfor %}
                         </select>
-                        {% else %}
-                        <select name="col_{{ col_idx }}"
-                                class="select select-bordered select-sm w-full bg-amber-100 border-amber-400"
-                                data-col="{{ col_idx }}">
-                            <option value="ignore" selected>(ignore)</option>
-                            {% for field in required_fields %}
-                            <option value="{{ field }}">{{ field }}</option>
-                            {% endfor %}
-                        </select>
-                        {% endif %}
                     </th>
                     {% endfor %}
                 </tr>
