@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["delta_preservation"]
+packages = ["delta_preservation", "shop", "shop.middleware", "shop.services"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
