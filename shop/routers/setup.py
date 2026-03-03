@@ -70,10 +70,11 @@ def step2_get(request: Request, db: Session = Depends(get_db)):
     config = _get_or_create_config(db)
     if config.wizard_step < 1:
         return _step_redirect(1)
+    admin = _get_admin(db)
     return templates.TemplateResponse(
         request,
         "setup/step2_password.html",
-        {"config": config, "current_step": 2},
+        {"config": config, "current_step": 2, "admin_email": admin.email if admin else None},
     )
 
 
@@ -87,6 +88,8 @@ def step2_post(
     config = _get_or_create_config(db)
     if config.wizard_step < 1:
         return _step_redirect(1)
+    admin = _get_admin(db)
+    admin_email = admin.email if admin else None
     if new_password != confirm_password:
         return templates.TemplateResponse(
             request,
@@ -94,6 +97,7 @@ def step2_post(
             {
                 "config": config,
                 "current_step": 2,
+                "admin_email": admin_email,
                 "error": "Passwords do not match",
             },
         )
@@ -104,10 +108,10 @@ def step2_post(
             {
                 "config": config,
                 "current_step": 2,
+                "admin_email": admin_email,
                 "error": "Cannot reuse the default password",
             },
         )
-    admin = _get_admin(db)
     if admin:
         admin.hashed_password = hash_password(new_password)
         db.commit()

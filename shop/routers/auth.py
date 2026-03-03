@@ -11,6 +11,11 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+@router.get("/", response_class=RedirectResponse)
+def root():
+    return RedirectResponse("/login", status_code=302)
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse(request, "auth/login.html")
