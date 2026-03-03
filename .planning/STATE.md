@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 4 of 8 in current phase
+Plan: 5 of 8 in current phase
 Status: In progress
-Last activity: 2026-03-03 — Plan 01-04 complete: admin router (create/list/deactivate engineers), DaisyUI HTMX templates
+Last activity: 2026-03-03 — Plan 01-05 complete: setup wizard router (steps 1-3), DaisyUI wizard templates, step ordering enforcement
 
-Progress: [████░░░░░░] 12%
+Progress: [█████░░░░░] 15%
 
 ## Performance Metrics
 
@@ -27,10 +27,10 @@ Progress: [████░░░░░░] 12%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 4 | 32 min | 8 min |
+| 1. Foundation | 5 | 34 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min)
+- Last 5 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min), 01-05 (2 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -57,6 +57,8 @@ Recent decisions affecting current work:
 - [01-04]: TemplateResponse uses new Starlette 0.52 signature (request first) matching auth.py convention throughout codebase
 - [01-04]: Deactivation is soft-delete only (is_active=False) — user record preserved for audit trail
 - [01-04]: hx-confirm for browser-native deactivation confirm dialog — no custom JavaScript needed
+- [01-05]: Wizard templates use standard HTML POST (not HTMX) — wizard is full-page flow; HTMX partial swaps conflict with browser back/forward and step validation redirects
+- [01-05]: step3 GET redirects to wizard_step+1 (computed), not hardcoded step2, for correct mid-wizard resume from any incomplete state
 
 ### Pending Todos
 
@@ -70,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Plan 01-04 complete — admin router (create/list/deactivate engineers), HTMX templates
+Stopped at: Plan 01-05 complete — setup wizard router (steps 1-3), wizard templates, step ordering enforcement
 Resume file: None
