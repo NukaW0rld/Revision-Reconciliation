@@ -13,7 +13,24 @@ dependencies = [
     "rapidfuzz",
     "pydantic>=2.5,<3.0",
     "pytest>=8,<9",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "sqlalchemy",
+    "pwdlib[bcrypt]",
+    "bcrypt>=4.0.0,<5.0.0",
+    "itsdangerous",
 ]
 
 [tool.setuptools]
 packages = ["delta_preservation"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
