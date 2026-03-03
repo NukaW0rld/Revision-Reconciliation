@@ -1,18 +1,133 @@
 """
-Admin user management tests: AUTH-04 (deactivate engineer).
-Stubs marked xfail until shop/ package (Plan 02+) exists.
+Admin user management tests: AUTH-04 (create/deactivate engineer).
+Tests written TDD-style — RED first, then implementation makes them GREEN.
 """
-import pytest
+from datetime import datetime, timedelta
+from sqlalchemy.orm import sessionmaker
+from shop.models import User, UserSession
+from shop.services.auth import hash_password
 
 
-@pytest.mark.xfail(strict=False, reason="shop/ not implemented yet — Wave 1+")
+def _make_session_cookie(db_engine, user: User) -> str:
+    """Insert a valid UserSession and return the token (simulates login)."""
+    import secrets
+    token = secrets.token_urlsafe(32)
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        sess = UserSession(
+            id=token,
+            user_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(hours=8),
+        )
+        db.add(sess)
+        db.commit()
+    finally:
+        db.close()
+    return token
+
+
+def _seed_engineer(db_engine) -> User:
+    """Seed an active engineer user and return the User object."""
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        user = User(
+            email="engineer@shop.local",
+            hashed_password=hash_password("password123"),
+            role="engineer",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
+def test_admin_list_users(client, admin_user, db_engine):
+    """AUTH-04: Admin can view the list of all users at GET /admin/users."""
+    token = _make_session_cookie(db_engine, admin_user)
+    resp = client.get("/admin/users", cookies={"session_token": token}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert admin_user.email in resp.text
+
+
+def test_create_engineer(client, admin_user, db_engine):
+    """AUTH-01: Admin can create an engineer account via POST /admin/users."""
+    token = _make_session_cookie(db_engine, admin_user)
+    resp = client.post(
+        "/admin/users",
+        data={"email": "new@shop.local", "password": "securepass", "role": "engineer"},
+        cookies={"session_token": token},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    # Verify row HTML is returned
+    assert "new@shop.local" in resp.text
+    # Verify user exists in DB
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        created = db.query(User).filter(User.email == "new@shop.local").first()
+        assert created is not None
+        assert created.is_active is True
+        assert created.role == "engineer"
+        assert created.created_at is not None
+    finally:
+        db.close()
+
+
+def test_create_engineer_duplicate_email(client, admin_user, db_engine):
+    """POST /admin/users with duplicate email returns 200 with error (no 500)."""
+    token = _make_session_cookie(db_engine, admin_user)
+    # First creation
+    client.post(
+        "/admin/users",
+        data={"email": "dupe@shop.local", "password": "pass12345"},
+        cookies={"session_token": token},
+        follow_redirects=False,
+    )
+    # Second creation — should return error partial, not 500
+    resp = client.post(
+        "/admin/users",
+        data={"email": "dupe@shop.local", "password": "pass12345"},
+        cookies={"session_token": token},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    assert "already exists" in resp.text.lower() or "dupe@shop.local" in resp.text
+
+
 def test_deactivate_engineer(client, admin_user, db_engine):
-    """AUTH-04: Admin can deactivate an engineer account.
+    """AUTH-04: Admin can deactivate an engineer account."""
+    engineer = _seed_engineer(db_engine)
+    token = _make_session_cookie(db_engine, admin_user)
 
-    Steps:
-    - Create an engineer user in the DB.
-    - Log in as admin.
-    - POST /admin/users/{id}/deactivate.
-    - Assert user.is_active=False in the DB.
-    """
-    raise NotImplementedError("shop/ not implemented yet")
+    resp = client.post(
+        f"/admin/users/{engineer.id}/deactivate",
+        cookies={"session_token": token},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+
+    # Verify is_active=False in DB
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        refreshed = db.query(User).filter(User.id == engineer.id).first()
+        assert refreshed.is_active is False
+    finally:
+        db.close()
+
+
+def test_deactivate_nonexistent_user(client, admin_user, db_engine):
+    """POST /admin/users/{id}/deactivate on non-existent id returns 404."""
+    token = _make_session_cookie(db_engine, admin_user)
+    resp = client.post(
+        "/admin/users/99999/deactivate",
+        cookies={"session_token": token},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 404
