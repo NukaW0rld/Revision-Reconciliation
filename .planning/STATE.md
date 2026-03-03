@@ -8,7 +8,7 @@ progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 6 of 8 in current phase
+Plan: 7 of 8 in current phase
 Status: In progress
-Last activity: 2026-03-03 — Plan 01-06 complete: Form 3 column mapping wizard (step 4), admin settings panel, FORM3_HEADER_KEYWORDS auto-detection
+Last activity: 2026-03-03 — Plan 01-07 complete: Docker multi-stage build (Node tailwind, uv builder, python:3.11-slim runtime), docker-compose volume mounts, admin-seeding entrypoint
 
-Progress: [██████░░░░] 18%
+Progress: [███████░░░] 21%
 
 ## Performance Metrics
 
@@ -40,10 +40,10 @@ Progress: [██████░░░░] 18%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 6 | 37 min | 6 min |
+| 1. Foundation | 7 | 41 min | 6 min |
 
 **Recent Trend:**
-- Last 6 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min), 01-05 (2 min), 01-06 (3 min)
+- Last 7 plans: 01-01 (2 min), 01-02 (7 min), 01-03 (15 min), 01-04 (8 min), 01-05 (2 min), 01-06 (3 min), 01-07 (4 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -74,6 +74,10 @@ Recent decisions affecting current work:
 - [01-05]: step3 GET redirects to wizard_step+1 (computed), not hardcoded step2, for correct mid-wizard resume from any incomplete state
 - [Phase 01]: step4_mapping_partial.html reused for wizard and admin settings via form_action variable — eliminates template duplication
 - [Phase 01]: Unmatched columns get select name=col_{idx} — save endpoint field-name loop naturally ignores them without JavaScript
+- [01-07]: python:3.11-slim used (not 3.12/3.13) to respect pyproject.toml requires-python >=3.10,<3.13
+- [01-07]: Node.js confined to tailwind-builder stage only — not present in runtime image (DEPLOY-03)
+- [01-07]: DATABASE_URL env var in database.py enables Docker volume path override without code changes
+- [01-07]: Admin seed is idempotent — checks for existing admin role before inserting
 
 ### Pending Todos
 
@@ -87,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Plan 01-06 complete — Form 3 column mapping wizard (step 4), admin settings panel, setup_complete flag
+Stopped at: Plan 01-07 complete — Docker multi-stage build, docker-compose.yml, admin-seeding run_web.py entrypoint
 Resume file: None

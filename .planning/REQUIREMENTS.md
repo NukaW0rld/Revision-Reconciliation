@@ -92,7 +92,7 @@ Requirements for initial release. Each maps to a roadmap phase.
 ### Deployment (DEPLOY)
 
 - [x] **DEPLOY-01**: Application runs via `docker compose up` from a single `docker-compose.yml`; no external services required beyond what is bundled in the Docker image
-- [ ] **DEPLOY-02**: All pipeline dependencies (PyMuPDF, OpenCV, NumPy) and web dependencies (FastAPI, Dramatiq, WeasyPrint) are bundled in the Docker image
+- [x] **DEPLOY-02**: All pipeline dependencies (PyMuPDF, OpenCV, NumPy) and web dependencies (FastAPI, Dramatiq, WeasyPrint) are bundled in the Docker image
 - [x] **DEPLOY-03**: Application functions in an air-gapped shop network with no outbound internet access required at runtime
 
 ---
