@@ -51,7 +51,17 @@ Plans:
   3. After submission, the run status page shows stage-by-stage progress through all 8 pipeline stages with the current stage name highlighted; the page reflects queued, running, completed, and failed states
   4. If Rev A balloon detection fails, the run hard-fails with a clear error message identifying the stage; if Rev B balloon detection fails, the run completes with a partial-result warning the engineer must acknowledge; if alignment is uniformly low confidence, the engineer sees the confidence distribution and explicitly proceeds or aborts before the review queue opens
   5. The assigned reviewer receives an in-app alert when a run they are responsible for fails
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — DB foundation: Run + RunAlert models, Huey install, shop/tasks.py scaffold, test stubs
+- [ ] 02-02-PLAN.md — Upload form: /runs/new, PDF validation partials, Excel validation, file save, run creation
+- [ ] 02-03-PLAN.md — Pipeline task worker: stage_callback in cli.py, full run_pipeline_task() implementation
+- [ ] 02-04-PLAN.md — Nav bar + dashboard: persistent nav in base.html, recent runs, Submit CTA, /runs list
+- [ ] 02-05-PLAN.md — Run status page + SSE: stage checklist, real-time progress, three warning state UIs
+- [ ] 02-06-PLAN.md — In-app alerts: alert banners on dashboard, bell badge, HTMX dismiss, alert routes
+- [ ] 02-07-PLAN.md — Docker update: supervisord.conf, Dockerfile supervisor install, compose env vars
+- [ ] 02-08-PLAN.md — Phase 2 gate: implement test stubs, full suite green, Docker e2e human verification
 
 ### Phase 3: Review and Sign-Off
 **Goal**: Engineers can review every characteristic with visual evidence, approve or override each classification with a documented reason, and produce an immutable signed audit packet when all items are resolved
@@ -85,6 +95,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 8/8 | Complete   | 2026-03-03 |
-| 2. Pipeline Bridge | 0/TBD | Not started | - |
+| 2. Pipeline Bridge | 0/8 | Not started | - |
 | 3. Review and Sign-Off | 0/TBD | Not started | - |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |
