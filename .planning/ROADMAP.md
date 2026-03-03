@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 8 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Test infrastructure scaffold (pytest config, conftest, test stubs)
-- [ ] 01-02-PLAN.md — Core shop package: DB models, auth service, app factory, dependencies
+- [x] 01-01-PLAN.md — Test infrastructure scaffold (pytest config, conftest, test stubs)
+- [x] 01-02-PLAN.md — Core shop package: DB models, auth service, app factory, dependencies
 - [ ] 01-03-PLAN.md — Auth routes: login/logout/session + HTMX base template + static assets
 - [ ] 01-04-PLAN.md — Admin user management: create/view/deactivate engineers + RBAC enforcement
 - [ ] 01-05-PLAN.md — Setup wizard middleware guard + steps 1-3 (shop name, password, engineer)
@@ -84,7 +84,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/8 | Planning done | - |
+| 1. Foundation | 2/8 | In progress | - |
 | 2. Pipeline Bridge | 0/TBD | Not started | - |
 | 3. Review and Sign-Off | 0/TBD | Not started | - |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |

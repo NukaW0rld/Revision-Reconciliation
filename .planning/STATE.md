@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-01 — Roadmap created; all 53 v1 requirements mapped to 4 phases
+Plan: 2 of 8 in current phase
+Status: In progress
+Last activity: 2026-03-03 — Plan 01-02 complete: core shop/ package (DB models, auth service, app factory, dependencies, middleware)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 6%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: 4.5 min
+- Total execution time: 9 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1. Foundation | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: none yet
+- Last 5 plans: 01-01 (2 min), 01-02 (7 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -46,6 +46,11 @@ Recent decisions affecting current work:
 - [Roadmap]: pwdlib 0.3.0 replaces passlib (unmaintained since 2020, breaks on Python 3.13)
 - [Roadmap]: SQLAlchemy 2.0 + raw Pydantic schemas chosen over SQLModel (performance and coupling concerns)
 - [Roadmap]: Sign-off atomicity — two-phase write pattern with rollback must be designed in Phase 3 schema, not added later
+- [01-01]: xfail(strict=False) chosen over pytest.skip so test names appear in collection output and xfail count is visible
+- [01-01]: conftest imports from shop/ intentionally scaffold-first — imports succeed only after Plan 02 creates the package
+- [01-02]: secrets.token_urlsafe(32) chosen over itsdangerous for session tokens — DB is authority, signing overhead unnecessary for this threat model
+- [01-02]: bcrypt pinned <5.0.0 to avoid HasherNotAvailable bug in pwdlib 0.3.0 when bcrypt 5.x removes __about__
+- [01-02]: Routers NOT registered in app.py — Plans 03-05 register auth, setup, admin routers respectively
 
 ### Pending Todos
 
@@ -58,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Roadmap created and written to .planning/ROADMAP.md; STATE.md initialized; REQUIREMENTS.md traceability section already present and accurate
+Last session: 2026-03-03
+Stopped at: Plan 01-02 complete — core shop/ package implemented (DB models, auth service, app factory, dependencies, middleware)
 Resume file: None
