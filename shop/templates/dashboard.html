@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="container mx-auto p-8">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    <p>Welcome, {{ user.email }} ({{ user.role }})</p>
+    <form method="post" action="/logout" class="mt-4">
+        <button type="submit" class="btn btn-outline btn-sm">Log out</button>
+    </form>
+</div>
+{% endblock %}
