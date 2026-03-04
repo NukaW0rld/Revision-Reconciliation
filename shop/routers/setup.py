@@ -115,6 +115,19 @@ def step2_post(
     if admin:
         admin.hashed_password = hash_password(new_password)
         db.commit()
+    else:
+        # No admin seeded yet (supervisord starts uvicorn directly without seed_admin).
+        # Create the admin user now with the chosen password.
+        admin_email_env = "admin@shop.local"
+        new_admin = User(
+            email=admin_email_env,
+            hashed_password=hash_password(new_password),
+            role="admin",
+            is_active=True,
+        )
+        db.add(new_admin)
+        db.commit()
+        logger.info("Created admin user %s during setup wizard step 2", admin_email_env)
     if config.wizard_step < 2:
         config.wizard_step = 2
         db.commit()
