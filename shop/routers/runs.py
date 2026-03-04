@@ -111,7 +111,12 @@ async def validate_pdf(
             "runs/_page_selector.html",
             {"page_count": result["page_count"], "field": field},
         )
-    return HTMLResponse("")  # Single-page valid PDF — clear any prior validation message
+    # Single-page valid PDF — restore the hidden page input so the form field is
+    # always present regardless of whether the user previously uploaded a multi-page
+    # PDF (which would have replaced this input with a <select>).
+    return HTMLResponse(
+        f'<input type="hidden" name="{field}_page" value="0">'
+    )
 
 
 @router.post("/new")
