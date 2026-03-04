@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-03T16:41:36.578Z"
+status: completed
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-04T01:28:44.879Z"
+last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
-  total_phases: 1
+  total_phases: 4
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 16
+  completed_plans: 9
+  percent: 25
 ---
 
 # Project State
@@ -47,6 +50,7 @@ Progress: [██████████░░░░░░░░░░] 25%
 - Trend: Phase 1 complete
 
 *Updated after each plan completion*
+| Phase 02-pipeline-bridge P01 | 3 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -82,6 +86,9 @@ Recent decisions affecting current work:
 - [01-08]: Admin email displayed on wizard step 2 from ShopConfig.admin_email to prevent first-run confusion
 - [01-08]: Role-gated dashboard navigation via Jinja2 conditional on request.state.user.role — no JavaScript needed
 - [01-08]: Human verification approved with note "revisions to the process will need to be made in the future" — UX iteration deferred to Phase 2
+- [Phase 02-01]: HUEY_DB local fallback: tasks.py falls back to project-root huey.db when /app/data does not exist (dev/test environments outside Docker)
+- [Phase 02-01]: Deferred shop.* imports in run_pipeline_task body to avoid circular imports between tasks.py and shop.database/models
+- [Phase 02-01]: Run.reviewer_id nullable FK — submitter becomes reviewer in runs router (Plan 02); explicit reassignment deferred to Phase 3
 
 ### Pending Todos
 
@@ -94,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Plan 01-08 complete — Docker e2e human verification approved; Phase 1 Foundation complete
+Last session: 2026-03-04T01:28:44.875Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
