@@ -15,7 +15,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import cv2
@@ -53,6 +53,7 @@ def run_pipeline(
     out_dir="./out",
     dpi=300,
     part_name="part",
+    stage_callback: Optional[Callable[[int, str], None]] = None,
 ) -> Path:
     """
     Run the complete delta preservation pipeline.
@@ -110,27 +111,37 @@ def run_pipeline(
     print()
 
     # Stage 1: Load Form 3
+    if stage_callback:
+        stage_callback(0, "Form 3 parsing")
     print("[1/8] Loading Form 3...")
     form3_chars_list = load_form3(form3_path, debug_dir)
     form3_chars = {char.char_no: char.requirement for char in form3_chars_list}
     print(f"  Loaded {len(form3_chars)} characteristics")
 
     # Stage 2: Detect balloons in Rev A
+    if stage_callback:
+        stage_callback(1, "Balloon detection")
     print("[2/8] Detecting balloons in Rev A...")
     balloons = detect_balloons(revA_path, dpi=dpi)
     print(f"  Detected {len(balloons)} balloons")
 
     # Stage 3: Extract text from Rev A
+    if stage_callback:
+        stage_callback(2, "Text extraction")
     print("[3/8] Extracting text from Rev A...")
     revA_text_spans = extract_text_spans(revA_path, page_index=0)
     print(f"  Extracted {len(revA_text_spans)} text spans")
 
     # Stage 4: Build Rev A anchors
+    if stage_callback:
+        stage_callback(3, "Anchor building")
     print("[4/8] Building Rev A anchors...")
     anchors = build_revA_anchors(form3_chars, balloons, revA_text_spans)
     print(f"  Built {len(anchors)} anchors")
 
     # Stage 5: Extract text from Rev B and estimate alignment
+    if stage_callback:
+        stage_callback(4, "Alignment")
     print("[5/8] Extracting text from Rev B and aligning...")
     revB_text_spans = extract_text_spans(revB_path, page_index=0)
     print(f"  Extracted {len(revB_text_spans)} text spans")
@@ -171,6 +182,8 @@ def run_pipeline(
     print(f"  Final transform: {transform.inliers} inliers, ratio={transform.inlier_ratio:.2f}")
 
     # Stage 6: Generate candidates and assign matches
+    if stage_callback:
+        stage_callback(5, "Candidate matching")
     print("[6/8] Generating candidates and assigning matches...")
     candidates_by_anchor = {}
     for anchor in anchors:
@@ -181,6 +194,8 @@ def run_pipeline(
     print(f"  Assigned {len(matches)} matches")
 
     # Stage 7: Classify deltas and save snippets
+    if stage_callback:
+        stage_callback(6, "Classification")
     print("[7/8] Classifying deltas and saving evidence snippets...")
 
     tolerance_comparisons = extract_tolerances_for_items(
@@ -481,6 +496,8 @@ def run_pipeline(
     print(f"  Saved evidence snippets to {snippets_dir}")
 
     # Stage 8: Construct and write DeltaPacket
+    if stage_callback:
+        stage_callback(7, "Output")
     print("[8/8] Writing delta packet...")
     packet = DeltaPacket(
         run_id=run_id,
