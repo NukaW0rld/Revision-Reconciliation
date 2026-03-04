@@ -27,24 +27,24 @@ Requirements for initial release. Each maps to a roadmap phase.
 
 ### File Upload & Input (UPLOAD)
 
-- [ ] **UPLOAD-01**: Engineer can upload Rev A PDF, Rev B PDF, and Form 3 Excel as a single submission with part metadata (part number, revision level for each PDF, customer name, job number)
-- [ ] **UPLOAD-02**: System detects raster (scanned) PDFs at upload time and displays a clear error before the run is submitted
-- [ ] **UPLOAD-03**: System detects multi-page PDFs at upload time and prompts the engineer to select which page to analyze before the run starts
-- [ ] **UPLOAD-04**: System validates that the Excel file is readable and contains a recognizable sheet structure before accepting the upload
-- [ ] **UPLOAD-05**: Revision labels (Rev A letter, Rev B letter) are captured and stored as part of the run record
+- [x] **UPLOAD-01**: Engineer can upload Rev A PDF, Rev B PDF, and Form 3 Excel as a single submission with part metadata (part number, revision level for each PDF, customer name, job number)
+- [x] **UPLOAD-02**: System detects raster (scanned) PDFs at upload time and displays a clear error before the run is submitted
+- [x] **UPLOAD-03**: System detects multi-page PDFs at upload time and prompts the engineer to select which page to analyze before the run starts
+- [x] **UPLOAD-04**: System validates that the Excel file is readable and contains a recognizable sheet structure before accepting the upload
+- [x] **UPLOAD-05**: Revision labels (Rev A letter, Rev B letter) are captured and stored as part of the run record
 
 ### Pipeline Execution (PIPE)
 
 - [x] **PIPE-01**: Engineer can submit a run from the upload form; pipeline executes asynchronously in a worker process separate from the web server
-- [ ] **PIPE-02**: Run status displays stage-by-stage progress (Form 3 parsing → balloon detection → text extraction → anchor building → alignment → candidate matching → classification → output) with current stage name and completion indicator
+- [x] **PIPE-02**: Run status displays stage-by-stage progress (Form 3 parsing → balloon detection → text extraction → anchor building → alignment → candidate matching → classification → output) with current stage name and completion indicator
 - [x] **PIPE-03**: System distinguishes run states: queued, running (with current stage), completed, failed
-- [ ] **PIPE-04**: If Rev A balloon detection fails entirely, the run hard-fails with a clear error message identifying the failure stage
-- [ ] **PIPE-05**: If Rev B balloon detection fails entirely, the run completes with a partial-result warning; engineer decides whether the output is usable before reviewing
-- [ ] **PIPE-06**: If alignment produces uniformly low confidence across all characteristics, the run enters a warning state; engineer sees the confidence distribution and explicitly chooses to proceed or abort before the review queue opens
-- [ ] **PIPE-07**: Characteristics not located in Rev B are auto-classified as removed if spatial match confidence ≥ 0.9; below 0.9 they appear in the review queue as unresolved, requiring engineer judgment
-- [ ] **PIPE-08**: Characteristics where a balloon is found in Rev B but text extraction fails are classified as low-confidence unchanged if spatial confidence ≥ 0.9; if spatial confidence is also below 0.9, they appear as unresolved
-- [ ] **PIPE-09**: Duplicate balloon numbers (e.g., "4X Ø 0.5") are treated as one logical characteristic; count token changes between revisions are tracked and surfaced as a classification signal
-- [ ] **PIPE-10**: GD&T feature control frames are matched as opaque strings; semantic parsing of symbols, datum references, and modifiers is not performed in v1
+- [x] **PIPE-04**: If Rev A balloon detection fails entirely, the run hard-fails with a clear error message identifying the failure stage
+- [x] **PIPE-05**: If Rev B balloon detection fails entirely, the run completes with a partial-result warning; engineer decides whether the output is usable before reviewing
+- [x] **PIPE-06**: If alignment produces uniformly low confidence across all characteristics, the run enters a warning state; engineer sees the confidence distribution and explicitly chooses to proceed or abort before the review queue opens
+- [x] **PIPE-07**: Characteristics not located in Rev B are auto-classified as removed if spatial match confidence ≥ 0.9; below 0.9 they appear in the review queue as unresolved, requiring engineer judgment
+- [x] **PIPE-08**: Characteristics where a balloon is found in Rev B but text extraction fails are classified as low-confidence unchanged if spatial confidence ≥ 0.9; if spatial confidence is also below 0.9, they appear as unresolved
+- [x] **PIPE-09**: Duplicate balloon numbers (e.g., "4X Ø 0.5") are treated as one logical characteristic; count token changes between revisions are tracked and surfaced as a classification signal
+- [x] **PIPE-10**: GD&T feature control frames are matched as opaque strings; semantic parsing of symbols, datum references, and modifiers is not performed in v1
 - [x] **PIPE-11**: Assigned reviewer receives an in-app alert when a run they are responsible for fails
 
 ### Review Queue (REVIEW)

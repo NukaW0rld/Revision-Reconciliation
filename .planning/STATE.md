@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-04T01:28:44.879Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-04T01:38:48.777Z"
 last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 16
-  completed_plans: 9
+  completed_plans: 11
   percent: 25
 ---
 
@@ -51,6 +51,8 @@ Progress: [██████████░░░░░░░░░░] 25%
 
 *Updated after each plan completion*
 | Phase 02-pipeline-bridge P01 | 3 | 3 tasks | 5 files |
+| Phase 02-pipeline-bridge P02 | 6min | 3 tasks | 7 files |
+| Phase 02-pipeline-bridge P03 | 7 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -89,6 +91,12 @@ Recent decisions affecting current work:
 - [Phase 02-01]: HUEY_DB local fallback: tasks.py falls back to project-root huey.db when /app/data does not exist (dev/test environments outside Docker)
 - [Phase 02-01]: Deferred shop.* imports in run_pipeline_task body to avoid circular imports between tasks.py and shop.database/models
 - [Phase 02-01]: Run.reviewer_id nullable FK — submitter becomes reviewer in runs router (Plan 02); explicit reassignment deferred to Phase 3
+- [Phase 02-03]: stage_callback called BEFORE each stage so UI shows current stage during execution
+- [Phase 02-03]: Rev A balloon failure detected post-run via empty delta_packet.json items (pipeline never raises for empty balloons)
+- [Phase 02-03]: run_pipeline_task.call_local() used in tests to execute synchronously without Huey queue; module-level SessionLocal/run_pipeline exports for test patching
+- [Phase 02-02]: UPLOADS_DIR local fallback: falls back to project-root uploads/ when /app/data does not exist — same pattern as HUEY_DB from Plan 01
+- [Phase 02-02]: save_upload() takes file_bytes+suffix+run_uuid (not UploadFile) — router reads bytes before calling services, keeping service functions pure and testable
+- [Phase 02-02]: Raster detection: text extraction is primary signal; image area >= 95% coverage is secondary heuristic only evaluated when no text found
 
 ### Pending Todos
 
@@ -101,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T01:28:44.875Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-04T01:38:48.775Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
