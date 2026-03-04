@@ -161,3 +161,15 @@ async def submit_run(
     run_pipeline_task(run.id, str(revA_path), str(revB_path), str(form3_path), part_number)
 
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
+
+
+@router.post("/{run_id}/acknowledge-warning")
+def acknowledge_warning(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Acknowledge a revB_balloon warning. Phase 3 will implement the review queue.
+    For now, redirect to a placeholder review path."""
+    return RedirectResponse(f"/review/{run_id}", status_code=302)

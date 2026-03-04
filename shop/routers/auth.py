@@ -70,6 +70,21 @@ def logout(
     return response
 
 
+@router.post("/alerts/dismiss/{alert_id}", response_class=HTMLResponse)
+def dismiss_alert(
+    alert_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Mark a RunAlert as read and return empty HTML so HTMX swaps the banner out."""
+    alert = db.query(RunAlert).filter(RunAlert.id == alert_id).first()
+    if alert and alert.user_id == user.id:
+        alert.is_read = True
+        db.commit()
+    return HTMLResponse("")
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
