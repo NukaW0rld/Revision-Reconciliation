@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-07-PLAN.md
-last_updated: "2026-03-04T01:44:37.396Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-03-04T01:46:52.325Z"
 last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 25
 ---
 
@@ -55,6 +55,7 @@ Progress: [██████████░░░░░░░░░░] 25%
 | Phase 02-pipeline-bridge P03 | 7 | 2 tasks | 4 files |
 | Phase 02-pipeline-bridge P04 | 8min | 2 tasks | 8 files |
 | Phase 02-pipeline-bridge P07 | 6min | 2 tasks | 3 files |
+| Phase 02-pipeline-bridge P06 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,9 @@ Recent decisions affecting current work:
 - [Phase 02-04]: redirect_slashes=False on APIRouter for /runs prefix — FastAPI default redirects /runs -> /runs/ (307), breaking nav links; solved by empty string route path
 - [Phase 02-04]: Nav bar context helper _get_nav_context() in runs.py centralizes unread_alert_count + shop_name queries for all authenticated routes
 - [Phase 02-pipeline-bridge]: [Phase 02-07]: supervisord manages uvicorn + huey_consumer in single container; pidfile=/tmp/supervisord.pid; uv binary copied to runtime for huey_consumer.py discovery
+- [Phase 02-pipeline-bridge]: Dismiss route in auth.py (no prefix) keeps URL at /alerts/dismiss/{id} avoiding /runs prefix conflict
+- [Phase 02-pipeline-bridge]: Dashboard queries RunAlert list (not count) — unread_alert_count = len(unread_alerts) saves a second DB query
+- [Phase 02-pipeline-bridge]: acknowledge-warning is a Phase 3 placeholder redirect to /review/{run_id}; full review queue deferred
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T01:44:37.393Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-03-04T01:46:52.322Z
+Stopped at: Completed 02-06-PLAN.md
 Resume file: None
