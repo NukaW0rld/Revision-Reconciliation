@@ -6,7 +6,6 @@ build/
 wheels/
 *.egg-info
 .pytest_cache/
-uv.lock
 
 # Virtual environments
 .venv
