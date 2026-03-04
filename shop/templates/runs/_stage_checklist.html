@@ -1,0 +1,21 @@
+<!-- Initial server-rendered stage checklist. Updated in real time by SSE + JS in status.html. -->
+{% set STAGE_NAMES = ["Form 3 parsing", "Balloon detection", "Text extraction", "Anchor building", "Alignment", "Candidate matching", "Classification", "Output"] %}
+<ul class="steps steps-vertical w-full" id="stage-checklist">
+  {% for i in range(8) %}
+  {% set stage_name = STAGE_NAMES[i] %}
+  {% set is_done = (i < run.current_stage_index) or (run.status == "completed") %}
+  {% set is_current = (i == run.current_stage_index) and (run.status == "running") %}
+  {% set is_failed_stage = (run.failure_stage == stage_name) and (run.status == "failed") %}
+  <li class="step{% if is_done %} step-success{% elif is_current %} step-primary{% elif is_failed_stage %} step-error{% endif %}">
+    {% if is_done %}
+    <span class="flex items-center gap-1">&#10003; {{ stage_name }}</span>
+    {% elif is_current %}
+    <span class="flex items-center gap-1"><span class="loading loading-spinner loading-xs"></span>{{ stage_name }}</span>
+    {% elif is_failed_stage %}
+    <span class="flex items-center gap-1 font-bold text-error">&#10007; {{ stage_name }}</span>
+    {% else %}
+    {{ stage_name }}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>

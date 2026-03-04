@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.id }} &mdash; {{ run.part_number }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center gap-3">
+  <a href="/runs" class="btn btn-ghost btn-sm">&larr; All Runs</a>
+  <h1 class="text-2xl font-bold">Run #{{ run.id }}</h1>
+  <span class="badge badge-{{ run.status | status_badge_class }} badge-lg">{{ run.status }}</span>
+</div>
+
+<div class="flex flex-col lg:flex-row gap-6">
+
+  <!-- Left: Stage Checklist -->
+  <div class="card bg-base-100 shadow-sm flex-1 max-w-sm">
+    <div class="card-body">
+      <h2 class="card-title text-base">Pipeline Stages</h2>
+      {% include "runs/_stage_checklist.html" %}
+    </div>
+  </div>
+
+  <!-- Right: Run Metadata + Status Actions -->
+  <div class="flex-1 flex flex-col gap-4">
+
+    <!-- Run details card -->
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="card-title text-base">Run Details</h2>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dt class="text-base-content/60">Part Number</dt>
+          <dd class="font-medium">{{ run.part_number }}</dd>
+          <dt class="text-base-content/60">Revision</dt>
+          <dd>Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</dd>
+          <dt class="text-base-content/60">Customer</dt>
+          <dd>{{ run.customer }}</dd>
+          <dt class="text-base-content/60">Job Number</dt>
+          <dd>{{ run.job_number }}</dd>
+          <dt class="text-base-content/60">Submitted</dt>
+          <dd>{{ run.submitted_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+          <dt class="text-base-content/60">Reviewer</dt>
+          <dd>{{ run.reviewer.email if run.reviewer else "Unassigned" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- PIPE-04: Hard fail state -->
+    {% if run.status == "failed" %}
+    <div class="alert alert-error">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <div>
+        <p class="font-bold">Run failed at: {{ run.failure_stage or "Unknown stage" }}</p>
+        <p class="text-sm">{{ run.failure_message or "An unexpected error occurred." }}</p>
+        <p class="text-sm mt-1">Submit a new run to try again.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- PIPE-05: revB balloon warning state -->
+    {% if run.status == "warning" and run.warning_type == "revB_balloon" %}
+    <div class="alert alert-warning">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <div>
+        <p class="font-bold">Partial Result Warning</p>
+        <p class="text-sm">Rev B balloon detection produced incomplete results. The pipeline completed but some characteristics may be missing from Rev B.</p>
+        <a href="/review/{{ run.id }}" class="btn btn-warning btn-sm mt-2">Acknowledge and Open Review Queue</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- PIPE-06: Low confidence alignment warning state -->
+    {% if run.status == "warning" and run.warning_type == "low_confidence" %}
+    <div class="alert alert-warning">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <div>
+        <p class="font-bold">Low Alignment Confidence</p>
+        {% if run.confidence_summary %}
+        <p class="text-sm">{{ run.confidence_summary.message }}</p>
+        {% endif %}
+        <p class="text-sm mt-1">Proceeding to review may result in characteristics being listed as unresolved. You may abort and submit a new run with a clearer Rev B PDF.</p>
+        <div class="flex gap-2 mt-3">
+          <a href="/review/{{ run.id }}" class="btn btn-warning btn-sm">Proceed to Review</a>
+          <form method="post" action="/runs/{{ run.id }}/abort" style="display:inline">
+            <button type="submit" class="btn btn-ghost btn-sm">Abort Run</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Completed state CTA -->
+    {% if run.status == "completed" %}
+    <div>
+      <a href="/review/{{ run.id }}" class="btn btn-primary">Open Review Queue</a>
+    </div>
+    {% endif %}
+
+  </div><!-- /right column -->
+</div><!-- /flex row -->
+
+<!-- SSE listener: only active for non-terminal runs -->
+<script>
+{% if run.status not in ["completed", "failed", "warning"] %}
+(function () {
+  var stageNames = [
+    "Form 3 parsing", "Balloon detection", "Text extraction",
+    "Anchor building", "Alignment", "Candidate matching", "Classification", "Output"
+  ];
+
+  var evtSource = new EventSource("/runs/{{ run.id }}/sse");
+
+  evtSource.addEventListener("stage_update", function (e) {
+    var data = JSON.parse(e.data);
+    updateChecklist(data);
+  });
+
+  evtSource.addEventListener("close", function (e) {
+    evtSource.close();
+    // Reload to show terminal-state UI (warning/failed/completed sections)
+    window.location.reload();
+  });
+
+  function updateChecklist(data) {
+    var ul = document.getElementById("stage-checklist");
+    if (!ul) return;
+    ul.innerHTML = stageNames.map(function (name, i) {
+      var isDone = (i < data.current_stage_index) || (data.status === "completed");
+      var isCurrent = (i === data.current_stage_index) && (data.status === "running");
+      var isFailed = (data.failure_stage === name) && (data.status === "failed");
+      var cls = "step";
+      if (isDone) cls += " step-success";
+      else if (isCurrent) cls += " step-primary";
+      else if (isFailed) cls += " step-error";
+      var inner;
+      if (isDone) {
+        inner = "<span>&#10003; " + name + "</span>";
+      } else if (isCurrent) {
+        inner = "<span class=\"flex items-center gap-1\"><span class=\"loading loading-spinner loading-xs\"></span>" + name + "</span>";
+      } else if (isFailed) {
+        inner = "<span class=\"font-bold text-error\">&#10007; " + name + "</span>";
+      } else {
+        inner = name;
+      }
+      return "<li class=\"" + cls + "\">" + inner + "</li>";
+    }).join("");
+  }
+}());
+{% endif %}
+</script>
+{% endblock %}
