@@ -29,6 +29,26 @@ Our **8-stage reconciliation pipeline** combines computer vision, spatial transf
 
 ---
 
+## Web Interface
+
+A FastAPI + Jinja2 web application (`shop/`) wraps the pipeline for use by quality teams:
+
+- **Upload form** — Upload Rev A PDF, Rev B PDF, and Form 3 Excel via browser; the pipeline runs in the background via Huey task queue (SQLite-backed, no external services required)
+- **Real-time progress** — Server-sent events (SSE) stream stage-by-stage pipeline progress to the browser during analysis
+- **Alert system** — Run completion banners with inline HTMX dismissal
+- **Role-based access** — Admin and engineer roles with bcrypt authentication and session tokens
+- **Setup wizard** — First-run configuration for shop name, admin credentials, engineer account, and Form 3 column mapping
+- **Docker deployment** — Single-container deployment with supervisord managing uvicorn + huey_consumer
+
+### Docker Quick Start
+
+```bash
+cd docker/
+docker compose up --build
+```
+
+---
+
 ## Requirements
 
 - **Python 3.10+**
@@ -59,18 +79,28 @@ pip install -e .
 ```
 delta-preservation/
 ├── run.py                       # Convenience entry point (uv run python run.py part1)
-├── delta_preservation/           # Main package
+├── run_web.py                   # Web application entry point
+├── delta_preservation/          # Core pipeline package
 │   ├── io/                      # PDF and Excel I/O modules
 │   ├── vision/                  # Computer vision (balloons, alignment)
 │   ├── reconcile/               # Core matching and classification logic
 │   ├── cli.py                   # Pipeline orchestration and CLI
 │   ├── types.py                 # Pydantic data models
 │   └── config.py                # Configuration constants
-├── tests/                       # Comprehensive test suite
+├── shop/                        # Web application (FastAPI + Jinja2)
+│   ├── routers/                 # Auth, runs, admin, setup routes
+│   ├── services/                # Business logic layer
+│   ├── templates/               # Jinja2 HTML templates
+│   └── tasks.py                 # Huey async pipeline task
+├── docker/                      # Docker deployment files
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── supervisord.conf
+├── tests/                       # Test suite
 ├── assets/                      # Test fixtures and sample data
 │   ├── part1/                   # Stable layout test case
 │   └── part2/                   # Major layout shift test case
-└── README.md                    # This file
+└── static/                      # Built CSS, bundled JS (htmx, htmx-sse)
 ```
 
 ---
@@ -220,7 +250,7 @@ Each module includes comprehensive docstrings, type hints, and extensive comment
 - **Multi-page drawing support** with cross-page characteristic tracking
 - **Advanced revision table parsing** for ECO number extraction
 - **Machine learning enhancements** for improved classification accuracy
-- **Web interface** for quality team review and approval workflows
+- **Review and sign-off workflows** — human engineer approval queue with audit packet PDF export (v0.3)
 
 ---
 
