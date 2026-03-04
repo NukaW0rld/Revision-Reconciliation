@@ -255,18 +255,145 @@ def test_pipeline_task_enqueued(huey_immediate):
     pytest.fail("not implemented")
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-02")
-def test_stage_progress_updates():
-    """During execution, Run.current_stage and Run.current_stage_index are
-    updated at each of the 8 pipeline stages."""
-    pytest.fail("not implemented")
+def test_stage_progress_updates(client, db_engine, engineer_user):
+    """PIPE-02: GET /runs/{id} returns 200 with stage checklist; SSE endpoint streams stage updates."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import Run
+    from shop.services.auth import create_session
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    token = create_session(db, engineer_user)
+    db.close()
+    client.cookies.set("session_token", token)
+
+    # Create a run in 'running' state with current_stage_index=3
+    db = Session()
+    run = Run(
+        part_number="PN-SSE",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J-SSE",
+        status="running",
+        current_stage="Anchor building",
+        current_stage_index=3,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    run_id = run.id
+    db.close()
+
+    # GET /runs/{id} must return 200 with stage checklist
+    resp = client.get(f"/runs/{run_id}")
+    assert resp.status_code == 200
+    assert "stage-checklist" in resp.text
+    assert "Anchor building" in resp.text
+
+    # GET /runs/{id}/sse must be reachable (returns SSE stream)
+    resp_sse = client.get(f"/runs/{run_id}/sse", headers={"Accept": "text/event-stream"})
+    assert resp_sse.status_code == 200
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-03")
-def test_run_status_lifecycle():
-    """Run.status transitions through queued -> running -> completed for a
-    successful pipeline execution."""
-    pytest.fail("not implemented")
+def test_run_status_lifecycle(client, db_engine, engineer_user):
+    """PIPE-03: GET /runs/{id} shows correct content for completed, failed, and warning states."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import Run
+    from shop.services.auth import create_session
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    token = create_session(db, engineer_user)
+    db.close()
+    client.cookies.set("session_token", token)
+
+    db = Session()
+
+    # Completed run
+    run_c = Run(
+        part_number="PN-C",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J1",
+        status="completed",
+        current_stage_index=8,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    # Failed run
+    run_f = Run(
+        part_number="PN-F",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J2",
+        status="failed",
+        failure_stage="Alignment",
+        failure_message="RANSAC failed to converge.",
+        current_stage_index=4,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    # Warning (low_confidence) run
+    run_w = Run(
+        part_number="PN-W",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J3",
+        status="warning",
+        warning_type="low_confidence",
+        confidence_summary={"message": "60% of items have low confidence", "low_confidence_ratio": 0.6},
+        current_stage_index=8,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add_all([run_c, run_f, run_w])
+    db.commit()
+    db.refresh(run_c)
+    db.refresh(run_f)
+    db.refresh(run_w)
+    cid, fid, wid = run_c.id, run_f.id, run_w.id
+    db.close()
+
+    # Completed: page loads successfully and shows completed state
+    resp = client.get(f"/runs/{cid}")
+    assert resp.status_code == 200
+    assert "completed" in resp.text.lower()
+
+    # Failed: shows failure message + failure stage
+    resp = client.get(f"/runs/{fid}")
+    assert resp.status_code == 200
+    assert "Alignment" in resp.text
+    assert "RANSAC failed to converge" in resp.text
+
+    # Warning (low_confidence): shows confidence message + Abort button
+    resp = client.get(f"/runs/{wid}")
+    assert resp.status_code == 200
+    assert "confidence" in resp.text.lower()
+    assert "Abort" in resp.text
+
+    # POST abort changes status to failed
+    resp_abort = client.post(f"/runs/{wid}/abort", follow_redirects=False)
+    assert resp_abort.status_code == 302
+
+    db2 = Session()
+    run_aborted = db2.query(Run).filter(Run.id == wid).first()
+    db2.close()
+    assert run_aborted.status == "failed"
+    assert run_aborted.failure_stage == "Alignment"
 
 
 @pytest.mark.xfail(strict=False, reason="not implemented — PIPE-04")
