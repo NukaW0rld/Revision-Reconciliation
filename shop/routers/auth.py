@@ -92,14 +92,16 @@ def dashboard(
     user: User = Depends(get_current_user),
 ):
     recent_runs = db.query(Run).order_by(Run.submitted_at.desc()).limit(10).all()
-    unread_count = db.query(RunAlert).filter(
+    unread_alerts = db.query(RunAlert).filter(
         RunAlert.user_id == user.id, RunAlert.is_read == False  # noqa: E712
-    ).count()
+    ).order_by(RunAlert.created_at.desc()).limit(5).all()
+    unread_count = len(unread_alerts)
     config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()
     shop_name = config.shop_name if config else "Delta Preservation"
     return templates.TemplateResponse(request, "dashboard.html", {
         "user": user,
         "recent_runs": recent_runs,
+        "unread_alerts": unread_alerts,
         "unread_alert_count": unread_count,
         "shop_name": shop_name,
     })

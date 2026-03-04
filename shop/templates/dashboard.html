@@ -6,6 +6,14 @@
     <p class="text-base-content/70">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
 </div>
 
+{% if unread_alerts %}
+<div id="alert-banners" class="mb-4">
+  {% for alert in unread_alerts %}
+    {% include "runs/_alert_banner.html" %}
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- Submit New Run CTA -->
 <div class="mb-8">
     <a href="/runs/new" class="btn btn-primary btn-lg">Submit New Run</a>
