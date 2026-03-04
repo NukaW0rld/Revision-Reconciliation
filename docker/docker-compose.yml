@@ -16,4 +16,10 @@ services:
       ADMIN_DEFAULT_PASSWORD: changeme
       # SQLite database path (must match volume mount)
       DATABASE_URL: sqlite:////app/data/shop.db
+      # Huey task queue SQLite path (same volume as main DB)
+      HUEY_DB: /app/data/huey.db
+      # Pipeline output directory (mounted volume)
+      OUT_DIR: /app/out
+      # File upload storage (inside persistent data volume)
+      UPLOADS_DIR: /app/data/uploads
     restart: unless-stopped
