@@ -192,6 +192,8 @@ async def submit_run(
     )
 
     # Enqueue pipeline task (runs synchronously in immediate/test mode via huey_immediate fixture)
+    print("HUEY TASK: enqueuing run_id=", run.id)
+    logger.info("submit_run: enqueuing pipeline task for run_id=%d", run.id)
     run_pipeline_task(run.id, str(revA_path), str(revB_path), str(form3_path), part_number)
 
     return RedirectResponse(f"/runs/{run.id}", status_code=302)

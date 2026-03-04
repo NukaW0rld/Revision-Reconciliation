@@ -130,6 +130,9 @@ def run_pipeline_task(
         are handled entirely by the existing delta_preservation/reconcile/classify.py
         logic. No additional code is required in this task.
     """
+    print("HUEY TASK STARTED run_id=", run_id)
+    logger.info("run_pipeline_task: starting run_id=%d", run_id)
+
     from shop.models import Run
 
     # Use module-level symbols (patchable in tests).
@@ -138,11 +141,12 @@ def run_pipeline_task(
     _SessionLocal = SessionLocal if SessionLocal is not None else _get_session_local()
     _run_pipeline = run_pipeline if run_pipeline is not None else _get_run_pipeline()
 
-    db = _SessionLocal()
-    # Initialize run to None so the except block can safely check whether the
-    # DB lookup succeeded before attempting to write a failure status.
+    # Initialize run to None and db to None so the except/finally blocks can
+    # safely check whether they were successfully created before using them.
     run = None
+    db = None
     try:
+        db = _SessionLocal()
         run = db.query(Run).filter(Run.id == run_id).first()
         if run is None:
             logger.error("run_pipeline_task: Run %d not found", run_id)
@@ -225,7 +229,8 @@ def run_pipeline_task(
 
     except Exception as exc:
         logger.exception("run_pipeline_task failed for run %d", run_id)
-        if run is not None:
+        print("HUEY TASK FAILED run_id=", run_id, "exc=", exc)
+        if run is not None and db is not None:
             try:
                 run.status = "failed"
                 run.failure_stage = run.current_stage or "Unknown"
@@ -237,4 +242,5 @@ def run_pipeline_task(
                     "run_pipeline_task: failed to persist failure state for run %d", run_id
                 )
     finally:
-        db.close()
+        if db is not None:
+            db.close()
