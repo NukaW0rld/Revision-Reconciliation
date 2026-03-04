@@ -13,7 +13,7 @@ The existing Python pipeline is the computation core. This roadmap builds the pr
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Running Docker container with FastAPI, SQLite, auth, roles, setup wizard, and deployment configuration (completed 2026-03-03)
-- [ ] **Phase 2: Pipeline Bridge** - File upload, validation, async job queue, stage-by-stage pipeline progress, and run status tracking
+- [x] **Phase 2: Pipeline Bridge** - File upload, validation, async job queue, stage-by-stage pipeline progress, and run status tracking (completed 2026-03-04)
 - [ ] **Phase 3: Review and Sign-Off** - Per-item review queue with image evidence, approve/override with mandatory notes, hard sign-off gate, and atomic audit packet generation
 - [ ] **Phase 4: Exports, History, and Amendments** - Partial FAI work order, run history with reopen and re-download, admin retention controls, and amendment model with versioned packets
 
@@ -54,14 +54,14 @@ Plans:
 **Plans**: 8 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — DB foundation: Run + RunAlert models, Huey install, shop/tasks.py scaffold, test stubs
-- [ ] 02-02-PLAN.md — Upload form: /runs/new, PDF validation partials, Excel validation, file save, run creation
-- [ ] 02-03-PLAN.md — Pipeline task worker: stage_callback in cli.py, full run_pipeline_task() implementation
-- [ ] 02-04-PLAN.md — Nav bar + dashboard: persistent nav in base.html, recent runs, Submit CTA, /runs list
-- [ ] 02-05-PLAN.md — Run status page + SSE: stage checklist, real-time progress, three warning state UIs
-- [ ] 02-06-PLAN.md — In-app alerts: alert banners on dashboard, bell badge, HTMX dismiss, alert routes
-- [ ] 02-07-PLAN.md — Docker update: supervisord.conf, Dockerfile supervisor install, compose env vars
-- [ ] 02-08-PLAN.md — Phase 2 gate: implement test stubs, full suite green, Docker e2e human verification
+- [x] 02-01-PLAN.md — DB foundation: Run + RunAlert models, Huey install, shop/tasks.py scaffold, test stubs
+- [x] 02-02-PLAN.md — Upload form: /runs/new, PDF validation partials, Excel validation, file save, run creation
+- [x] 02-03-PLAN.md — Pipeline task worker: stage_callback in cli.py, full run_pipeline_task() implementation
+- [x] 02-04-PLAN.md — Nav bar + dashboard: persistent nav in base.html, recent runs, Submit CTA, /runs list
+- [x] 02-05-PLAN.md — Run status page + SSE: stage checklist, real-time progress, three warning state UIs
+- [x] 02-06-PLAN.md — In-app alerts: alert banners on dashboard, bell badge, HTMX dismiss, alert routes
+- [x] 02-07-PLAN.md — Docker update: supervisord.conf, Dockerfile supervisor install, compose env vars
+- [x] 02-08-PLAN.md — Phase 2 gate: implement test stubs, full suite green, Docker e2e human verification
 
 ### Phase 3: Review and Sign-Off
 **Goal**: Engineers can review every characteristic with visual evidence, approve or override each classification with a documented reason, and produce an immutable signed audit packet when all items are resolved
@@ -95,6 +95,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 8/8 | Complete   | 2026-03-03 |
-| 2. Pipeline Bridge | 7/8 | In Progress|  |
+| 2. Pipeline Bridge | 8/8 | Complete   | 2026-03-04 |
 | 3. Review and Sign-Off | 0/TBD | Not started | - |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |

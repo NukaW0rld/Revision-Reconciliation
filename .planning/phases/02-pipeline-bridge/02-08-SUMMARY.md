@@ -124,6 +124,10 @@ Third round of post-gate fixes (Docker verification bugs):
 12. **Issue 10: Page selector doesn't reliably show/hide** - `186fa1d` (fix)
 13. **Issue 11: SSE real-time updates not working** - `b3cc7ca` (fix)
 
+Fourth round — final Docker verification fix:
+
+14. **Issue 12: validate-pdf grabs wrong file when both Rev A and Rev B are present** - `de4544c` (fix)
+
 ## Files Created/Modified
 
 - `shop/routers/setup.py` - Create admin user during step 2 if not already seeded
@@ -217,7 +221,16 @@ All 5 issues were discovered during human Docker verification (Task 3 checkpoint
 
 ---
 
-**Total deviations:** 11 auto-fixed/investigated (9 bugs, 1 UI rename, 1 no-op investigation)
+**11. [Rule 1 - Bug] validate-pdf grabs wrong PDF file when both Rev A and Rev B are already in form**
+- **Found during:** Fourth round Docker verification
+- **Issue:** HTMX submits the entire form on every `change` event, so when `revA_pdf` is already filled and the user picks `revB_pdf`, the endpoint iterated `form.multi_items()` and grabbed the first `UploadFile` found — which was `revA_pdf`. This caused the multi-page page selector to never appear for Rev B when Rev A was already a single-page PDF.
+- **Fix:** Added a priority lookup: derive the expected field name from the `field` form param (`revA` -> `revA_pdf`), look that key up first in the multipart data. Fall back to first-file iteration only if the specific key is missing (preserves test compatibility where the field is named `file`).
+- **Files modified:** `shop/routers/runs.py`
+- **Committed in:** de4544c
+
+---
+
+**Total deviations:** 12 auto-fixed/investigated (10 bugs, 1 UI rename, 1 no-op investigation)
 **Impact on plan:** All fixes necessary for correct operation. No scope creep.
 
 ## Issues Encountered
@@ -230,9 +243,10 @@ None — no external service configuration required.
 
 ## Next Phase Readiness
 
-- Phase 2 gate complete: all 12 test_runs.py tests pass, Docker verified
+- Phase 2 gate complete: all 12 test_runs.py tests pass, Docker verified and human-approved
 - Phase 3 (Review Queue) can begin: completed runs exist in DB with delta_packet.json output
 - Known: `/review/{run_id}` links in status page are placeholders (Phase 3 will implement)
+- Human verified: engineer confirmed "approved" after end-to-end Docker submission flow
 
 ---
 *Phase: 02-pipeline-bridge*
