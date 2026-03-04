@@ -15,7 +15,13 @@ uv.lock
 out/
 data/
 shop.db
+huey.db
+uploads/
 *:Zone.Identifier
+
+# Node.js
+node_modules/
+package-lock.json
 
 # Claude
 .claude/
