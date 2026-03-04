@@ -8,7 +8,14 @@ import fitz
 from shop.models import Run
 from shop.services.form3 import parse_excel_preview
 
-UPLOADS_DIR = os.environ.get("UPLOADS_DIR", "/app/data/uploads")
+_default_uploads_dir = os.environ.get("UPLOADS_DIR", "/app/data/uploads")
+
+# When running outside Docker (dev or tests), /app/data may not exist.
+# Fall back to a local path that can always be created.
+if not Path(_default_uploads_dir).parent.exists():
+    _default_uploads_dir = str(Path(__file__).parent.parent.parent / "uploads")
+
+UPLOADS_DIR = _default_uploads_dir
 
 
 def save_upload(file_bytes: bytes, suffix: str, run_uuid: str) -> Path:
