@@ -107,14 +107,19 @@ Post-gate re-verification bug fixes:
 8. **Issue 6: Pipeline task except block UnboundLocalError** - `48b38e5` (fix)
 9. **Issue 7: HTMX validate-pdf file field name mismatch** - `727db59` (fix)
 
+Second round of post-gate fixes:
+
+10. **Issue 8: Rev B page selector** - confirmed already implemented in dc18307 (no fix needed)
+11. **Issue 9: Pipeline task diagnostic logging and db=None guard** - `441d1b8` (fix)
+
 ## Files Created/Modified
 
 - `shop/routers/setup.py` - Create admin user during step 2 if not already seeded
 - `shop/templates/runs/new.html` - Rename "Rev A/B Label" to "First/Second Revision Label"
-- `shop/tasks.py` - Lazy fallback to `_get_run_pipeline()` when module-level `run_pipeline` is None; guard except block with `run = None` initialization
+- `shop/tasks.py` - Lazy fallback to `_get_run_pipeline()` when module-level `run_pipeline` is None; guard except block with `run = None` and `db = None` initialization; add diagnostic print/logger calls
 - `shop/templates/base.html` - Fix bell badge href from /alerts to /dashboard
 - `shop/templates/runs/status.html` - Inject terminal banner immediately via SSE data; add 500ms delay before reload
-- `shop/routers/runs.py` - Accept any file field name in validate-pdf endpoint for HTMX compatibility
+- `shop/routers/runs.py` - Accept any file field name in validate-pdf endpoint for HTMX compatibility; add enqueue diagnostic logging
 
 ## Decisions Made
 
@@ -169,14 +174,26 @@ All 5 issues were discovered during human Docker verification (Task 3 checkpoint
 - **Files modified:** `shop/routers/runs.py`
 - **Committed in:** 727db59
 
+**7. [Investigation] Rev B page selector already implemented**
+- **Found during:** Second round post-gate review
+- **Issue:** User reported Rev B page selector missing. On investigation, the Rev B `<input>` in `new.html` already has identical HTMX attributes to Rev A (`hx-post`, `hx-trigger="change"`, `hx-encoding`, `hx-vals='{"field": "revB"}'`, `hx-target="#revB-section"`, `hx-swap="innerHTML"`). The `_page_selector.html` partial uses `name="{{ field }}_page"` so it renders `name="revB_page"` for Rev B. The POST handler reads `revB_page: int = Form(0)`. Everything is correctly wired.
+- **Fix:** No code change required — feature was already implemented in dc18307.
+
+**8. [Rule 1 - Bug] Pipeline task: db=None guard and diagnostic logging missing**
+- **Found during:** Second round post-gate review
+- **Issue:** `db = _SessionLocal()` was called before the `try` block, so if `_SessionLocal()` threw an exception, `db` was never assigned and the `finally: db.close()` would raise `UnboundLocalError`. Additionally, the `except` block checked `run is not None` but not `db is not None`, meaning `db.commit()` could also fail if db creation threw. No diagnostic logging existed to confirm whether the Huey worker was entering the task body at all in Docker.
+- **Fix:** Moved `db = _SessionLocal()` inside the `try` block. Initialized `db = None` before the try alongside `run = None`. Updated `except` guard to `if run is not None and db is not None:`. Updated `finally` to `if db is not None: db.close()`. Added `print("HUEY TASK STARTED run_id=", run_id)` and `logger.info(...)` at task entry. Added `print("HUEY TASK: enqueuing run_id=", run.id)` and `logger.info(...)` before the enqueue call in the router.
+- **Files modified:** `shop/tasks.py`, `shop/routers/runs.py`
+- **Committed in:** 441d1b8
+
 ---
 
-**Total deviations:** 7 auto-fixed (6 bugs, 1 UI rename)
+**Total deviations:** 9 auto-fixed/investigated (7 bugs, 1 UI rename, 1 no-op investigation)
 **Impact on plan:** All fixes necessary for correct operation. No scope creep.
 
 ## Issues Encountered
 
-None beyond the 7 bugs documented above.
+None beyond the 9 bugs/investigations documented above.
 
 ## User Setup Required
 
