@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-04T01:38:48.777Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-04T01:39:47.398Z"
 last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 16
-  completed_plans: 11
+  completed_plans: 12
   percent: 25
 ---
 
@@ -53,6 +53,7 @@ Progress: [██████████░░░░░░░░░░] 25%
 | Phase 02-pipeline-bridge P01 | 3 | 3 tasks | 5 files |
 | Phase 02-pipeline-bridge P02 | 6min | 3 tasks | 7 files |
 | Phase 02-pipeline-bridge P03 | 7 | 2 tasks | 4 files |
+| Phase 02-pipeline-bridge P04 | 8min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 02-02]: UPLOADS_DIR local fallback: falls back to project-root uploads/ when /app/data does not exist — same pattern as HUEY_DB from Plan 01
 - [Phase 02-02]: save_upload() takes file_bytes+suffix+run_uuid (not UploadFile) — router reads bytes before calling services, keeping service functions pure and testable
 - [Phase 02-02]: Raster detection: text extraction is primary signal; image area >= 95% coverage is secondary heuristic only evaluated when no text found
+- [Phase 02-04]: redirect_slashes=False on APIRouter for /runs prefix — FastAPI default redirects /runs -> /runs/ (307), breaking nav links; solved by empty string route path
+- [Phase 02-04]: Nav bar context helper _get_nav_context() in runs.py centralizes unread_alert_count + shop_name queries for all authenticated routes
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T01:38:48.775Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-04T01:39:47.395Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
