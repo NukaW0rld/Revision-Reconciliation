@@ -75,21 +75,27 @@ async def validate_pdf(
 
     Accepts any multipart/form-data upload.  The file field name is flexible:
     HTMX sends the triggering <input name="revA_pdf"> as "revA_pdf", while
-    direct API calls (e.g. tests) may send it as "file".  We accept whichever
-    file field appears first in the form data and read the "field" text field
-    for the target identifier returned to the partial templates.
+    direct API calls (e.g. tests) may send it as "file".  We look up the
+    specific field first (e.g. "revB_pdf" when field="revB") to avoid picking
+    up a sibling file input that HTMX also includes in the full-form submission.
     """
     from shop.services.runs import validate_pdf_bytes
 
     form = await request.form()
     field = str(form.get("field", ""))
 
-    # Accept the uploaded file under any field name (revA_pdf, revB_pdf, file, …)
-    uploaded_file = None
-    for key, value in form.multi_items():
-        if hasattr(value, "read"):  # UploadFile instances have a .read() method
-            uploaded_file = value
-            break
+    # Prefer the field-specific key (revA_pdf / revB_pdf) so that when HTMX
+    # submits the whole form on change, a previously-uploaded sibling file
+    # (e.g. revA_pdf already selected) doesn't get validated instead.
+    target_key = f"{field}_pdf" if field else None
+    uploaded_file = form.get(target_key) if target_key else None
+    if not hasattr(uploaded_file, "read"):
+        # Fallback: tests send as "file"; direct API calls may omit field name.
+        uploaded_file = None
+        for key, value in form.multi_items():
+            if hasattr(value, "read"):
+                uploaded_file = value
+                break
 
     if uploaded_file is None:
         return HTMLResponse("")  # No file uploaded — clear any prior validation message
