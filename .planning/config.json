@@ -13,6 +13,9 @@
     "auto_advance": false,
     "nyquist_validation": true
   },
+  "git": {
+    "branching_strategy": "none"
+  },
   "parallelization": true,
   "brave_search": false,
   "granularity": "standard"
