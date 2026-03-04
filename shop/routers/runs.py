@@ -69,13 +69,32 @@ def new_run_form(
 @router.post("/validate-pdf", response_class=HTMLResponse)
 async def validate_pdf(
     request: Request,
-    file: UploadFile = File(...),
-    field: str = Form(...),
     user: User = Depends(get_current_user),
 ):
+    """Validate an uploaded PDF for raster content and page count.
+
+    Accepts any multipart/form-data upload.  The file field name is flexible:
+    HTMX sends the triggering <input name="revA_pdf"> as "revA_pdf", while
+    direct API calls (e.g. tests) may send it as "file".  We accept whichever
+    file field appears first in the form data and read the "field" text field
+    for the target identifier returned to the partial templates.
+    """
     from shop.services.runs import validate_pdf_bytes
 
-    content = await file.read()
+    form = await request.form()
+    field = str(form.get("field", ""))
+
+    # Accept the uploaded file under any field name (revA_pdf, revB_pdf, file, …)
+    uploaded_file = None
+    for key, value in form.multi_items():
+        if hasattr(value, "read"):  # UploadFile instances have a .read() method
+            uploaded_file = value
+            break
+
+    if uploaded_file is None:
+        return HTMLResponse("")  # No file uploaded — clear any prior validation message
+
+    content = await uploaded_file.read()
     result = validate_pdf_bytes(content)
     if result["is_raster"]:
         return templates.TemplateResponse(
