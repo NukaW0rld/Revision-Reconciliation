@@ -139,6 +139,9 @@ def run_pipeline_task(
     _run_pipeline = run_pipeline if run_pipeline is not None else _get_run_pipeline()
 
     db = _SessionLocal()
+    # Initialize run to None so the except block can safely check whether the
+    # DB lookup succeeded before attempting to write a failure status.
+    run = None
     try:
         run = db.query(Run).filter(Run.id == run_id).first()
         if run is None:
@@ -222,11 +225,16 @@ def run_pipeline_task(
 
     except Exception as exc:
         logger.exception("run_pipeline_task failed for run %d", run_id)
-        db.refresh(run)
-        run.status = "failed"
-        run.failure_stage = run.current_stage or "Unknown"
-        run.failure_message = str(exc)
-        db.commit()
-        _create_alert(db, run)
+        if run is not None:
+            try:
+                run.status = "failed"
+                run.failure_stage = run.current_stage or "Unknown"
+                run.failure_message = str(exc)
+                db.commit()
+                _create_alert(db, run)
+            except Exception:
+                logger.exception(
+                    "run_pipeline_task: failed to persist failure state for run %d", run_id
+                )
     finally:
         db.close()
