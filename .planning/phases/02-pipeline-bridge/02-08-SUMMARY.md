@@ -2,7 +2,7 @@
 phase: 02-pipeline-bridge
 plan: 08
 subsystem: testing, ui, infra
-tags: [pytest, huey, sse, docker, supervisord, tailwind, daisyui]
+tags: [pytest, huey, sse, docker, supervisord, tailwind, daisyui, htmx]
 
 requires:
   - phase: 02-pipeline-bridge
@@ -22,6 +22,8 @@ tech-stack:
     - "Setup wizard creates admin on step 2 if supervisord skips seed_admin()"
     - "Huey task uses lazy _get_run_pipeline() fallback when module-level import is None"
     - "SSE close handler injects terminal banner immediately then reloads after 500ms"
+    - "Huey task except block initializes run=None to avoid UnboundLocalError in failure handler"
+    - "HTMX validate-pdf endpoint uses request.form() iteration to accept any file field name"
 
 key-files:
   created:
@@ -32,11 +34,14 @@ key-files:
     - shop/tasks.py
     - shop/templates/base.html
     - shop/templates/runs/status.html
+    - shop/routers/runs.py
 
 key-decisions:
   - "Admin is created during setup wizard step 2 (not in seed_admin) because supervisord starts uvicorn directly without running run_web.py"
   - "Bell badge links to /dashboard instead of /alerts (no alerts route exists; dashboard shows unread banners)"
   - "SSE close handler injects banner immediately from event data instead of waiting for full reload"
+  - "Pipeline task except block must initialize run=None before try to prevent UnboundLocalError in failure handler"
+  - "validate-pdf endpoint uses request.form() iteration instead of typed File() param to accept HTMX file field names"
 
 patterns-established:
   - "Lazy import fallback: module-level import failure returns None; task body uses _get_X() lazy getter as fallback"
@@ -62,7 +67,7 @@ completed: 2026-03-04
 
 # Phase 02 Plan 08: Phase 2 Gate — Tests, Docker Verification, and Bug Fixes Summary
 
-**Full test suite green (60 tests), five Docker verification bugs fixed: admin creation, pipeline task callable, bell badge href, SSE terminal banner injection, and rev label rename**
+**Full test suite green (60 tests), seven bugs fixed: admin creation, pipeline task callable, bell badge href, SSE terminal banner injection, rev label rename, task except UnboundLocalError, HTMX validate-pdf field name mismatch**
 
 ## Performance
 
@@ -97,13 +102,19 @@ Task 3 — five post-verification bug fixes:
 6. **Issue 4: Bell badge href fixed to /dashboard** - `34fc6c9` (fix)
 7. **Issue 5: SSE terminal banner injection** - `e3bb773` (fix)
 
+Post-gate re-verification bug fixes:
+
+8. **Issue 6: Pipeline task except block UnboundLocalError** - `48b38e5` (fix)
+9. **Issue 7: HTMX validate-pdf file field name mismatch** - `727db59` (fix)
+
 ## Files Created/Modified
 
 - `shop/routers/setup.py` - Create admin user during step 2 if not already seeded
 - `shop/templates/runs/new.html` - Rename "Rev A/B Label" to "First/Second Revision Label"
-- `shop/tasks.py` - Lazy fallback to `_get_run_pipeline()` when module-level `run_pipeline` is None
+- `shop/tasks.py` - Lazy fallback to `_get_run_pipeline()` when module-level `run_pipeline` is None; guard except block with `run = None` initialization
 - `shop/templates/base.html` - Fix bell badge href from /alerts to /dashboard
 - `shop/templates/runs/status.html` - Inject terminal banner immediately via SSE data; add 500ms delay before reload
+- `shop/routers/runs.py` - Accept any file field name in validate-pdf endpoint for HTMX compatibility
 
 ## Decisions Made
 
@@ -144,14 +155,28 @@ All 5 issues were discovered during human Docker verification (Task 3 checkpoint
 - **Files modified:** `shop/templates/runs/status.html`
 - **Committed in:** e3bb773
 
+**5. [Rule 1 - Bug] Pipeline task except block references unbound `run` variable**
+- **Found during:** Post-gate re-verification
+- **Issue:** In `run_pipeline_task`, the `except` block called `db.refresh(run)` and `run.status = "failed"` but `run` is assigned inside the `try` block. If an exception occurs before the `db.query(Run)...first()` line (e.g., DB connection error), `run` is unbound, causing `UnboundLocalError` in the except handler. This secondary exception propagates silently, leaving the run permanently stuck at "queued".
+- **Fix:** Initialize `run = None` before the try block. Guard the failure-persistence code with `if run is not None:` and wrap it in its own try/except to log secondary failures without swallowing them.
+- **Files modified:** `shop/tasks.py`
+- **Committed in:** 48b38e5
+
+**6. [Rule 1 - Bug] HTMX sends file field as input name, but endpoint expected `file`**
+- **Found during:** Post-gate re-verification
+- **Issue:** The `validate_pdf` endpoint declared `file: UploadFile = File(...)`. HTMX sends file inputs using the `<input name="...">` attribute as the multipart field name. The Rev A input is named `revA_pdf` and Rev B is named `revB_pdf`. FastAPI couldn't find a `file` field in the multipart data and returned 422, so no page selector ever appeared.
+- **Fix:** Changed endpoint signature to accept `Request` directly. Iterate `form.multi_items()` to find whichever field is an `UploadFile`, regardless of field name. Tests that use `files={"file": ...}` still work because the iteration picks up `file` as well.
+- **Files modified:** `shop/routers/runs.py`
+- **Committed in:** 727db59
+
 ---
 
-**Total deviations:** 5 auto-fixed (4 bugs, 1 UI rename)
-**Impact on plan:** All fixes necessary for correct Docker operation. No scope creep.
+**Total deviations:** 7 auto-fixed (6 bugs, 1 UI rename)
+**Impact on plan:** All fixes necessary for correct operation. No scope creep.
 
 ## Issues Encountered
 
-None beyond the 5 Docker verification bugs documented above.
+None beyond the 7 bugs documented above.
 
 ## User Setup Required
 
