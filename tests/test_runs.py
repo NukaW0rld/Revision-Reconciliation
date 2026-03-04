@@ -267,9 +267,9 @@ def test_stage_progress_updates(client, db_engine, engineer_user):
     db.close()
     client.cookies.set("session_token", token)
 
-    # Create a run in 'running' state with current_stage_index=3
+    # Create a run in 'running' state for page render check
     db = Session()
-    run = Run(
+    run_running = Run(
         part_number="PN-SSE",
         rev_a_label="A",
         rev_b_label="B",
@@ -283,10 +283,27 @@ def test_stage_progress_updates(client, db_engine, engineer_user):
         form3_path="/tmp/f.xlsx",
         reviewer_id=engineer_user.id,
     )
-    db.add(run)
+    # Create a completed run for SSE stream check (terminal state closes immediately)
+    run_done = Run(
+        part_number="PN-SSE-DONE",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J-SSE2",
+        status="completed",
+        current_stage_index=8,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add(run_running)
+    db.add(run_done)
     db.commit()
-    db.refresh(run)
-    run_id = run.id
+    db.refresh(run_running)
+    db.refresh(run_done)
+    run_id = run_running.id
+    done_id = run_done.id
     db.close()
 
     # GET /runs/{id} must return 200 with stage checklist
@@ -295,8 +312,8 @@ def test_stage_progress_updates(client, db_engine, engineer_user):
     assert "stage-checklist" in resp.text
     assert "Anchor building" in resp.text
 
-    # GET /runs/{id}/sse must be reachable (returns SSE stream)
-    resp_sse = client.get(f"/runs/{run_id}/sse", headers={"Accept": "text/event-stream"})
+    # GET /runs/{id}/sse on a completed run: stream closes immediately after first event
+    resp_sse = client.get(f"/runs/{done_id}/sse", headers={"Accept": "text/event-stream"})
     assert resp_sse.status_code == 200
 
 

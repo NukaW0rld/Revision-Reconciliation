@@ -1,8 +1,12 @@
+import asyncio
+import json as _json
 import logging
 import uuid
+from collections.abc import AsyncIterable
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy.orm import Session
 
 from shop.app import templates
@@ -11,6 +15,17 @@ from shop.models import User, Run, RunAlert, ShopConfig
 
 router = APIRouter(redirect_slashes=False)
 logger = logging.getLogger(__name__)
+
+STAGE_NAMES = [
+    "Form 3 parsing",
+    "Balloon detection",
+    "Text extraction",
+    "Anchor building",
+    "Alignment",
+    "Candidate matching",
+    "Classification",
+    "Output",
+]
 
 
 def _get_nav_context(db: Session, user: User) -> dict:
@@ -161,6 +176,79 @@ async def submit_run(
     run_pipeline_task(run.id, str(revA_path), str(revB_path), str(form3_path), part_number)
 
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
+
+
+@router.get("/{run_id}", response_class=HTMLResponse)
+def run_status(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    nav = _get_nav_context(db, user)
+    stages = [{"index": i, "name": n} for i, n in enumerate(STAGE_NAMES)]
+    return templates.TemplateResponse(request, "runs/status.html", {
+        "user": user,
+        "run": run,
+        "stages": stages,
+        **nav,
+    })
+
+
+@router.get("/{run_id}/sse", response_class=EventSourceResponse)
+async def run_sse(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AsyncIterable[ServerSentEvent]:
+    """Stream run stage progress as Server-Sent Events.
+
+    Polls the DB every 1 second. Closes the stream when the run reaches a
+    terminal state (completed/failed/warning), preventing browser reconnect loops.
+    """
+    terminal = {"completed", "failed", "warning"}
+    while True:
+        if await request.is_disconnected():
+            break
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is None:
+            break
+        payload = _json.dumps({
+            "status": run.status,
+            "current_stage_index": run.current_stage_index,
+            "current_stage": run.current_stage,
+            "failure_stage": run.failure_stage,
+            "failure_message": run.failure_message,
+            "warning_type": run.warning_type,
+            "confidence_summary": run.confidence_summary,
+        })
+        yield ServerSentEvent(data=payload, event="stage_update")
+        if run.status in terminal:
+            yield ServerSentEvent(event="close", data="done")
+            break
+        await asyncio.sleep(1.0)
+
+
+@router.post("/{run_id}/abort")
+def abort_run(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if run.status == "warning" and run.warning_type == "low_confidence":
+        run.status = "failed"
+        run.failure_stage = "Alignment"
+        run.failure_message = "Run aborted by engineer due to low alignment confidence."
+        db.commit()
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
 
 @router.post("/{run_id}/acknowledge-warning")
