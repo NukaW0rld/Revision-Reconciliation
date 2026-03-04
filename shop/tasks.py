@@ -135,17 +135,18 @@ def run_pipeline_task(
 
     from shop.models import Run
 
-    # Use module-level symbols (patchable in tests).
-    # Fall back to lazy import if the module-level symbol is None (import failed at
-    # load time, e.g., because delta_preservation was not on sys.path yet).
-    _SessionLocal = SessionLocal if SessionLocal is not None else _get_session_local()
-    _run_pipeline = run_pipeline if run_pipeline is not None else _get_run_pipeline()
-
     # Initialize run to None and db to None so the except/finally blocks can
     # safely check whether they were successfully created before using them.
     run = None
     db = None
     try:
+        # Resolve module-level symbols inside the try block so that import
+        # failures (e.g. missing libGL for opencv in Docker) are caught here
+        # and surfaced as a failed run rather than leaving the run stuck at
+        # "queued" with no error record.
+        _SessionLocal = SessionLocal if SessionLocal is not None else _get_session_local()
+        _run_pipeline = run_pipeline if run_pipeline is not None else _get_run_pipeline()
+
         db = _SessionLocal()
         run = db.query(Run).filter(Run.id == run_id).first()
         if run is None:
