@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: "Completed 02-08 second round: pipeline diagnostics + db guard"
-last_updated: "2026-03-04T19:00:59.447Z"
+stopped_at: "Completed 02-08 third round: page selector and SSE real-time bugs fixed"
+last_updated: "2026-03-04T19:54:52.648Z"
 last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
   total_phases: 4
@@ -113,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 02-pipeline-bridge]: Bell badge links to /dashboard instead of /alerts (no alerts route exists; dashboard shows unread banners)
 - [Phase 02-pipeline-bridge]: SSE close handler injects banner immediately from event data then reloads after 500ms delay to avoid race condition
 - [Phase 02-pipeline-bridge]: Lazy import fallback for run_pipeline: module-level symbol may be None; task body uses _get_run_pipeline() at execution time
+- [Phase 02-pipeline-bridge]: SSE raw_data vs data: ServerSentEvent(data=str) double-encodes; use raw_data= for pre-serialised JSON payloads
+- [Phase 02-pipeline-bridge]: SQLAlchemy SSE polling: db.expire(run)+db.refresh(run) required before each poll to bypass identity-map cache in async generators
+- [Phase 02-pipeline-bridge]: validate-pdf single-page: return hidden input (not empty string) to keep swap target populated and page selector reliably dismissible
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T19:00:59.444Z
-Stopped at: Completed 02-08 second round: pipeline diagnostics + db guard
+Last session: 2026-03-04T19:54:52.645Z
+Stopped at: Completed 02-08 third round: page selector and SSE real-time bugs fixed
 Resume file: None

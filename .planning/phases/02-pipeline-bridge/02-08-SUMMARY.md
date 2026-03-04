@@ -42,10 +42,17 @@ key-decisions:
   - "SSE close handler injects banner immediately from event data instead of waiting for full reload"
   - "Pipeline task except block must initialize run=None before try to prevent UnboundLocalError in failure handler"
   - "validate-pdf endpoint uses request.form() iteration instead of typed File() param to accept HTMX file field names"
+  - "SSE raw_data vs data: ServerSentEvent(data=str) double-encodes; always use raw_data= for pre-serialised JSON payloads"
+  - "SQLAlchemy SSE polling: db.expire(run)+db.refresh(run) required before each poll to bypass identity-map cache in async generators"
+  - "validate-pdf single-page response: return hidden input (not empty string) to keep swap target populated and page selector reliably dismissible"
+  - "Open Review Queue /review/{run_id} returning 404 is intentional — Phase 3 work, not a Phase 2 bug"
 
 patterns-established:
   - "Lazy import fallback: module-level import failure returns None; task body uses _get_X() lazy getter as fallback"
   - "SSE terminal state: inject banner immediately via JS then reload after delay to avoid race condition"
+  - "SSE payload encoding: use raw_data= on ServerSentEvent when payload is already a JSON string; data= causes double-encoding"
+  - "SQLAlchemy SSE polling: call db.expire(obj); db.refresh(obj) before each poll to bypass identity-map cache in long-lived generator"
+  - "HTMX file validation target: always return a form element (not empty string) so the swap target retains a valid input regardless of previous state"
 
 requirements-completed:
   - UPLOAD-01
@@ -67,7 +74,7 @@ completed: 2026-03-04
 
 # Phase 02 Plan 08: Phase 2 Gate — Tests, Docker Verification, and Bug Fixes Summary
 
-**Full test suite green (60 tests), seven bugs fixed: admin creation, pipeline task callable, bell badge href, SSE terminal banner injection, rev label rename, task except UnboundLocalError, HTMX validate-pdf field name mismatch**
+**Full test suite green (60 tests), nine bugs fixed: admin creation, pipeline task callable, bell badge href, SSE terminal banner injection, rev label rename, task except UnboundLocalError, HTMX validate-pdf field name mismatch, SSE double-encoding and SQLAlchemy identity-map cache, page selector hidden input restoration**
 
 ## Performance
 
@@ -112,6 +119,11 @@ Second round of post-gate fixes:
 10. **Issue 8: Rev B page selector** - confirmed already implemented in dc18307 (no fix needed)
 11. **Issue 9: Pipeline task diagnostic logging and db=None guard** - `441d1b8` (fix)
 
+Third round of post-gate fixes (Docker verification bugs):
+
+12. **Issue 10: Page selector doesn't reliably show/hide** - `186fa1d` (fix)
+13. **Issue 11: SSE real-time updates not working** - `b3cc7ca` (fix)
+
 ## Files Created/Modified
 
 - `shop/routers/setup.py` - Create admin user during step 2 if not already seeded
@@ -119,7 +131,7 @@ Second round of post-gate fixes:
 - `shop/tasks.py` - Lazy fallback to `_get_run_pipeline()` when module-level `run_pipeline` is None; guard except block with `run = None` and `db = None` initialization; add diagnostic print/logger calls
 - `shop/templates/base.html` - Fix bell badge href from /alerts to /dashboard
 - `shop/templates/runs/status.html` - Inject terminal banner immediately via SSE data; add 500ms delay before reload
-- `shop/routers/runs.py` - Accept any file field name in validate-pdf endpoint for HTMX compatibility; add enqueue diagnostic logging
+- `shop/routers/runs.py` - Accept any file field name in validate-pdf endpoint for HTMX compatibility; add enqueue diagnostic logging; restore hidden page input for single-page PDFs; fix SSE double-encoding (raw_data vs data) and SQLAlchemy identity-map cache (db.expire+refresh)
 
 ## Decisions Made
 
@@ -186,9 +198,26 @@ All 5 issues were discovered during human Docker verification (Task 3 checkpoint
 - **Files modified:** `shop/tasks.py`, `shop/routers/runs.py`
 - **Committed in:** 441d1b8
 
+**9. [Rule 1 - Bug] Page selector doesn't reliably show/hide for Rev B PDF**
+- **Found during:** Third round Docker verification
+- **Issue:** `validate_pdf` endpoint returned `HTMLResponse("")` for single-page valid PDFs. When user first uploaded a multi-page PDF (page selector appeared), then switched to a 1-page PDF, the empty response cleared the `#revB-section` div entirely — removing the hidden `revB_page` input. While this didn't cause a 422 (the route has `Form(0)` default), it meant the section was fully empty, and the page selector HTML (injected by the previous multi-page upload) would linger under HTMX timing edge cases.
+- **Fix:** Return `HTMLResponse('<input type="hidden" name="{field}_page" value="0">')` for single-page PDFs to always keep the section populated with a valid form field, whether or not a page selector was shown before.
+- **Files modified:** `shop/routers/runs.py`
+- **Committed in:** 186fa1d
+
+**10. [Rule 1 - Bug] SSE real-time updates not working — double-encoding and stale DB cache**
+- **Found during:** Third round Docker verification
+- **Issue:** Two compounding bugs prevented the stage checklist from updating in real time:
+  (a) `ServerSentEvent(data=json_str)` JSON-encodes its `data` argument. When `data` is already a JSON string, the wire sends `data: "{\"status\": \"running\"}"` (a JSON-encoded string). `JSON.parse(e.data)` returned a string, not an object, so `updateChecklist(data)` received no usable fields.
+  (b) SQLAlchemy identity-map caching: `db.query(Run).filter(...)` inside the polling loop returned the same Python instance from the session cache on every iteration. `run.status` never reflected database changes written by the Huey worker.
+- **Fix:** (a) Changed `ServerSentEvent(data=payload)` to `ServerSentEvent(raw_data=payload)` so the pre-serialised JSON is sent verbatim without a second encoding pass. (b) Added `db.expire(run); db.refresh(run)` before each poll cycle to force a fresh SELECT from SQLite.
+- **Non-issue noted:** "Open Review Queue" returning 404 is expected — `/review/{run_id}` is Phase 3 work and intentionally deferred.
+- **Files modified:** `shop/routers/runs.py`
+- **Committed in:** b3cc7ca
+
 ---
 
-**Total deviations:** 9 auto-fixed/investigated (7 bugs, 1 UI rename, 1 no-op investigation)
+**Total deviations:** 11 auto-fixed/investigated (9 bugs, 1 UI rename, 1 no-op investigation)
 **Impact on plan:** All fixes necessary for correct operation. No scope creep.
 
 ## Issues Encountered
