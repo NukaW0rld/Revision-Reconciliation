@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}New Run — Delta Preservation{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <h1 class="text-2xl font-bold mb-6">Submit New Comparison Run</h1>
+
+    {% if error %}
+    <div class="alert alert-error mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/runs/new" enctype="multipart/form-data">
+
+        <!-- Part Metadata -->
+        <div class="card bg-base-100 shadow mb-6">
+            <div class="card-body">
+                <h2 class="card-title text-lg">Part Metadata</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Part Number</span></label>
+                        <input type="text" name="part_number" class="input input-bordered" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Customer</span></label>
+                        <input type="text" name="customer" class="input input-bordered" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Rev A Label</span></label>
+                        <input type="text" name="rev_a_label" class="input input-bordered" required placeholder="e.g. A">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Rev B Label</span></label>
+                        <input type="text" name="rev_b_label" class="input input-bordered" required placeholder="e.g. B">
+                    </div>
+                    <div class="form-control col-span-2">
+                        <label class="label"><span class="label-text">Job Number</span></label>
+                        <input type="text" name="job_number" class="input input-bordered" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rev A PDF -->
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-lg">Rev A PDF (Ballooned Drawing)</h2>
+                <div class="form-control">
+                    <input
+                        type="file"
+                        name="revA_pdf"
+                        accept=".pdf"
+                        class="file-input file-input-bordered w-full"
+                        hx-post="/runs/validate-pdf"
+                        hx-trigger="change"
+                        hx-encoding="multipart/form-data"
+                        hx-vals='{"field": "revA"}'
+                        hx-target="#revA-section"
+                        hx-swap="innerHTML"
+                        required
+                    >
+                </div>
+                <!-- Default hidden page input (replaced by page selector partial if multi-page) -->
+                <div id="revA-section">
+                    <input type="hidden" name="revA_page" value="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Rev B PDF -->
+        <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-lg">Rev B PDF (Comparison Drawing)</h2>
+                <div class="form-control">
+                    <input
+                        type="file"
+                        name="revB_pdf"
+                        accept=".pdf"
+                        class="file-input file-input-bordered w-full"
+                        hx-post="/runs/validate-pdf"
+                        hx-trigger="change"
+                        hx-encoding="multipart/form-data"
+                        hx-vals='{"field": "revB"}'
+                        hx-target="#revB-section"
+                        hx-swap="innerHTML"
+                        required
+                    >
+                </div>
+                <div id="revB-section">
+                    <input type="hidden" name="revB_page" value="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Form 3 Excel -->
+        <div class="card bg-base-100 shadow mb-6">
+            <div class="card-body">
+                <h2 class="card-title text-lg">Form 3 Excel (AS9102 FAIR)</h2>
+                <div class="form-control">
+                    <input
+                        type="file"
+                        name="form3_xlsx"
+                        accept=".xlsx"
+                        class="file-input file-input-bordered w-full"
+                        required
+                    >
+                    <label class="label">
+                        <span class="label-text-alt">Excel validation occurs on submit.</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full">Submit Run</button>
+    </form>
+</div>
+{% endblock %}

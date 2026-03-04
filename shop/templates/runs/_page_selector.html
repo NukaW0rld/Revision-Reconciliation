@@ -1,0 +1,14 @@
+<div class="card bg-warning bg-opacity-20 border border-warning mt-2">
+    <div class="card-body py-3">
+        <h3 class="font-semibold text-warning-content">Multi-page PDF detected</h3>
+        <p class="text-sm">Select which page contains the drawing to analyze:</p>
+        <p class="text-xs text-base-content/60">Page 1 is typically the drawing sheet. Select the page number shown on the drawing.</p>
+        <div class="form-control mt-2">
+            <select name="{{ field }}_page" class="select select-bordered select-sm w-full max-w-xs">
+                {% for i in range(page_count) %}
+                <option value="{{ i }}">Page {{ i + 1 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
