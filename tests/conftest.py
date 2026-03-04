@@ -10,7 +10,7 @@ from shop.app import create_app  # noqa: E402
 from shop.database import Base  # noqa: E402
 from shop.dependencies import get_db  # noqa: E402
 from shop.services.auth import hash_password  # noqa: E402
-from shop.models import User, ShopConfig  # noqa: E402
+from shop.models import User, ShopConfig, Run, RunAlert  # noqa: E402
 
 
 @pytest.fixture(scope="function")
@@ -108,3 +108,33 @@ def shop_config(db_engine):
         return config
     finally:
         db.close()
+
+
+@pytest.fixture(scope="function")
+def engineer_user(db_engine):
+    """Seed an active engineer user into the in-memory DB; return the User object."""
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        user = User(
+            email="engineer@shop.local",
+            hashed_password=hash_password("changeme"),
+            role="engineer",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
+@pytest.fixture(scope="function")
+def huey_immediate():
+    """Put Huey in immediate (synchronous) mode for test isolation."""
+    from shop.tasks import huey
+    huey.immediate = True
+    yield
+    huey.immediate = False
+    huey.storage.flush_all()
