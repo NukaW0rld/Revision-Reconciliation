@@ -235,14 +235,26 @@ async def run_sse(
 
     Polls the DB every 1 second. Closes the stream when the run reaches a
     terminal state (completed/failed/warning), preventing browser reconnect loops.
+
+    Two bugs fixed here:
+    1. SSE data was double-encoded: ServerSentEvent(data=json_str) JSON-encodes the
+       string a second time on the wire, so JS JSON.parse(e.data) received a string
+       instead of an object. Fix: use raw_data= so the pre-serialised JSON string is
+       sent verbatim.
+    2. SQLAlchemy identity-map caching: db.query(Run) inside the loop returned the
+       same cached instance every iteration, so run.status never changed. Fix: call
+       db.expire(run) + db.refresh(run) before each poll to force a fresh DB read.
     """
     terminal = {"completed", "failed", "warning"}
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        return
     while True:
         if await request.is_disconnected():
             break
-        run = db.query(Run).filter(Run.id == run_id).first()
-        if run is None:
-            break
+        # Expire the cached instance so the next attribute access re-queries the DB.
+        db.expire(run)
+        db.refresh(run)
         payload = _json.dumps({
             "status": run.status,
             "current_stage_index": run.current_stage_index,
@@ -252,9 +264,9 @@ async def run_sse(
             "warning_type": run.warning_type,
             "confidence_summary": run.confidence_summary,
         })
-        yield ServerSentEvent(data=payload, event="stage_update")
+        yield ServerSentEvent(raw_data=payload, event="stage_update")
         if run.status in terminal:
-            yield ServerSentEvent(event="close", data="done")
+            yield ServerSentEvent(event="close", raw_data="done")
             break
         await asyncio.sleep(1.0)
 
