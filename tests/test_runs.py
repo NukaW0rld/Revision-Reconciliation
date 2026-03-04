@@ -295,8 +295,70 @@ def test_low_confidence_warning():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-11")
-def test_failure_alert_created():
-    """When a run fails, a RunAlert is created for the assigned reviewer so
-    they receive an in-app notification."""
-    pytest.fail("not implemented")
+def test_failure_alert_created(client, db_engine, engineer_user):
+    """PIPE-11: POST /alerts/dismiss/{id} marks RunAlert.is_read=True and returns empty 200.
+
+    Steps:
+    - Seed a Run and a RunAlert for engineer_user.
+    - Authenticate as engineer_user.
+    - POST /alerts/dismiss/{alert_id}.
+    - Assert 200 response with empty body.
+    - Assert RunAlert.is_read == True in the DB.
+    """
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import Run, RunAlert
+    from shop.services.auth import create_session
+
+    Session = sessionmaker(bind=db_engine)
+
+    # Seed a Run owned by engineer_user
+    db = Session()
+    try:
+        run = Run(
+            part_number="PN-ALERT",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="Acme",
+            job_number="JOB-A",
+            status="failed",
+            failure_stage="stage_2_balloon_detection",
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form.xlsx",
+            reviewer_id=engineer_user.id,
+        )
+        db.add(run)
+        db.flush()
+
+        alert = RunAlert(
+            run_id=run.id,
+            user_id=engineer_user.id,
+            message=f"Run {run.id} (PN-ALERT) failed at stage: stage_2_balloon_detection",
+            failure_stage="stage_2_balloon_detection",
+            is_read=False,
+        )
+        db.add(alert)
+        db.commit()
+        alert_id = alert.id
+    finally:
+        db.close()
+
+    # Authenticate as engineer_user
+    db2 = Session()
+    token = create_session(db2, engineer_user)
+    db2.close()
+    client.cookies.set("session_token", token)
+
+    # POST /alerts/dismiss/{alert_id}
+    resp = client.post(f"/alerts/dismiss/{alert_id}", follow_redirects=False)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text[:200]}"
+    assert resp.text.strip() == "", f"Expected empty body, got: {resp.text!r}"
+
+    # Verify alert is marked as read in the DB
+    db3 = Session()
+    try:
+        updated = db3.query(RunAlert).filter(RunAlert.id == alert_id).first()
+        assert updated is not None
+        assert updated.is_read is True, "Alert should be marked as read after dismiss"
+    finally:
+        db3.close()
