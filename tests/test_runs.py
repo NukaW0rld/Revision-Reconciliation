@@ -248,11 +248,66 @@ def test_rev_labels_stored(client, db_engine, engineer_user, huey_immediate):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-01")
-def test_pipeline_task_enqueued(huey_immediate):
-    """After a valid upload, a Huey pipeline task is enqueued and executed
-    asynchronously (synchronously in tests via huey_immediate fixture)."""
-    pytest.fail("not implemented")
+def test_pipeline_task_enqueued(client, db_engine, engineer_user, huey_immediate):
+    """PIPE-01: After a valid upload, a Huey pipeline task is enqueued and executed
+    synchronously via huey_immediate; Run.status transitions away from 'queued'."""
+    import json
+    import pathlib
+    import tempfile
+    from unittest.mock import patch
+    from shop.models import Run
+    Session = sessionmaker(bind=db_engine)
+
+    _login_engineer(client, db_engine, engineer_user)
+    pdf_bytes = _make_vector_pdf_bytes()
+    excel_bytes = _make_excel_bytes()
+
+    def _mock_run_pipeline(**kwargs):
+        run_dir = pathlib.Path(tempfile.mkdtemp())
+        packet = {
+            "run_id": "test",
+            "items": [
+                {
+                    "char_no": 1,
+                    "status": "unchanged",
+                    "scores": {"location": 0.9, "text": 0.9, "context": 0.9},
+                }
+            ],
+        }
+        (run_dir / "delta_packet.json").write_text(json.dumps(packet))
+        return run_dir
+
+    with patch("shop.tasks.run_pipeline", _mock_run_pipeline), \
+         patch("shop.tasks.SessionLocal", sessionmaker(bind=db_engine)):
+        resp = client.post(
+            "/runs/new",
+            data={
+                "part_number": "PN-PIPE01",
+                "rev_a_label": "A",
+                "rev_b_label": "B",
+                "customer": "Acme",
+                "job_number": "JOB-PIPE01",
+                "revA_page": "0",
+                "revB_page": "0",
+            },
+            files={
+                "revA_pdf": ("revA.pdf", pdf_bytes, "application/pdf"),
+                "revB_pdf": ("revB.pdf", pdf_bytes, "application/pdf"),
+                "form3_xlsx": ("form3.xlsx", excel_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            },
+            follow_redirects=False,
+        )
+
+    assert resp.status_code == 302, f"Expected 302, got {resp.status_code}: {resp.text[:200]}"
+    location = resp.headers.get("location", "")
+    run_id = int(location.split("/")[-1])
+
+    db = Session()
+    run = db.query(Run).filter(Run.id == run_id).first()
+    db.close()
+    assert run is not None
+    # Task ran synchronously via huey_immediate; status should have progressed past queued
+    assert run.status != "queued", f"Run should not still be 'queued' after task ran, got: {run.status!r}"
 
 
 def test_stage_progress_updates(client, db_engine, engineer_user):
@@ -413,25 +468,190 @@ def test_run_status_lifecycle(client, db_engine, engineer_user):
     assert run_aborted.failure_stage == "Alignment"
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-04")
-def test_revA_balloon_failure():
-    """When Rev A balloon detection fails, Run.status is set to 'failed',
-    Run.failure_stage is populated, and a descriptive failure_message is stored."""
-    pytest.fail("not implemented")
+def test_revA_balloon_failure(db_engine, engineer_user):
+    """PIPE-04: When Rev A balloon detection fails (empty items), Run.status is set to
+    'failed', Run.failure_stage is populated, and a descriptive failure_message is stored."""
+    import json
+    import pathlib
+    import tempfile
+    from unittest.mock import patch
+    from shop.models import Run
+    from shop.tasks import run_pipeline_task
+    Session = sessionmaker(bind=db_engine)
+
+    # Seed a Run in 'queued' state
+    db = Session()
+    run = Run(
+        part_number="PN-PIPE04",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Acme",
+        job_number="JOB-PIPE04",
+        status="queued",
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    run_id = run.id
+    db.close()
+
+    def _mock_run_pipeline_empty(**kwargs):
+        """Return output dir with empty items (no Rev A balloons detected)."""
+        run_dir = pathlib.Path(tempfile.mkdtemp())
+        packet = {"run_id": "test", "items": []}
+        (run_dir / "delta_packet.json").write_text(json.dumps(packet))
+        return run_dir
+
+    # Patch both SessionLocal and run_pipeline so the task uses the test DB
+    with patch("shop.tasks.SessionLocal", Session), \
+         patch("shop.tasks.run_pipeline", _mock_run_pipeline_empty):
+        run_pipeline_task.call_local(
+            run_id,
+            "/tmp/a.pdf",
+            "/tmp/b.pdf",
+            "/tmp/f.xlsx",
+            "PN-PIPE04",
+        )
+
+    db2 = Session()
+    updated = db2.query(Run).filter(Run.id == run_id).first()
+    db2.close()
+    assert updated.status == "failed", f"Expected 'failed', got: {updated.status!r}"
+    assert updated.failure_stage is not None, "failure_stage should be set"
+    assert updated.failure_message is not None, "failure_message should be set"
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-05")
-def test_revB_balloon_warning():
-    """When Rev B balloon detection fails (non-fatal), Run.status is set to
-    'warning' and Run.warning_type is set to 'revB_balloon'."""
-    pytest.fail("not implemented")
+def test_revB_balloon_warning(db_engine, engineer_user):
+    """PIPE-05: When alignment fails due to Rev B balloon issues (all items have
+    low location scores), Run.status is set to 'warning' and Run.warning_type is
+    set to 'low_confidence' (the unified warning path for revB alignment failure)."""
+    import json
+    import pathlib
+    import tempfile
+    from unittest.mock import patch
+    from shop.models import Run
+    from shop.tasks import run_pipeline_task
+    Session = sessionmaker(bind=db_engine)
+
+    db = Session()
+    run = Run(
+        part_number="PN-PIPE05",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Acme",
+        job_number="JOB-PIPE05",
+        status="queued",
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    run_id = run.id
+    db.close()
+
+    def _mock_run_pipeline_low_location(**kwargs):
+        """Return output with items where all location scores < 0.5 (simulates
+        Rev B balloon alignment failure which causes near-zero location scores)."""
+        run_dir = pathlib.Path(tempfile.mkdtemp())
+        packet = {
+            "run_id": "test",
+            "items": [
+                {"char_no": i, "status": "uncertain", "scores": {"location": 0.1, "text": 0.5, "context": 0.5}}
+                for i in range(1, 6)
+            ],
+        }
+        (run_dir / "delta_packet.json").write_text(json.dumps(packet))
+        return run_dir
+
+    with patch("shop.tasks.SessionLocal", Session), \
+         patch("shop.tasks.run_pipeline", _mock_run_pipeline_low_location):
+        run_pipeline_task.call_local(
+            run_id,
+            "/tmp/a.pdf",
+            "/tmp/b.pdf",
+            "/tmp/f.xlsx",
+            "PN-PIPE05",
+        )
+
+    db2 = Session()
+    updated = db2.query(Run).filter(Run.id == run_id).first()
+    db2.close()
+    assert updated.status == "warning", f"Expected 'warning', got: {updated.status!r}"
+    assert updated.warning_type == "low_confidence", f"Expected 'low_confidence', got: {updated.warning_type!r}"
 
 
-@pytest.mark.xfail(strict=False, reason="not implemented — PIPE-06")
-def test_low_confidence_warning():
-    """When alignment confidence is uniformly low, Run.status is set to 'warning',
-    Run.warning_type is 'low_confidence', and Run.confidence_summary is populated."""
-    pytest.fail("not implemented")
+def test_low_confidence_warning(db_engine, engineer_user):
+    """PIPE-06: When alignment confidence is uniformly low (>50% of items have
+    location score < 0.5), Run.status='warning', Run.warning_type='low_confidence',
+    and Run.confidence_summary JSON is populated."""
+    import json
+    import pathlib
+    import tempfile
+    from unittest.mock import patch
+    from shop.models import Run
+    from shop.tasks import run_pipeline_task
+    Session = sessionmaker(bind=db_engine)
+
+    db = Session()
+    run = Run(
+        part_number="PN-PIPE06",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Acme",
+        job_number="JOB-PIPE06",
+        status="queued",
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    run_id = run.id
+    db.close()
+
+    def _mock_run_pipeline_low_conf(**kwargs):
+        """Return output with >50% of items having low location scores."""
+        run_dir = pathlib.Path(tempfile.mkdtemp())
+        # 8 low + 2 high = 80% low confidence ratio
+        items = [
+            {"char_no": i, "status": "uncertain", "scores": {"location": 0.2, "text": 0.5, "context": 0.5}}
+            for i in range(1, 9)
+        ] + [
+            {"char_no": i, "status": "unchanged", "scores": {"location": 0.9, "text": 0.9, "context": 0.9}}
+            for i in range(9, 11)
+        ]
+        packet = {"run_id": "test", "items": items}
+        (run_dir / "delta_packet.json").write_text(json.dumps(packet))
+        return run_dir
+
+    with patch("shop.tasks.SessionLocal", Session), \
+         patch("shop.tasks.run_pipeline", _mock_run_pipeline_low_conf):
+        run_pipeline_task.call_local(
+            run_id,
+            "/tmp/a.pdf",
+            "/tmp/b.pdf",
+            "/tmp/f.xlsx",
+            "PN-PIPE06",
+        )
+
+    db2 = Session()
+    updated = db2.query(Run).filter(Run.id == run_id).first()
+    db2.close()
+    assert updated.status == "warning", f"Expected 'warning', got: {updated.status!r}"
+    assert updated.warning_type == "low_confidence", f"Expected 'low_confidence', got: {updated.warning_type!r}"
+    assert updated.confidence_summary is not None, "confidence_summary should be populated"
+    summary = updated.confidence_summary
+    assert "low_confidence_ratio" in summary, f"Expected 'low_confidence_ratio' in summary, got: {summary}"
+    assert summary["low_confidence_ratio"] > 0.5, f"Expected ratio > 0.5, got: {summary['low_confidence_ratio']}"
 
 
 # ---------------------------------------------------------------------------
