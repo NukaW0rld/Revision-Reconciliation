@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}All Runs{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">All Runs</h1>
+    <a href="/runs/new" class="btn btn-primary btn-sm">New Run</a>
+</div>
+
+<!-- Filter form -->
+<form method="get" action="/runs" class="mb-6 flex gap-3 items-end">
+    <div class="form-control">
+        <label class="label"><span class="label-text">Part Number</span></label>
+        <input
+            type="text"
+            name="part_number"
+            value="{{ part_number }}"
+            placeholder="Filter by part number"
+            class="input input-bordered input-sm w-56"
+        >
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    {% if part_number %}
+    <a href="/runs" class="btn btn-ghost btn-sm">Clear</a>
+    {% endif %}
+</form>
+
+{% if runs %}
+<div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+        <thead>
+            <tr>
+                <th>Part Number</th>
+                <th>Revision</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Reviewer</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td class="font-medium">{{ run.part_number }}</td>
+                <td class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</td>
+                <td>
+                    <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
+                </td>
+                <td class="text-sm text-base-content/70">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                <td class="text-sm text-base-content/70">{{ run.reviewer.email if run.reviewer else "Unassigned" }}</td>
+                <td>
+                    <a href="/runs/{{ run.id }}" class="btn btn-ghost btn-xs">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-base-content/50 py-12 text-center">
+    {% if part_number %}
+    No runs match your filter. <a href="/runs" class="link">Clear filter</a>
+    {% else %}
+    No runs yet.
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

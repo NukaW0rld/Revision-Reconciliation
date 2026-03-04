@@ -1,29 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="container mx-auto p-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">Dashboard</h1>
-        <form method="post" action="/logout">
-            <button type="submit" class="btn btn-outline btn-sm">Log out</button>
-        </form>
-    </div>
-    <p class="text-base-content/70 mb-6">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
-    {% if user.role == 'admin' %}
-    <div class="grid gap-4 md:grid-cols-2">
-        <a href="/admin/users" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-            <div class="card-body">
-                <h2 class="card-title">User Management</h2>
-                <p class="text-sm text-base-content/70">Create engineers, view and deactivate accounts.</p>
-            </div>
-        </a>
-        <a href="/admin/settings" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-            <div class="card-body">
-                <h2 class="card-title">Settings</h2>
-                <p class="text-sm text-base-content/70">Shop name and Form 3 column mapping.</p>
-            </div>
-        </a>
-    </div>
-    {% endif %}
+<div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    <p class="text-base-content/70">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
 </div>
+
+<!-- Submit New Run CTA -->
+<div class="mb-8">
+    <a href="/runs/new" class="btn btn-primary btn-lg">Submit New Run</a>
+</div>
+
+<!-- Admin management links -->
+{% if user.role == 'admin' %}
+<div class="grid gap-4 md:grid-cols-2 mb-8">
+    <a href="/admin/users" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <h2 class="card-title">User Management</h2>
+            <p class="text-sm text-base-content/70">Create engineers, view and deactivate accounts.</p>
+        </div>
+    </a>
+    <a href="/admin/settings" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <h2 class="card-title">Settings</h2>
+            <p class="text-sm text-base-content/70">Shop name and Form 3 column mapping.</p>
+        </div>
+    </a>
+</div>
+{% endif %}
+
+<!-- Recent runs section -->
+<div class="mb-4 flex items-center justify-between">
+    <h2 class="text-xl font-semibold">Recent Runs</h2>
+    <a href="/runs" class="btn btn-ghost btn-sm">View all runs</a>
+</div>
+
+{% if recent_runs %}
+<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    {% for run in recent_runs %}
+    <a href="/runs/{{ run.id }}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start justify-between">
+                <h3 class="card-title text-base">{{ run.part_number }}</h3>
+                <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
+            </div>
+            <p class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</p>
+            <p class="text-xs text-base-content/50">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }} &middot; Reviewer: {{ run.reviewer.email if run.reviewer else "Unassigned" }}</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-base-content/50 py-8 text-center">
+    No runs yet. Submit your first run above.
+</div>
+{% endif %}
 {% endblock %}

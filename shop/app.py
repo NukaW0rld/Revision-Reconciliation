@@ -10,6 +10,19 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message
 templates = Jinja2Templates(directory="shop/templates")
 
 
+def _status_badge_class(status: str) -> str:
+    return {
+        "completed": "success",
+        "failed": "error",
+        "warning": "warning",
+        "running": "info",
+        "queued": "ghost",
+    }.get(status, "ghost")
+
+
+templates.env.filters["status_badge_class"] = _status_badge_class
+
+
 def create_app(session_factory=None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -29,10 +42,11 @@ def create_app(session_factory=None) -> FastAPI:
     except RuntimeError:
         pass  # static/ dir may not exist in tests
     # Routers
-    from shop.routers import auth, admin, setup
+    from shop.routers import auth, admin, setup, runs
     app.include_router(auth.router)
     app.include_router(admin.router, prefix="/admin")
     app.include_router(setup.router, prefix="/setup")
+    app.include_router(runs.router, prefix="/runs")
     return app
 
 

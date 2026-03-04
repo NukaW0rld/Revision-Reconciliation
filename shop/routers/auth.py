@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
-from shop.models import User
+from shop.models import User, Run, RunAlert, ShopConfig
 from shop.services.auth import verify_password, create_session, delete_session
 
 router = APIRouter()
@@ -73,6 +73,18 @@ def logout(
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
+    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return templates.TemplateResponse(request, "dashboard.html", {"user": user})
+    recent_runs = db.query(Run).order_by(Run.submitted_at.desc()).limit(10).all()
+    unread_count = db.query(RunAlert).filter(
+        RunAlert.user_id == user.id, RunAlert.is_read == False  # noqa: E712
+    ).count()
+    config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()
+    shop_name = config.shop_name if config else "Delta Preservation"
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "user": user,
+        "recent_runs": recent_runs,
+        "unread_alert_count": unread_count,
+        "shop_name": shop_name,
+    })

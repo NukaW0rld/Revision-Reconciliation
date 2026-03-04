@@ -9,7 +9,7 @@ from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, RunAlert, ShopConfig
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +23,7 @@ def _get_nav_context(db: Session, user: User) -> dict:
     return {"unread_alert_count": unread_count, "shop_name": shop_name}
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("", response_class=HTMLResponse)
 def list_runs(
     request: Request,
     part_number: str = None,
