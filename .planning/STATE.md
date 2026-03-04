@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-03-04T01:53:18.286Z"
+stopped_at: Completed 02-08-PLAN.md
+last_updated: "2026-03-04T16:30:02.581Z"
 last_activity: "2026-03-03 — Plan 01-08 complete: Docker e2e human verification approved — login, setup wizard, RBAC, admin user management, air-gapped runtime all verified"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 25
 ---
 
@@ -109,6 +109,10 @@ Recent decisions affecting current work:
 - [Phase 02-pipeline-bridge]: acknowledge-warning is a Phase 3 placeholder redirect to /review/{run_id}; full review queue deferred
 - [Phase 02-05]: FastAPI SSE route must be async generator with response_class=EventSourceResponse (not return EventSourceResponse(generator)) — routing layer detects is_gen_callable and encodes ServerSentEvent objects
 - [Phase 02-05]: SSE test uses terminal-state runs to avoid TestClient hang — async generator loops with asyncio.sleep for non-terminal runs
+- [Phase 02-pipeline-bridge]: Admin is created during setup wizard step 2 (not in seed_admin) because supervisord starts uvicorn directly without running run_web.py
+- [Phase 02-pipeline-bridge]: Bell badge links to /dashboard instead of /alerts (no alerts route exists; dashboard shows unread banners)
+- [Phase 02-pipeline-bridge]: SSE close handler injects banner immediately from event data then reloads after 500ms delay to avoid race condition
+- [Phase 02-pipeline-bridge]: Lazy import fallback for run_pipeline: module-level symbol may be None; task body uses _get_run_pipeline() at execution time
 
 ### Pending Todos
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T01:53:18.283Z
-Stopped at: Completed 02-05-PLAN.md
+Last session: 2026-03-04T16:30:02.578Z
+Stopped at: Completed 02-08-PLAN.md
 Resume file: None
