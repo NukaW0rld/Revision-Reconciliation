@@ -250,7 +250,7 @@ Each module includes comprehensive docstrings, type hints, and extensive comment
 - **Multi-page drawing support** with cross-page characteristic tracking
 - **Advanced revision table parsing** for ECO number extraction
 - **Machine learning enhancements** for improved classification accuracy
-- **Review and sign-off workflows** — human engineer approval queue with audit packet PDF export (v0.3)
+- **Review and sign-off workflows** as human engineer approval queue with audit packet PDF export (v0.3)
 
 ---
 
