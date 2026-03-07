@@ -11,9 +11,10 @@ Requirements covered:
   SIGNOFF-01..03 — Sign-off gate, rollback, and immutability
 """
 
+import json
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +61,61 @@ def test_override_requires_note(client: TestClient, engineer_user, db_engine):
 # REVIEW-05: Review state persisted
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-05: not yet implemented — Plan 03")
-def test_review_state_persisted(client: TestClient, engineer_user, db_engine):
-    """ReviewItem rows survive across requests; second GET returns same decision state."""
-    raise NotImplementedError("REVIEW-05")
+def test_review_state_persisted(tmp_path, db_engine):
+    """open_review_queue is idempotent: second call returns same rows without duplicating."""
+    from shop.services.review import open_review_queue
+    from shop.models import Run, ReviewItem
+
+    # Build a minimal delta_packet.json with 3 DeltaItems
+    packet = {
+        "run_id": "test-run-001",
+        "inputs": {},
+        "items": [
+            {"char_no": 1, "status": "unchanged", "confidence": 0.95, "reasons": [], "scores": {}, "revA": None, "revB": None},
+            {"char_no": 2, "status": "changed",   "confidence": 0.80, "reasons": [], "scores": {}, "revA": None, "revB": None},
+            {"char_no": 3, "status": "removed",   "confidence": 0.70, "reasons": [], "scores": {}, "revA": None, "revB": None},
+        ],
+    }
+    out_dir = tmp_path / "out" / "test-run-001"
+    out_dir.mkdir(parents=True)
+    (out_dir / "delta_packet.json").write_text(json.dumps(packet))
+
+    # Set up a DB session using the test engine
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+
+    try:
+        # Create a Run pointing at our tmp output dir
+        run = Run(
+            part_number="P-001",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="ACME",
+            job_number="JOB-001",
+            status="completed",
+            output_dir=str(out_dir),
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form3.xlsx",
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+
+        # First call — should create 3 ReviewItems
+        items1 = open_review_queue(db, run)
+        assert len(items1) == 3
+
+        # Second call — idempotent: must not duplicate
+        items2 = open_review_queue(db, run)
+        count = db.query(ReviewItem).filter(ReviewItem.run_id == run.id).count()
+        assert count == 3, f"Expected 3 ReviewItems, got {count}"
+
+        # Run.status must be "reviewing" after first open
+        db.refresh(run)
+        assert run.status == "reviewing"
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
