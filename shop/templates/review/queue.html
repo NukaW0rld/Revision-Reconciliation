@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Review Queue — {{ run.part_number }} | Delta Preservation{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {# Header breadcrumb #}
+  <div class="flex items-center gap-2 text-sm breadcrumbs">
+    <ul>
+      <li><a href="/runs">My Runs</a></li>
+      <li><a href="/runs/{{ run.id }}">{{ run.part_number }}</a></li>
+      <li>Review Queue</li>
+    </ul>
+  </div>
+
+  {# Run metadata card #}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body py-4">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap gap-6 text-sm">
+          <div>
+            <span class="text-base-content/60">Part Number</span>
+            <div class="font-semibold">{{ run.part_number }}</div>
+          </div>
+          <div>
+            <span class="text-base-content/60">Rev A</span>
+            <div class="font-semibold">{{ run.rev_a_label }}</div>
+          </div>
+          <div>
+            <span class="text-base-content/60">Rev B</span>
+            <div class="font-semibold">{{ run.rev_b_label }}</div>
+          </div>
+          <div>
+            <span class="text-base-content/60">Customer</span>
+            <div class="font-semibold">{{ run.customer }}</div>
+          </div>
+          <div>
+            <span class="text-base-content/60">Job</span>
+            <div class="font-semibold">{{ run.job_number }}</div>
+          </div>
+        </div>
+        {# Progress bar partial — HTMX OOB swap target for Plan 03 approve/override #}
+        {% include "review/_progress_bar.html" %}
+      </div>
+    </div>
+  </div>
+
+  {# Filter bar #}
+  <form method="GET" action="/review/{{ run.id }}" class="flex flex-wrap gap-4 items-end">
+    <div class="form-control">
+      <label class="label label-text" for="status_filter">Review Status</label>
+      <select id="status_filter" name="status_filter" class="select select-bordered select-sm"
+              onchange="this.form.submit()">
+        <option value="all" {% if status_filter == "all" %}selected{% endif %}>All statuses</option>
+        <option value="pending"    {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+        <option value="approved"   {% if status_filter == "approved" %}selected{% endif %}>Approved</option>
+        <option value="overridden" {% if status_filter == "overridden" %}selected{% endif %}>Overridden</option>
+      </select>
+    </div>
+    <div class="form-control">
+      <label class="label label-text" for="classification_filter">Pipeline Classification</label>
+      <select id="classification_filter" name="classification_filter" class="select select-bordered select-sm"
+              onchange="this.form.submit()">
+        <option value="all"       {% if classification_filter == "all" %}selected{% endif %}>All classifications</option>
+        <option value="unchanged" {% if classification_filter == "unchanged" %}selected{% endif %}>Unchanged</option>
+        <option value="changed"   {% if classification_filter == "changed" %}selected{% endif %}>Changed</option>
+        <option value="removed"   {% if classification_filter == "removed" %}selected{% endif %}>Removed</option>
+        <option value="uncertain" {% if classification_filter == "uncertain" %}selected{% endif %}>Uncertain</option>
+        <option value="added"     {% if classification_filter == "added" %}selected{% endif %}>Added</option>
+      </select>
+    </div>
+  </form>
+
+  {# Error banner #}
+  {% if error %}
+  <div class="alert alert-error">
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  {# Item list #}
+  <div class="space-y-3" id="item-list">
+    {% for item in items %}
+    <div class="card bg-base-100 shadow-sm border border-base-300" id="item-{{ item.id }}">
+      <div class="card-body py-3 px-4">
+        <div class="flex items-center gap-4">
+          <div class="font-mono text-lg font-bold w-12 text-center">
+            {% if item.char_no is not none %}{{ item.char_no }}{% else %}—{% endif %}
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="badge
+                {% if item.pipeline_classification == 'unchanged' %}badge-success{% endif %}
+                {% if item.pipeline_classification == 'changed' %}badge-warning{% endif %}
+                {% if item.pipeline_classification == 'removed' %}badge-error{% endif %}
+                {% if item.pipeline_classification == 'uncertain' %}badge-ghost{% endif %}
+                {% if item.pipeline_classification == 'added' %}badge-info{% endif %}
+              ">{{ item.pipeline_classification }}</span>
+              <span class="text-xs text-base-content/60">{{ "%.0f"|format(item.confidence * 100) }}% confidence</span>
+            </div>
+            {% if item.requirement_revA %}
+            <div class="text-sm mt-1">{{ item.requirement_revA }}</div>
+            {% endif %}
+          </div>
+          <div>
+            {% if item.reviewer_decision is none %}
+            <span class="badge badge-ghost badge-sm">pending</span>
+            {% elif item.reviewer_decision == "approved" %}
+            <span class="badge badge-success badge-sm">approved</span>
+            {% elif item.reviewer_decision == "overridden" %}
+            <span class="badge badge-warning badge-sm">overridden</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="text-center text-base-content/60 py-8">No items match the selected filters.</div>
+    {% endfor %}
+  </div>
+
+  {# Sign-off section #}
+  <div class="card bg-base-100 shadow-sm mt-6">
+    <div class="card-body py-4 flex flex-row items-center justify-between gap-4">
+      <div class="text-sm text-base-content/70">
+        {% if pending > 0 %}
+          {{ pending }} item{{ "s" if pending != 1 else "" }} pending review before sign-off.
+        {% else %}
+          All items reviewed. Ready to sign off.
+        {% endif %}
+      </div>
+      {% if pending > 0 %}
+      <button class="btn btn-disabled btn-primary" disabled>
+        Sign Off ({{ pending }} pending)
+      </button>
+      {% else %}
+      <button class="btn btn-primary">
+        Sign Off Run
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

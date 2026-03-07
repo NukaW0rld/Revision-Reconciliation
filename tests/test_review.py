@@ -17,14 +17,87 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 
+def _login_engineer(client, db_engine, engineer_user):
+    """Seed a session for the engineer user and set cookie on client."""
+    from shop.services.auth import create_session
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    token = create_session(db, engineer_user)
+    db.close()
+    client.cookies.set("session_token", token)
+    return token
+
+
+def _make_run_with_packet(tmp_path, db_engine, n_items=3, *, status="completed"):
+    """Helper: create a Run in the DB with a delta_packet.json in tmp_path."""
+    from shop.models import Run
+    out_dir = tmp_path / "out" / "test-run"
+    out_dir.mkdir(parents=True)
+    items = [
+        {
+            "char_no": i + 1,
+            "status": ["unchanged", "changed", "uncertain"][i % 3],
+            "confidence": 0.9 - i * 0.1,
+            "reasons": [],
+            "scores": {},
+            "revA": None,
+            "revB": None,
+        }
+        for i in range(n_items)
+    ]
+    packet = {"run_id": "test-run-001", "inputs": {}, "items": items}
+    (out_dir / "delta_packet.json").write_text(json.dumps(packet))
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        run = Run(
+            part_number="P-001",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="ACME",
+            job_number="JOB-001",
+            status=status,
+            output_dir=str(out_dir),
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form3.xlsx",
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        run_id = run.id
+    finally:
+        db.close()
+    return run_id
+
+
 # ---------------------------------------------------------------------------
 # REVIEW-01: Review queue loads
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-01: not yet implemented — Plan 02")
-def test_review_queue_loads(client: TestClient, engineer_user):
+def test_review_queue_loads(client: TestClient, engineer_user, db_engine, tmp_path):
     """GET /review/{run_id} returns 200 with all ReviewItems listed."""
-    raise NotImplementedError("REVIEW-01")
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=3, status="completed")
+
+    resp = client.get(f"/review/{run_id}", follow_redirects=False)
+    assert resp.status_code == 200, resp.text
+
+    # Each char_no should appear in the response
+    for char_no in [1, 2, 3]:
+        assert str(char_no) in resp.text, f"char_no {char_no} not found in response"
+
+    # Run.status should now be "reviewing"
+    from shop.models import Run
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        assert run.status == "reviewing"
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +205,19 @@ def test_admin_can_reassign(client: TestClient, admin_user, engineer_user, db_en
 # REVIEW-07: Review counts
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-07: not yet implemented — Plan 02")
-def test_review_counts(client: TestClient, engineer_user, db_engine):
+def test_review_counts(client: TestClient, engineer_user, db_engine, tmp_path):
     """Queue response contains pending/approved/overridden counts."""
-    raise NotImplementedError("REVIEW-07")
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=3, status="completed")
+
+    resp = client.get(f"/review/{run_id}", follow_redirects=False)
+    assert resp.status_code == 200, resp.text
+
+    # The progress bar should show counts. All 3 are pending (no decisions yet).
+    assert "3 pending" in resp.text
+    assert "0 approved" in resp.text
+    assert "0 overridden" in resp.text
+    assert "/ 3 total" in resp.text
 
 
 # ---------------------------------------------------------------------------
