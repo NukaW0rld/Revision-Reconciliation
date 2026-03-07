@@ -223,11 +223,13 @@ def run_status(
     nav = _get_nav_context(db, user)
     stages = [{"index": i, "name": n} for i, n in enumerate(STAGE_NAMES)]
     engineers = db.query(User).filter(User.is_active == True, User.role == "engineer").all()  # noqa: E712
+    signed = request.query_params.get("signed") == "1"
     return templates.TemplateResponse(request, "runs/status.html", {
         "user": user,
         "run": run,
         "stages": stages,
         "engineers": engineers,
+        "signed": signed,
         **nav,
     })
 

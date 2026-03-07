@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Generating Audit Packet{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-16 text-center" hx-ext="sse" sse-connect="/review/{{ run.id }}/sign-off/sse">
+  <div class="loading loading-spinner loading-lg text-primary mb-6"></div>
+  <h1 class="text-2xl font-bold mb-2">Generating Audit Packet</h1>
+  <p class="text-base-content/60">Finalizing sign-off for {{ run.part_number }} Rev {{ run.rev_b_label }}&hellip;</p>
+  <div id="sse-status" sse-swap="status_update" hx-swap="none"></div>
+</div>
+<script>
+  // Listen for status_update events via HTMX SSE
+  document.body.addEventListener("htmx:sseMessage", function(evt) {
+    if (evt.detail.type === "status_update") {
+      try {
+        var data = JSON.parse(evt.detail.data);
+        if (data.status === "signed_off") {
+          window.location.href = "/runs/" + data.run_id + "?signed=1";
+        } else if (data.status === "reviewing") {
+          window.location.href = "/review/" + data.run_id + "?error=sign_off_failed";
+        }
+      } catch(e) {}
+    }
+  });
+</script>
+{% endblock %}

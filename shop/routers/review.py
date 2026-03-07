@@ -1,6 +1,10 @@
+import asyncio
+import json as _json
+from collections.abc import AsyncIterable
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
@@ -224,3 +228,48 @@ def serve_snippet(
     if not snippet_path.exists():
         raise HTTPException(status_code=404)
     return FileResponse(str(snippet_path), media_type="image/png")
+
+
+@router.get("/{run_id}/generating", response_class=HTMLResponse)
+def review_generating(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    # If already terminal, redirect immediately
+    if run.status == "signed_off":
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
+    if run.status == "reviewing":
+        return RedirectResponse(f"/review/{run_id}?error=sign_off_failed", status_code=302)
+    nav = _get_nav_context(db, user)
+    return templates.TemplateResponse(request, "review/generating.html", {
+        "run": run, "user": user, **nav,
+    })
+
+
+@router.get("/{run_id}/sign-off/sse")
+async def sign_off_sse(
+    run_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    async def generator() -> AsyncIterable[ServerSentEvent]:
+        terminal = {"signed_off", "reviewing"}
+        run = db.query(Run).filter(Run.id == run_id).first()
+        if run is None:
+            yield ServerSentEvent(event="close", raw_data="notfound")
+            return
+        while True:
+            db.expire(run)   # bypass SQLAlchemy identity map cache
+            db.refresh(run)
+            payload = _json.dumps({"status": run.status, "run_id": run_id})
+            yield ServerSentEvent(raw_data=payload, event="status_update")
+            if run.status in terminal:
+                yield ServerSentEvent(event="close", raw_data="done")
+                break
+            await asyncio.sleep(2.0)
+    return EventSourceResponse(generator())

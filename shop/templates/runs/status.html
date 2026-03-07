@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Run {{ run.id }} &mdash; {{ run.part_number }}{% endblock %}
 {% block content %}
+{% if signed %}
+<div class="alert alert-success mb-4">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+  </svg>
+  <span class="font-bold">Run signed off successfully. Audit packet ready.</span>
+</div>
+{% endif %}
 <div class="mb-4 flex items-center gap-3">
   <a href="/runs" class="btn btn-ghost btn-sm">&larr; All Runs</a>
   <h1 class="text-2xl font-bold">Run #{{ run.id }}</h1>
