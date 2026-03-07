@@ -426,17 +426,71 @@ def test_sign_off_gate(client: TestClient, engineer_user, db_engine, tmp_path):
 # SIGNOFF-02: Sign-off rollback
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="SIGNOFF-02: not yet implemented — Plan 05")
-def test_sign_off_rollback(client: TestClient, admin_user, db_engine):
-    """If sign-off packet write fails, Run.status rolls back to 'reviewing'."""
-    raise NotImplementedError("SIGNOFF-02")
+def test_sign_off_rollback(db_engine):
+    """SIGNOFF-02: if sign-off fails midway, Run.status rolls back to reviewing."""
+    from shop.services.review import attempt_sign_off
+    from shop.models import Run
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = Run(part_number="P1", rev_a_label="A", rev_b_label="B",
+              customer="C", job_number="J1", status="reviewing",
+              revA_path="", revB_path="", form3_path="")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    # Patch db.commit to raise on second call (Phase 2 failure)
+    call_count = [0]
+    original_commit = db.commit
+    def patched_commit():
+        call_count[0] += 1
+        if call_count[0] == 2:  # Phase 2 commit
+            raise RuntimeError("Simulated packet write failure")
+        original_commit()
+    db.commit = patched_commit
+
+    result = attempt_sign_off(db, run, reviewer_id=1)
+    assert result is False
+    # Re-query to confirm status
+    db.commit = original_commit
+    db.expire_all()
+    fresh = db.query(Run).filter(Run.id == run.id).first()
+    assert fresh.status == "reviewing"
+    assert fresh.signed_at is None
+    db.close()
 
 
 # ---------------------------------------------------------------------------
 # SIGNOFF-03: Signed-off immutable
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="SIGNOFF-03: not yet implemented — Plan 05")
-def test_signed_off_immutable(client: TestClient, admin_user, db_engine):
-    """Run.signed_at is immutable after sign-off; second attempt is blocked."""
-    raise NotImplementedError("SIGNOFF-03")
+def test_signed_off_immutable(db_engine):
+    """SIGNOFF-03: signed_off run cannot be re-signed; signed_at is immutable."""
+    from shop.services.review import attempt_sign_off
+    from shop.models import Run
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = Run(part_number="P1", rev_a_label="A", rev_b_label="B",
+              customer="C", job_number="J1", status="reviewing",
+              revA_path="", revB_path="", form3_path="")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    # First sign-off succeeds
+    result1 = attempt_sign_off(db, run, reviewer_id=1)
+    assert result1 is True
+    db.refresh(run)
+    first_signed_at = run.signed_at
+    assert run.status == "signed_off"
+    assert first_signed_at is not None
+
+    # Second sign-off attempt returns False; signed_at unchanged
+    result2 = attempt_sign_off(db, run, reviewer_id=2)
+    assert result2 is False
+    db.refresh(run)
+    assert run.signed_at == first_signed_at  # immutable
+    assert run.status == "signed_off"
+    db.close()
