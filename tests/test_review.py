@@ -295,10 +295,71 @@ def test_review_state_persisted(tmp_path, db_engine):
 # REVIEW-06: Admin can reassign reviewer
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-06: not yet implemented — Plan 04")
-def test_admin_can_reassign(client: TestClient, admin_user, engineer_user, db_engine):
+def _login_admin(client, db_engine, admin_user):
+    """Seed a session for the admin user and set cookie on client."""
+    from shop.services.auth import create_session
+    AdminSession = sessionmaker(bind=db_engine)
+    db = AdminSession()
+    token = create_session(db, admin_user)
+    db.close()
+    client.cookies.set("session_token", token)
+    return token
+
+
+def test_admin_can_reassign(client: TestClient, admin_user, engineer_user, db_engine, tmp_path):
     """Admin can reassign reviewer on a run; engineer role cannot reassign."""
-    raise NotImplementedError("REVIEW-06")
+    from shop.models import Run
+
+    # Create a run assigned to engineer
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        run = Run(
+            part_number="P-ASSIGN",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="ACME",
+            job_number="JOB-ASSIGN",
+            status="reviewing",
+            output_dir=str(tmp_path / "out" / "assign-run"),
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form3.xlsx",
+            reviewer_id=engineer_user.id,
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        run_id = run.id
+    finally:
+        db.close()
+
+    # Admin can reassign — log in as admin
+    _login_admin(client, db_engine, admin_user)
+    resp = client.post(
+        f"/review/{run_id}/reassign",
+        data={"reviewer_id": admin_user.id},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302, f"Expected 302, got {resp.status_code}: {resp.text}"
+    assert f"/runs/{run_id}" in resp.headers["location"]
+
+    # Verify DB updated
+    db = TestingSession()
+    try:
+        updated_run = db.query(Run).filter(Run.id == run_id).first()
+        assert updated_run.reviewer_id == admin_user.id
+    finally:
+        db.close()
+
+    # Engineer cannot reassign — log in as engineer
+    _login_engineer(client, db_engine, engineer_user)
+    resp = client.post(
+        f"/review/{run_id}/reassign",
+        data={"reviewer_id": engineer_user.id},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
 
 
 # ---------------------------------------------------------------------------
@@ -324,10 +385,41 @@ def test_review_counts(client: TestClient, engineer_user, db_engine, tmp_path):
 # SIGNOFF-01: Sign-off gate
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="SIGNOFF-01: not yet implemented — Plan 05")
-def test_sign_off_gate(client: TestClient, engineer_user, db_engine):
-    """Sign-off button disabled when pending > 0; enabled only when all items resolved."""
-    raise NotImplementedError("SIGNOFF-01")
+def test_sign_off_gate(client: TestClient, engineer_user, db_engine, tmp_path):
+    """POST /sign-off/confirm redirects to error when pending > 0; redirects to generating when all resolved."""
+    from shop.models import ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    # Seed the review queue
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    # POST sign-off/confirm with 1 pending item — must redirect to ?error=pending_items
+    resp = client.post(f"/review/{run_id}/sign-off/confirm", follow_redirects=False)
+    assert resp.status_code == 302, f"Expected 302, got {resp.status_code}"
+    assert "error=pending_items" in resp.headers["location"], (
+        f"Expected redirect to ?error=pending_items, got: {resp.headers['location']}"
+    )
+
+    # Approve the item
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    client.post(f"/review/{run_id}/items/{char_no}/approve")
+
+    # POST sign-off/confirm with 0 pending — must redirect to /review/{id}/generating
+    resp = client.post(f"/review/{run_id}/sign-off/confirm", follow_redirects=False)
+    assert resp.status_code == 302, f"Expected 302, got {resp.status_code}"
+    location = resp.headers["location"]
+    assert f"/review/{run_id}/generating" in location, (
+        f"Expected redirect to /review/{run_id}/generating, got: {location}"
+    )
 
 
 # ---------------------------------------------------------------------------
