@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-03-07T20:46:32.333Z"
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-03-07T22:57:56.185Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 22
-  completed_plans: 21
+  completed_plans: 22
   percent: 50
 ---
 
@@ -63,6 +63,7 @@ Progress: [████████████████████░░░
 | Phase 03-review-and-sign-off P03 | 3min | 2 tasks | 5 files |
 | Phase 03-review-and-sign-off P04 | 3min | 2 tasks | 6 files |
 | Phase 03-review-and-sign-off P05 | 3min | 2 tasks | 6 files |
+| Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,8 @@ Recent decisions affecting current work:
 - [Phase 03-review-and-sign-off]: Sign-off modal uses DaisyUI showModal() + standard HTML form POST (not HTMX) per Phase 01 decision; admin reassign form shows only active engineers
 - [Phase 03-review-and-sign-off]: Two-phase write rollback re-queries run by ID post-rollback since session identity-map state unreliable
 - [Phase 03-review-and-sign-off]: SSE terminal set includes reviewing (rollback state) so client always receives a redirect signal on sign-off completion or failure
+- [Phase 03-review-and-sign-off]: run_id must be passed explicitly in review_queue() TemplateResponse — Jinja2 silently interpolates undefined vars as empty string, breaking HTMX action URLs and snippet src paths
+- [Phase 03-review-and-sign-off]: Confidence badge prefixed with 'Confidence: ' label directly in _item_card.html template (no JavaScript needed)
 
 ### Pending Todos
 
@@ -152,6 +155,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T20:46:32.331Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-03-07T22:57:56.183Z
+Stopped at: Completed 03-06-PLAN.md
 Resume file: None
