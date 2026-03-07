@@ -1,7 +1,8 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
-from shop.models import Run, ReviewItem
+from shop.models import Run, ReviewItem, User
 
 
 def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
@@ -64,3 +65,12 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
     for item in items:
         db.refresh(item)
     return items
+
+
+def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
+    """Stub — Plan 05 implements two-phase write atomicity."""
+    run.signed_at = datetime.utcnow()
+    run.signed_by_id = reviewer_id
+    run.status = "signed_off"
+    db.commit()
+    return True

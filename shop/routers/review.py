@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
-from shop.services.review import open_review_queue
+from shop.services.review import open_review_queue, attempt_sign_off
 from shop.routers.runs import _get_nav_context
 
 router = APIRouter(redirect_slashes=False)
@@ -156,6 +156,55 @@ def override_item(
         "total": len(all_items),
         "oob_update": True,
     })
+
+
+@router.post("/{run_id}/sign-off/confirm")
+def sign_off_confirm(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    if run.status == "signed_off":
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
+    pending = (
+        db.query(ReviewItem)
+        .filter(ReviewItem.run_id == run_id, ReviewItem.reviewer_decision == None)  # noqa: E711
+        .count()
+    )
+    if pending > 0:
+        return RedirectResponse(f"/review/{run_id}?error=pending_items", status_code=302)
+    success = attempt_sign_off(db, run, user.id)
+    if success:
+        return RedirectResponse(f"/review/{run_id}/generating", status_code=302)
+    else:
+        return RedirectResponse(f"/review/{run_id}?error=sign_off_failed", status_code=302)
+
+
+@router.post("/{run_id}/reassign")
+def reassign_run(
+    run_id: int,
+    request: Request,
+    reviewer_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    if run.status == "signed_off":
+        raise HTTPException(status_code=409, detail="Cannot reassign a signed-off run")
+    new_reviewer = db.query(User).filter(User.id == reviewer_id, User.is_active == True).first()  # noqa: E712
+    if new_reviewer is None:
+        raise HTTPException(status_code=400, detail="Invalid reviewer")
+    run.reviewer_id = reviewer_id
+    db.commit()
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
 
 @router.get("/{run_id}/snippets/{filename}")
