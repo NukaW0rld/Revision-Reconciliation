@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-07T20:29:21.828Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-07T20:34:44.933Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 50
 ---
 
@@ -60,6 +60,7 @@ Progress: [████████████████████░░░
 | Phase 02-pipeline-bridge P08 | human-verify | 3 tasks | 1 files |
 | Phase 03-review-and-sign-off P01 | 7 | 3 tasks | 4 files |
 | Phase 03-review-and-sign-off P02 | 5min | 2 tasks | 6 files |
+| Phase 03-review-and-sign-off P03 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,8 @@ Recent decisions affecting current work:
 - [Phase 03-review-and-sign-off]: JS onchange form submit chosen for filter dropdowns to avoid HTMX dependency for filter state
 - [Phase 03-review-and-sign-off]: Counts (pending/approved/overridden) computed from all_items before filter applied — sign-off gate needs unfiltered totals
 - [Phase 03-review-and-sign-off]: open_review_queue uses single count check for idempotency rather than per-item get_or_create — simpler and avoids partial-insert race conditions
+- [Phase 03-review-and-sign-off]: _item_card.html OOB update appended inside card div only when oob_update=True, avoiding OOB markup on initial queue page load
+- [Phase 03-review-and-sign-off]: basename filter added globally in app.py templates env so it is available to all templates
 
 ### Pending Todos
 
@@ -143,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T20:29:21.826Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-07T20:34:44.931Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
