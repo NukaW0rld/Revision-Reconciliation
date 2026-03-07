@@ -68,9 +68,34 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
 
 
 def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
-    """Stub — Plan 05 implements two-phase write atomicity."""
-    run.signed_at = datetime.utcnow()
-    run.signed_by_id = reviewer_id
-    run.status = "signed_off"
+    """Atomic sign-off using two-phase write pattern.
+
+    Returns True on success (run.status == 'signed_off').
+    Returns False on any failure (run.status rolled back to 'reviewing').
+
+    SIGNOFF-03: Returns False immediately if run is already signed_off.
+    """
+    if run.status == "signed_off":
+        return False  # Immutability guard — never re-sign
+
+    # Phase 1: mark as in-progress (visible to SSE polling)
+    run.status = "signing_off"
     db.commit()
-    return True
+
+    try:
+        # Phase 2: write the sign-off marker (Phase 4 PDF generation would go here)
+        # For Phase 3, the audit packet IS the signed_at timestamp.
+        run.signed_at = datetime.utcnow()
+        run.signed_by_id = reviewer_id
+        run.status = "signed_off"
+        db.commit()
+        return True
+    except Exception:
+        # Rollback to reviewable state — no signed-but-no-packet state allowed
+        db.rollback()
+        # Re-query run after rollback (object may be in detached state)
+        run = db.query(Run).filter(Run.id == run.id).first()
+        if run is not None:
+            run.status = "reviewing"
+            db.commit()
+        return False
