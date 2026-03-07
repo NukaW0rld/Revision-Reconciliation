@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shop.database import Base
 
@@ -15,7 +15,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    runs: Mapped[list["Run"]] = relationship(back_populates="reviewer")
+    runs: Mapped[list["Run"]] = relationship(back_populates="reviewer", foreign_keys="Run.reviewer_id")
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r} role={self.role!r}>"
@@ -53,7 +53,7 @@ class Run(Base):
     rev_b_label: Mapped[str] = mapped_column(String)
     customer: Mapped[str] = mapped_column(String)
     job_number: Mapped[str] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, default="queued")  # queued/running/completed/failed/warning
+    status: Mapped[str] = mapped_column(String, default="queued")  # queued/running/completed/failed/warning/reviewing/signing_off/signed_off
     current_stage: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     current_stage_index: Mapped[int] = mapped_column(Integer, default=0)
     failure_stage: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -68,8 +68,11 @@ class Run(Base):
     revB_page: Mapped[int] = mapped_column(Integer, default=0)
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    reviewer: Mapped[Optional["User"]] = relationship(back_populates="runs")
+    reviewer: Mapped[Optional["User"]] = relationship(back_populates="runs", foreign_keys=[reviewer_id])
     alerts: Mapped[list["RunAlert"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+    review_items: Mapped[list["ReviewItem"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+    signed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    signed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Run id={self.id} part_number={self.part_number!r} status={self.status!r}>"
@@ -90,3 +93,29 @@ class RunAlert(Base):
 
     def __repr__(self) -> str:
         return f"<RunAlert id={self.id} run_id={self.run_id} is_read={self.is_read}>"
+
+
+class ReviewItem(Base):
+    __tablename__ = "review_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"), index=True)
+    char_no: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    pipeline_classification: Mapped[str] = mapped_column(String)
+    confidence: Mapped[float] = mapped_column(Float)
+    requirement_revA: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    requirement_revB: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    revA_snippet_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    revB_snippet_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    revA_bbox: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    revB_bbox: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    reviewer_decision: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    override_classification: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    override_note: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    reviewed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    run: Mapped["Run"] = relationship(back_populates="review_items")
+    reviewed_by: Mapped[Optional["User"]] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<ReviewItem id={self.id} run_id={self.run_id} char_no={self.char_no} decision={self.reviewer_decision!r}>"

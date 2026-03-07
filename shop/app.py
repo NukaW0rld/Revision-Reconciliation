@@ -17,6 +17,9 @@ def _status_badge_class(status: str) -> str:
         "warning": "warning",
         "running": "info",
         "queued": "ghost",
+        "reviewing": "info",
+        "signing_off": "warning",
+        "signed_off": "success",
     }.get(status, "ghost")
 
 
