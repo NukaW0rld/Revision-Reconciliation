@@ -55,6 +55,7 @@ def review_queue(
     nav = _get_nav_context(db, user)
     return templates.TemplateResponse(request, "review/queue.html", {
         "run": run,
+        "run_id": run.id,
         "items": visible_items,
         "user": user,
         "pending": pending,

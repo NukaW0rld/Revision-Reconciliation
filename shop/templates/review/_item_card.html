@@ -45,7 +45,7 @@
         <div>
           <span class="text-2xl font-bold">#{{ item.char_no }}</span>
           <span class="badge badge-outline ml-2">{{ item.pipeline_classification }}</span>
-          <span class="badge badge-ghost ml-1">{{ "%.0f"|format(item.confidence * 100) }}%</span>
+          <span class="badge badge-ghost ml-1">Confidence: {{ "%.0f"|format(item.confidence * 100) }}%</span>
         </div>
         {% if item.requirement_revA %}
           <p class="text-sm"><span class="font-medium">Rev A:</span> {{ item.requirement_revA }}</p>
