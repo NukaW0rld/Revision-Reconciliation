@@ -74,8 +74,14 @@
 
   {# Error banner #}
   {% if error %}
-  <div class="alert alert-error">
-    <span>{{ error }}</span>
+  <div class="alert alert-error mb-4">
+    {% if error == 'pending_items' %}
+      Cannot sign off: {{ pending }} item{{ 's' if pending != 1 else '' }} still pending.
+    {% elif error == 'sign_off_failed' %}
+      Sign-off failed. Please try again or contact support.
+    {% else %}
+      {{ error }}
+    {% endif %}
   </div>
   {% endif %}
 
@@ -88,27 +94,52 @@
     {% endfor %}
   </div>
 
-  {# Sign-off section #}
-  <div class="card bg-base-100 shadow-sm mt-6">
-    <div class="card-body py-4 flex flex-row items-center justify-between gap-4">
-      <div class="text-sm text-base-content/70">
-        {% if pending > 0 %}
-          {{ pending }} item{{ "s" if pending != 1 else "" }} pending review before sign-off.
-        {% else %}
-          All items reviewed. Ready to sign off.
-        {% endif %}
-      </div>
+  {# Sign-off section — sticky footer bar #}
+  <div class="sticky bottom-0 bg-base-200 border-t border-base-300 p-4 flex items-center justify-between">
+    <div>
       {% if pending > 0 %}
-      <button class="btn btn-disabled btn-primary" disabled>
-        Sign Off ({{ pending }} pending)
-      </button>
+        <p class="text-sm text-base-content/60">{{ pending }} item{{ 's' if pending != 1 else '' }} remaining</p>
       {% else %}
-      <button class="btn btn-primary">
-        Sign Off Run
-      </button>
+        <p class="text-sm text-success font-medium">All items resolved — ready to sign off</p>
       {% endif %}
     </div>
+    {% if pending == 0 and run.status == 'reviewing' %}
+      <!-- Enabled: open confirmation modal -->
+      <button class="btn btn-primary" onclick="document.getElementById('signoff-modal').showModal()">
+        Sign Off
+      </button>
+    {% else %}
+      <!-- Disabled: show remaining count -->
+      <button class="btn btn-primary btn-disabled" disabled>
+        Sign Off{% if pending > 0 %} ({{ pending }} pending){% endif %}
+      </button>
+    {% endif %}
   </div>
+
+  <!-- Confirmation modal (DaisyUI dialog) -->
+  <dialog id="signoff-modal" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg">Confirm Sign-Off</h3>
+      <div class="py-4 space-y-1 text-sm">
+        <p><span class="font-medium">Part:</span> {{ run.part_number }}</p>
+        <p><span class="font-medium">Rev A &rarr; B:</span> {{ run.rev_a_label }} &rarr; {{ run.rev_b_label }}</p>
+        <p><span class="font-medium">Reviewer:</span> {{ user.email }}</p>
+        <p><span class="font-medium">Total items:</span> {{ total }}</p>
+      </div>
+      <p class="text-sm text-base-content/60 mb-4">
+        This action is permanent. The signed audit packet cannot be modified after sign-off.
+      </p>
+      <div class="modal-action">
+        <form method="dialog">
+          <button class="btn btn-ghost">Cancel</button>
+        </form>
+        <form method="POST" action="/review/{{ run.id }}/sign-off/confirm">
+          <button type="submit" class="btn btn-primary">Confirm Sign-Off</button>
+        </form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
 
 </div>
 {% endblock %}

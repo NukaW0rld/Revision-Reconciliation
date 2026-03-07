@@ -38,6 +38,16 @@
           <dt class="text-base-content/60">Reviewer</dt>
           <dd>{{ run.reviewer.email if run.reviewer else "Unassigned" }}</dd>
         </dl>
+        {% if user.role == 'admin' and run.status not in ('signed_off',) %}
+        <form method="POST" action="/review/{{ run.id }}/reassign" class="flex gap-2 items-center mt-2">
+          <select name="reviewer_id" class="select select-sm select-bordered">
+            {% for eng in engineers %}
+              <option value="{{ eng.id }}" {{ 'selected' if eng.id == run.reviewer_id }}>{{ eng.email }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm">Reassign</button>
+        </form>
+        {% endif %}
       </div>
     </div>
 
