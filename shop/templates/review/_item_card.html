@@ -1,0 +1,109 @@
+<div id="review-item-{{ item.char_no }}" class="card bg-base-100 shadow-md mb-4
+  border-l-4 {{ 'border-success' if item.reviewer_decision else 'border-base-300' }}">
+  <div class="card-body">
+    <!-- Two-column layout: left=snippets, right=controls -->
+    <div class="flex gap-6">
+      <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
+      <div class="flex flex-col gap-2 w-1/2">
+        <p class="text-xs font-semibold text-base-content/60">Rev A</p>
+        {% if item.revA_snippet_path %}
+          <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
+               class="cursor-pointer max-w-full rounded border border-base-300"
+               onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
+          <dialog id="modal-{{ item.char_no }}-revA" class="modal">
+            <div class="modal-box max-w-5xl">
+              <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
+              <div class="modal-action"><form method="dialog"><button class="btn">Close</button></form></div>
+            </div>
+          </dialog>
+        {% else %}
+          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
+        {% endif %}
+
+        <p class="text-xs font-semibold text-base-content/60 mt-2">Rev B</p>
+        {% if item.revB_snippet_path %}
+          <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
+               class="cursor-pointer max-w-full rounded border border-base-300"
+               onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
+          <dialog id="modal-{{ item.char_no }}-revB" class="modal">
+            <div class="modal-box max-w-5xl">
+              <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
+              <div class="modal-action"><form method="dialog"><button class="btn">Close</button></form></div>
+            </div>
+          </dialog>
+        {% elif item.pipeline_classification == 'removed' and item.revB_bbox %}
+          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
+        {% elif item.pipeline_classification == 'removed' %}
+          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Not found in Rev B</div>
+        {% else %}
+          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
+        {% endif %}
+      </div>
+
+      <!-- RIGHT PANEL: metadata + actions -->
+      <div class="flex flex-col gap-3 w-1/2">
+        <div>
+          <span class="text-2xl font-bold">#{{ item.char_no }}</span>
+          <span class="badge badge-outline ml-2">{{ item.pipeline_classification }}</span>
+          <span class="badge badge-ghost ml-1">{{ "%.0f"|format(item.confidence * 100) }}%</span>
+        </div>
+        {% if item.requirement_revA %}
+          <p class="text-sm"><span class="font-medium">Rev A:</span> {{ item.requirement_revA }}</p>
+        {% endif %}
+        {% if item.requirement_revB %}
+          <p class="text-sm"><span class="font-medium">Rev B:</span> {{ item.requirement_revB }}</p>
+        {% endif %}
+
+        {% if item.reviewer_decision %}
+          <!-- RESOLVED STATE -->
+          {% if item.reviewer_decision == 'approved' %}
+            <span class="badge badge-success badge-lg">Approved</span>
+          {% else %}
+            <span class="badge badge-warning badge-lg">Overridden &rarr; {{ item.override_classification }}</span>
+            <p class="text-xs text-base-content/60">Note: {{ item.override_note }}</p>
+          {% endif %}
+        {% else %}
+          <!-- UNRESOLVED STATE -->
+          {% if error %}
+            <p class="text-error text-sm">{{ error }}</p>
+          {% endif %}
+          <!-- Approve -->
+          <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
+                hx-target="#review-item-{{ item.char_no }}"
+                hx-swap="outerHTML"
+                hx-indicator="#spinner-{{ item.char_no }}">
+            <button type="submit" class="btn btn-success btn-sm w-full">Approve</button>
+          </form>
+          <!-- Override -->
+          <details class="collapse collapse-arrow border border-base-300 rounded">
+            <summary class="collapse-title text-sm font-medium py-2 min-h-0">Override</summary>
+            <div class="collapse-content">
+              <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
+                    hx-target="#review-item-{{ item.char_no }}"
+                    hx-swap="outerHTML">
+                <select name="override_classification" class="select select-sm select-bordered w-full mb-2">
+                  <option value="unchanged">Unchanged</option>
+                  <option value="changed" selected>Changed</option>
+                  <option value="removed">Removed</option>
+                  <option value="added">Added</option>
+                  <option value="uncertain">Uncertain</option>
+                </select>
+                <textarea name="override_note" required placeholder="Override reason (required)"
+                          class="textarea textarea-bordered textarea-sm w-full mb-2" rows="3"></textarea>
+                <button type="submit" class="btn btn-warning btn-sm w-full">Save Override</button>
+              </form>
+            </div>
+          </details>
+          <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if oob_update %}
+  <!-- OOB progress bar update — HTMX reads this and swaps #progress-bar -->
+  <div id="progress-bar" hx-swap-oob="true">
+    {% include "review/_progress_bar.html" %}
+  </div>
+  {% endif %}
+</div>

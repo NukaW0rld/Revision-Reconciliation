@@ -104,5 +104,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 8/8 | Complete   | 2026-03-03 |
 | 2. Pipeline Bridge | 8/8 | Complete   | 2026-03-04 |
-| 3. Review and Sign-Off | 1/6 | In Progress|  |
+| 3. Review and Sign-Off | 2/6 | In Progress|  |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |

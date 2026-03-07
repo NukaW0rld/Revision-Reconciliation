@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-07T20:22:18.847Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-07T20:29:21.828Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 22
-  completed_plans: 17
+  completed_plans: 18
   percent: 50
 ---
 
@@ -59,6 +59,7 @@ Progress: [████████████████████░░░
 | Phase 02-pipeline-bridge P05 | 10min | 2 tasks | 4 files |
 | Phase 02-pipeline-bridge P08 | human-verify | 3 tasks | 1 files |
 | Phase 03-review-and-sign-off P01 | 7 | 3 tasks | 4 files |
+| Phase 03-review-and-sign-off P02 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 02-08]: Human verification approved after Docker e2e flow: upload form, stage progress SSE, and alert dismiss all confirmed working
 - [Phase 03-review-and-sign-off]: foreign_keys=[reviewer_id] on Run.reviewer/User.runs to resolve AmbiguousForeignKeysError when signed_by_id added second FK to users table
 - [Phase 03-review-and-sign-off]: Removed-item revB bbox uses apply_transform_bbox(revA_bbox_pdf, H) inside try/except in cli.py; falls back to None on failure (review card shows placeholder)
+- [Phase 03-review-and-sign-off]: JS onchange form submit chosen for filter dropdowns to avoid HTMX dependency for filter state
+- [Phase 03-review-and-sign-off]: Counts (pending/approved/overridden) computed from all_items before filter applied — sign-off gate needs unfiltered totals
+- [Phase 03-review-and-sign-off]: open_review_queue uses single count check for idempotency rather than per-item get_or_create — simpler and avoids partial-insert race conditions
 
 ### Pending Todos
 
@@ -139,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T20:22:18.845Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-07T20:29:21.826Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

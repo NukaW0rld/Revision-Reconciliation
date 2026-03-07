@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
@@ -61,3 +62,116 @@ def review_queue(
         "error": error,
         **nav,
     })
+
+
+def _item_counts(db: Session, run_id: int):
+    all_items = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).all()
+    pending = sum(1 for i in all_items if i.reviewer_decision is None)
+    approved = sum(1 for i in all_items if i.reviewer_decision == "approved")
+    overridden = sum(1 for i in all_items if i.reviewer_decision == "overridden")
+    return all_items, pending, approved, overridden
+
+
+@router.post("/{run_id}/items/{char_no}/approve", response_class=HTMLResponse)
+def approve_item(
+    run_id: int,
+    char_no: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    if run.status == "signed_off":
+        raise HTTPException(status_code=409, detail="Run is already signed off")
+    item = db.query(ReviewItem).filter(
+        ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404)
+    item.reviewer_decision = "approved"
+    item.reviewed_by_id = user.id
+    item.reviewed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+    all_items, pending, approved, overridden = _item_counts(db, run_id)
+    return templates.TemplateResponse(request, "review/_item_card.html", {
+        "item": item,
+        "run_id": run_id,
+        "pending": pending,
+        "approved": approved,
+        "overridden": overridden,
+        "total": len(all_items),
+        "oob_update": True,
+    })
+
+
+VALID_CLASSIFICATIONS = {"unchanged", "changed", "removed", "added", "uncertain"}
+
+
+@router.post("/{run_id}/items/{char_no}/override", response_class=HTMLResponse)
+def override_item(
+    run_id: int,
+    char_no: int,
+    request: Request,
+    override_note: str = Form(""),
+    override_classification: str = Form("changed"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    if run.status == "signed_off":
+        raise HTTPException(status_code=409, detail="Run is already signed off")
+    item = db.query(ReviewItem).filter(
+        ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404)
+    if not override_note or not override_note.strip():
+        return templates.TemplateResponse(
+            request,
+            "review/_item_card.html",
+            {"item": item, "run_id": run_id, "error": "Override note is required."},
+            status_code=422,
+        )
+    if override_classification not in VALID_CLASSIFICATIONS:
+        override_classification = "changed"
+    item.reviewer_decision = "overridden"
+    item.override_classification = override_classification
+    item.override_note = override_note.strip()
+    item.reviewed_by_id = user.id
+    item.reviewed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+    all_items, pending, approved, overridden = _item_counts(db, run_id)
+    return templates.TemplateResponse(request, "review/_item_card.html", {
+        "item": item,
+        "run_id": run_id,
+        "pending": pending,
+        "approved": approved,
+        "overridden": overridden,
+        "total": len(all_items),
+        "oob_update": True,
+    })
+
+
+@router.get("/{run_id}/snippets/{filename}")
+def serve_snippet(
+    run_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from pathlib import Path as _Path
+    if ".." in filename or "/" in filename or not filename.endswith(".png"):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None or run.output_dir is None:
+        raise HTTPException(status_code=404)
+    snippet_path = _Path(run.output_dir) / "snippets" / filename
+    if not snippet_path.exists():
+        raise HTTPException(status_code=404)
+    return FileResponse(str(snippet_path), media_type="image/png")

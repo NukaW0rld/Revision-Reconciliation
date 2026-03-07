@@ -114,20 +114,90 @@ def test_review_item_card_html(client: TestClient, engineer_user):
 # REVIEW-03: Approve item
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-03: not yet implemented — Plan 03")
-def test_approve_item(client: TestClient, engineer_user, db_engine):
+def test_approve_item(client: TestClient, engineer_user, db_engine, tmp_path):
     """POST approve saves reviewer_decision='approved' on the ReviewItem."""
-    raise NotImplementedError("REVIEW-03")
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import Run, ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    # Open the review queue to seed ReviewItems
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    # Find the char_no for the created item
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        assert item is not None, "ReviewItem not seeded"
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    resp = client.post(f"/review/{run_id}/items/{char_no}/approve")
+    assert resp.status_code == 200, resp.text
+
+    # Verify DB state
+    db = TestingSession()
+    try:
+        db_item = db.query(ReviewItem).filter(
+            ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+        ).first()
+        assert db_item.reviewer_decision == "approved"
+        assert db_item.reviewed_by_id == engineer_user.id
+        assert db_item.reviewed_at is not None
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
 # REVIEW-04: Override requires note
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-04: not yet implemented — Plan 03")
-def test_override_requires_note(client: TestClient, engineer_user, db_engine):
+def test_override_requires_note(client: TestClient, engineer_user, db_engine, tmp_path):
     """POST override with empty note returns 422; non-empty note saves successfully."""
-    raise NotImplementedError("REVIEW-04")
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import Run, ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    # Open the review queue to seed ReviewItems
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    # Find the char_no for the created item
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        assert item is not None, "ReviewItem not seeded"
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    # Empty note must return 422
+    resp = client.post(f"/review/{run_id}/items/{char_no}/override",
+                       data={"override_note": "", "override_classification": "changed"})
+    assert resp.status_code == 422, f"Expected 422, got {resp.status_code}"
+
+    # Non-empty note must succeed
+    resp = client.post(f"/review/{run_id}/items/{char_no}/override",
+                       data={"override_note": "Tolerance band is acceptable", "override_classification": "changed"})
+    assert resp.status_code == 200, resp.text
+
+    # Verify DB state
+    db = TestingSession()
+    try:
+        db_item = db.query(ReviewItem).filter(
+            ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+        ).first()
+        assert db_item.reviewer_decision == "overridden"
+        assert db_item.override_note == "Tolerance band is acceptable"
+        assert db_item.override_classification == "changed"
+        assert db_item.reviewed_by_id == engineer_user.id
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
