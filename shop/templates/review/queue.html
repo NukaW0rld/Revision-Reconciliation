@@ -82,39 +82,7 @@
   {# Item list #}
   <div class="space-y-3" id="item-list">
     {% for item in items %}
-    <div class="card bg-base-100 shadow-sm border border-base-300" id="item-{{ item.id }}">
-      <div class="card-body py-3 px-4">
-        <div class="flex items-center gap-4">
-          <div class="font-mono text-lg font-bold w-12 text-center">
-            {% if item.char_no is not none %}{{ item.char_no }}{% else %}—{% endif %}
-          </div>
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <span class="badge
-                {% if item.pipeline_classification == 'unchanged' %}badge-success{% endif %}
-                {% if item.pipeline_classification == 'changed' %}badge-warning{% endif %}
-                {% if item.pipeline_classification == 'removed' %}badge-error{% endif %}
-                {% if item.pipeline_classification == 'uncertain' %}badge-ghost{% endif %}
-                {% if item.pipeline_classification == 'added' %}badge-info{% endif %}
-              ">{{ item.pipeline_classification }}</span>
-              <span class="text-xs text-base-content/60">{{ "%.0f"|format(item.confidence * 100) }}% confidence</span>
-            </div>
-            {% if item.requirement_revA %}
-            <div class="text-sm mt-1">{{ item.requirement_revA }}</div>
-            {% endif %}
-          </div>
-          <div>
-            {% if item.reviewer_decision is none %}
-            <span class="badge badge-ghost badge-sm">pending</span>
-            {% elif item.reviewer_decision == "approved" %}
-            <span class="badge badge-success badge-sm">approved</span>
-            {% elif item.reviewer_decision == "overridden" %}
-            <span class="badge badge-warning badge-sm">overridden</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </div>
+      {% include "review/_item_card.html" %}
     {% else %}
     <div class="text-center text-base-content/60 py-8">No items match the selected filters.</div>
     {% endfor %}

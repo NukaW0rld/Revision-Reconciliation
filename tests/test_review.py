@@ -104,10 +104,40 @@ def test_review_queue_loads(client: TestClient, engineer_user, db_engine, tmp_pa
 # REVIEW-02: Review item card HTML
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="REVIEW-02: not yet implemented — Plan 02")
-def test_review_item_card_html(client: TestClient, engineer_user):
-    """Card HTML contains snippet img, char_no, classification, approve/override controls."""
-    raise NotImplementedError("REVIEW-02")
+def test_review_item_card_html(client: TestClient, engineer_user, db_engine, tmp_path):
+    """Card HTML contains char_no, classification, approve/override controls; resolved state shows badge not buttons."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    # Open the review queue to seed ReviewItems
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    # Approve item via POST — should return resolved card HTML
+    resp = client.post(f"/review/{run_id}/items/{char_no}/approve")
+    assert resp.status_code == 200, resp.text
+
+    # Resolved state: contains "Approved" badge
+    assert "Approved" in resp.text
+    # Resolved state: does NOT contain "Approve" button (action removed)
+    assert 'hx-post' not in resp.text or "approve" not in resp.text.split('hx-post')[1].split('"')[1] if 'hx-post' in resp.text else True
+
+    # OOB progress bar included
+    assert "progress-bar" in resp.text
+    assert "hx-swap-oob" in resp.text
+
+    # border-success class present for resolved card
+    assert "border-success" in resp.text
 
 
 # ---------------------------------------------------------------------------

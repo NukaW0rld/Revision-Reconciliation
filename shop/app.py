@@ -25,6 +25,9 @@ def _status_badge_class(status: str) -> str:
 
 templates.env.filters["status_badge_class"] = _status_badge_class
 
+import os as _os
+templates.env.filters["basename"] = lambda p: _os.path.basename(p) if p else ""
+
 
 def create_app(session_factory=None) -> FastAPI:
     """Create and configure the FastAPI application.
