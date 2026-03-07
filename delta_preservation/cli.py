@@ -413,6 +413,13 @@ def run_pipeline(
 
             revB_bbox_pdf = (ex0, ey0, ex1, ey1)
 
+        elif delta_internal.status == "removed" and anchor is not None and revA_bbox_pdf is not None:
+            try:
+                from delta_preservation.vision.alignment import apply_transform_bbox
+                revB_bbox_pdf = apply_transform_bbox(revA_bbox_pdf, transform.H)
+            except Exception:
+                revB_bbox_pdf = None  # Fallback: "Not found in Rev B" placeholder shown in review card
+
         # For added characteristics, map the Rev B bbox back to Rev A coordinate space
         # using the inverse homography so the Rev A snippet shows the corresponding
         # region in the original drawing (which should be blank/different there).
