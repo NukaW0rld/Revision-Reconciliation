@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-06-PLAN.md
-last_updated: "2026-03-07T22:57:56.185Z"
+stopped_at: Completed 03-06-PLAN.md (bug fixes round 2)
+last_updated: "2026-03-08T00:22:35.403Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
@@ -64,6 +64,7 @@ Progress: [████████████████████░░░
 | Phase 03-review-and-sign-off P04 | 3min | 2 tasks | 6 files |
 | Phase 03-review-and-sign-off P05 | 3min | 2 tasks | 6 files |
 | Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 2 files |
+| Phase 03-review-and-sign-off P06 | 20min | 4 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,8 @@ Recent decisions affecting current work:
 - [Phase 03-review-and-sign-off]: SSE terminal set includes reviewing (rollback state) so client always receives a redirect signal on sign-off completion or failure
 - [Phase 03-review-and-sign-off]: run_id must be passed explicitly in review_queue() TemplateResponse — Jinja2 silently interpolates undefined vars as empty string, breaking HTMX action URLs and snippet src paths
 - [Phase 03-review-and-sign-off]: Confidence badge prefixed with 'Confidence: ' label directly in _item_card.html template (no JavaScript needed)
+- [Phase 03-review-and-sign-off]: Dual-partial OOB pattern: _signoff_footer.html (initial render) + _signoff_footer_oob.html (hx-swap-oob=outerHTML) avoids double-id nesting for HTMX dynamic sign-off footer
+- [Phase 03-review-and-sign-off]: Stage checklist is_done extended to reviewing/signing_off/signed_off/warning — all post-pipeline statuses should show all 8 stages green
 
 ### Pending Todos
 
@@ -155,6 +158,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T22:57:56.183Z
-Stopped at: Completed 03-06-PLAN.md
+Last session: 2026-03-08T00:22:35.401Z
+Stopped at: Completed 03-06-PLAN.md (bug fixes round 2)
 Resume file: None

@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Running Docker container with FastAPI, SQLite, auth, roles, setup wizard, and deployment configuration (completed 2026-03-03)
 - [x] **Phase 2: Pipeline Bridge** - File upload, validation, async job queue, stage-by-stage pipeline progress, and run status tracking (completed 2026-03-04)
-- [ ] **Phase 3: Review and Sign-Off** - Per-item review queue with image evidence, approve/override with mandatory notes, hard sign-off gate, and atomic audit packet generation
+- [x] **Phase 3: Review and Sign-Off** - Per-item review queue with image evidence, approve/override with mandatory notes, hard sign-off gate, and atomic audit packet generation (completed 2026-03-08)
 - [ ] **Phase 4: Exports, History, and Amendments** - Partial FAI work order, run history with reopen and re-download, admin retention controls, and amendment model with versioned packets
 
 ## Phase Details
@@ -104,5 +104,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 8/8 | Complete   | 2026-03-03 |
 | 2. Pipeline Bridge | 8/8 | Complete   | 2026-03-04 |
-| 3. Review and Sign-Off | 5/6 | In Progress|  |
+| 3. Review and Sign-Off | 6/6 | Complete   | 2026-03-08 |
 | 4. Exports, History, and Amendments | 0/TBD | Not started | - |
