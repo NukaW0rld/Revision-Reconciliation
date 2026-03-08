@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 04-exports-history-and-amendments-04-03-PLAN.md
-last_updated: "2026-03-08T12:23:08.105Z"
+stopped_at: Completed 04-exports-history-and-amendments-04-05-PLAN.md
+last_updated: "2026-03-08T12:30:15.523Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 26
+  completed_plans: 27
   percent: 50
 ---
 
@@ -70,6 +70,7 @@ Progress: [████████████████████░░░
 | Phase 04-exports-history-and-amendments P02 | 6min | 2 tasks | 8 files |
 | Phase 04-exports-history-and-amendments P04 | 5min | 2 tasks | 9 files |
 | Phase 04-exports-history-and-amendments P03 | 4min | 2 tasks | 5 files |
+| Phase 04-exports-history-and-amendments P05 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,8 @@ Recent decisions affecting current work:
 - [Phase 04-exports-history-and-amendments]: signed_off runs allowed through review_queue guard with read_only=True so engineers can review final audit decisions
 - [Phase 04-exports-history-and-amendments]: DELETABLE_STATUSES excludes reviewing/signing_off/signed_off — only terminal-failure and pipeline-complete statuses eligible for cleanup
 - [Phase 04-exports-history-and-amendments]: _effective_classification() centralizes override vs pipeline classification for work order; Drawing Reference uses 'Balloon {char_no}' format deferring bbox-to-zone mapping
+- [Phase 04-exports-history-and-amendments]: Amendment packet_versions initialized as copy of parent list so generate_and_store_audit_packet computes v2 correctly at amendment sign-off
+- [Phase 04-exports-history-and-amendments]: Standard HTML form POST for amend modal — consistent with sign-off modal convention; version-aware PDF download uses ?version=N query param with re-render fallback
 
 ### Pending Todos
 
@@ -170,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T12:23:08.102Z
-Stopped at: Completed 04-exports-history-and-amendments-04-03-PLAN.md
+Last session: 2026-03-08T12:30:15.521Z
+Stopped at: Completed 04-exports-history-and-amendments-04-05-PLAN.md
 Resume file: None
