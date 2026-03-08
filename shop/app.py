@@ -50,12 +50,13 @@ def create_app(session_factory=None) -> FastAPI:
     except RuntimeError:
         pass  # static/ dir may not exist in tests
     # Routers
-    from shop.routers import auth, admin, setup, runs, review
+    from shop.routers import auth, admin, setup, runs, review, exports
     app.include_router(auth.router)
     app.include_router(admin.router, prefix="/admin")
     app.include_router(setup.router, prefix="/setup")
     app.include_router(runs.router, prefix="/runs")
     app.include_router(review.router, prefix="/review")
+    app.include_router(exports.router, prefix="/exports")
     return app
 
 

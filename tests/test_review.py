@@ -428,6 +428,7 @@ def test_sign_off_gate(client: TestClient, engineer_user, db_engine, tmp_path):
 
 def test_sign_off_rollback(db_engine):
     """SIGNOFF-02: if sign-off fails midway, Run.status rolls back to reviewing."""
+    from unittest.mock import patch
     from shop.services.review import attempt_sign_off
     from shop.models import Run
     from sqlalchemy.orm import sessionmaker
@@ -440,20 +441,15 @@ def test_sign_off_rollback(db_engine):
     db.commit()
     db.refresh(run)
 
-    # Patch db.commit to raise on second call (Phase 2 failure)
-    call_count = [0]
-    original_commit = db.commit
-    def patched_commit():
-        call_count[0] += 1
-        if call_count[0] == 2:  # Phase 2 commit
-            raise RuntimeError("Simulated packet write failure")
-        original_commit()
-    db.commit = patched_commit
+    # Simulate PDF generation failure (Phase 4 integration point)
+    with patch(
+        "shop.services.exports.generate_and_store_audit_packet",
+        side_effect=RuntimeError("Simulated packet write failure"),
+    ):
+        result = attempt_sign_off(db, run, reviewer_id=1)
 
-    result = attempt_sign_off(db, run, reviewer_id=1)
     assert result is False
     # Re-query to confirm status
-    db.commit = original_commit
     db.expire_all()
     fresh = db.query(Run).filter(Run.id == run.id).first()
     assert fresh.status == "reviewing"
@@ -467,6 +463,7 @@ def test_sign_off_rollback(db_engine):
 
 def test_signed_off_immutable(db_engine):
     """SIGNOFF-03: signed_off run cannot be re-signed; signed_at is immutable."""
+    from unittest.mock import patch
     from shop.services.review import attempt_sign_off
     from shop.models import Run
     from sqlalchemy.orm import sessionmaker
@@ -479,8 +476,9 @@ def test_signed_off_immutable(db_engine):
     db.commit()
     db.refresh(run)
 
-    # First sign-off succeeds
-    result1 = attempt_sign_off(db, run, reviewer_id=1)
+    # First sign-off succeeds (mock PDF generation so no real output_dir needed)
+    with patch("shop.services.exports.generate_and_store_audit_packet"):
+        result1 = attempt_sign_off(db, run, reviewer_id=1)
     assert result1 is True
     db.refresh(run)
     first_signed_at = run.signed_at

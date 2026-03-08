@@ -4,8 +4,20 @@ import io
 import pytest
 from datetime import datetime
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
 
 # conftest provides: client, admin_user, engineer_user fixtures
+
+
+def _login_engineer(client, db_engine, engineer_user):
+    """Seed a session for the engineer user and set cookie on client."""
+    from shop.services.auth import create_session
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    token = create_session(db, engineer_user)
+    db.close()
+    client.cookies.set("session_token", token)
+    return token
 
 
 def _make_signed_run(db, engineer_id):
@@ -77,8 +89,9 @@ def test_audit_packet_csv_rows(client: TestClient, engineer_user):
     assert rows[0]["reviewer_decision"] == "approved"
 
 
-def test_audit_packet_redownload(client: TestClient, engineer_user):
+def test_audit_packet_redownload(client: TestClient, db_engine, engineer_user):
     """PACKET-03: GET /exports/{id}/audit-packet.csv returns 200 with attachment header."""
+    _login_engineer(client, db_engine, engineer_user)
     from shop.dependencies import get_db
     db_gen = client.app.dependency_overrides.get(get_db)
     db = next(db_gen()) if db_gen else None

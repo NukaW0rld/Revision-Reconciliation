@@ -83,10 +83,12 @@ def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
     db.commit()
 
     try:
-        # Phase 2: write the sign-off marker (Phase 4 PDF generation would go here)
-        # For Phase 3, the audit packet IS the signed_at timestamp.
+        # Phase 2: set signed_at/signed_by_id BEFORE generate so they're in the PDF
         run.signed_at = datetime.utcnow()
         run.signed_by_id = reviewer_id
+        # Phase 4: generate and persist audit packet PDF (raises on failure → caught below)
+        from shop.services.exports import generate_and_store_audit_packet
+        generate_and_store_audit_packet(db, run)
         run.status = "signed_off"
         db.commit()
         return True

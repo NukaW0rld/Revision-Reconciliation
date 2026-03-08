@@ -121,6 +121,18 @@
     </div>
     {% endif %}
 
+    <!-- Phase 4: Download and action buttons for signed-off runs -->
+    {% if run.status == "signed_off" %}
+    <div class="flex flex-wrap gap-3">
+      <a href="/exports/{{ run.id }}/audit-packet.pdf" class="btn btn-primary btn-sm">
+        Download Audit Packet (PDF)
+      </a>
+      <a href="/exports/{{ run.id }}/audit-packet.csv" class="btn btn-outline btn-sm">
+        Download Audit Packet (CSV)
+      </a>
+    </div>
+    {% endif %}
+
   </div><!-- /right column -->
 </div><!-- /flex row -->
 
