@@ -93,7 +93,15 @@ Plans:
   3. Engineer can view a list of all shop runs filterable by part number and date; can reopen any finalized run to view its review decisions in read-only mode; finalized runs are retained indefinitely
   4. Admin can configure an auto-cleanup period for unfinished and failed runs; admin can create, view, and deactivate engineer accounts and manage shop configuration
   5. Engineer can reopen a finalized run to create an amendment; the original signed packet is preserved unchanged; the amendment has its own sign-off producing a new versioned packet; both packets are accessible from the run record; input files cannot be changed in an amendment
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Foundation: WeasyPrint install, Dockerfile Pango deps, DB schema migrations, test stubs
+- [ ] 04-02-PLAN.md — Audit packet PDF/CSV: WeasyPrint service, sign-off integration, download routes, status page
+- [ ] 04-03-PLAN.md — Work order PDF/CSV: filter changed/added, RE-MEASURE/NEW labels, download routes
+- [ ] 04-04-PLAN.md — History and retention: date filter, read-only signed-off queue, admin cleanup settings, Huey task
+- [ ] 04-05-PLAN.md — Amendment model: create_amendment service, amend route, modal, versioned packet display
+- [ ] 04-06-PLAN.md — Phase 4 gate: full suite green, Docker build + e2e human verification
 
 ## Progress
 
@@ -105,4 +113,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Foundation | 8/8 | Complete   | 2026-03-03 |
 | 2. Pipeline Bridge | 8/8 | Complete   | 2026-03-04 |
 | 3. Review and Sign-Off | 6/6 | Complete   | 2026-03-08 |
-| 4. Exports, History, and Amendments | 0/TBD | Not started | - |
+| 4. Exports, History, and Amendments | 0/6 | Not started | - |
