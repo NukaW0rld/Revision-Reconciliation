@@ -84,7 +84,7 @@ completed: 2026-03-08
 1. **Task 1: Build audit packet export service** - `5bb4ad8` (feat)
 2. **Task 2: Wire sign-off integration, routes, status page** - `e768ff1` (feat)
 
-**Plan metadata:** TBD (docs: complete plan)
+**Plan metadata:** `7eb7e52` (docs: complete plan)
 
 ## Files Created/Modified
 
