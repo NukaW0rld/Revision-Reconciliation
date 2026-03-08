@@ -65,29 +65,29 @@ Requirements for initial release. Each maps to a roadmap phase.
 
 ### Audit Packet Export (PACKET)
 
-- [ ] **PACKET-01**: Audit packet is exported as PDF with: formal cover page (part number, revision levels, customer, run ID, reviewer name, sign-off timestamp), summary table of all characteristics, and a detail section with one card per characteristic (system classification, reviewer decision, override note if any, Rev A snippet, Rev B snippet)
-- [ ] **PACKET-02**: Audit packet is also exported as CSV with one row per characteristic (char number, Rev A requirement, Rev B requirement, system classification, reviewer decision, override note, reviewer name, timestamp)
-- [ ] **PACKET-03**: Signed audit packet can be re-downloaded from the run history at any time after finalization
+- [x] **PACKET-01**: Audit packet is exported as PDF with: formal cover page (part number, revision levels, customer, run ID, reviewer name, sign-off timestamp), summary table of all characteristics, and a detail section with one card per characteristic (system classification, reviewer decision, override note if any, Rev A snippet, Rev B snippet)
+- [x] **PACKET-02**: Audit packet is also exported as CSV with one row per characteristic (char number, Rev A requirement, Rev B requirement, system classification, reviewer decision, override note, reviewer name, timestamp)
+- [x] **PACKET-03**: Signed audit packet can be re-downloaded from the run history at any time after finalization
 
 ### Partial FAI Work Order (WORK)
 
-- [ ] **WORK-01**: After a run is finalized, engineer can generate a partial FAI work order on demand as a separate action from sign-off
-- [ ] **WORK-02**: Work order lists only characteristics classified as changed or added (the scope requiring new measurement)
-- [ ] **WORK-03**: Each work order row includes: characteristic number, requirement text (from drawing), drawing reference (balloon number, page, zone), and a priority flag distinguishing changed (re-measure) from added (new measurement)
-- [ ] **WORK-04**: Work order is exported as PDF and CSV
+- [x] **WORK-01**: After a run is finalized, engineer can generate a partial FAI work order on demand as a separate action from sign-off
+- [x] **WORK-02**: Work order lists only characteristics classified as changed or added (the scope requiring new measurement)
+- [x] **WORK-03**: Each work order row includes: characteristic number, requirement text (from drawing), drawing reference (balloon number, page, zone), and a priority flag distinguishing changed (re-measure) from added (new measurement)
+- [x] **WORK-04**: Work order is exported as PDF and CSV
 
 ### Run History & Management (HISTORY)
 
-- [ ] **HISTORY-01**: Engineer can view a list of all runs for the shop, filterable by part number and date
-- [ ] **HISTORY-02**: Engineer can reopen any finalized run to view its review decisions (read-only unless an amendment is started)
-- [ ] **HISTORY-03**: Finalized runs are retained indefinitely on the server
-- [ ] **HISTORY-04**: Admin can configure an auto-cleanup period for unfinished and failed runs (e.g., delete after 30 days)
+- [x] **HISTORY-01**: Engineer can view a list of all runs for the shop, filterable by part number and date
+- [x] **HISTORY-02**: Engineer can reopen any finalized run to view its review decisions (read-only unless an amendment is started)
+- [x] **HISTORY-03**: Finalized runs are retained indefinitely on the server
+- [x] **HISTORY-04**: Admin can configure an auto-cleanup period for unfinished and failed runs (e.g., delete after 30 days)
 
 ### Amendment Model (AMEND)
 
-- [ ] **AMEND-01**: Engineer can reopen a finalized run to create an amendment; the original signed packet is preserved unchanged
-- [ ] **AMEND-02**: Amendment scope is limited to review decisions only; input files (Rev A PDF, Rev B PDF, Form 3 Excel) cannot be changed in an amendment
-- [ ] **AMEND-03**: Amendment requires its own sign-off, producing a new versioned audit packet; both the original and amendment packet are accessible from the run record
+- [x] **AMEND-01**: Engineer can reopen a finalized run to create an amendment; the original signed packet is preserved unchanged
+- [x] **AMEND-02**: Amendment scope is limited to review decisions only; input files (Rev A PDF, Rev B PDF, Form 3 Excel) cannot be changed in an amendment
+- [x] **AMEND-03**: Amendment requires its own sign-off, producing a new versioned audit packet; both the original and amendment packet are accessible from the run record
 
 ### Deployment (DEPLOY)
 

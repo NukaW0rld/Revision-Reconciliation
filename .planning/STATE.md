@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-08T02:18:54.452Z"
+stopped_at: Completed 04-exports-history-and-amendments-01-PLAN.md
+last_updated: "2026-03-08T12:03:33.207Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 22
-  completed_plans: 22
+  total_plans: 28
+  completed_plans: 23
   percent: 50
 ---
 
@@ -66,6 +66,7 @@ Progress: [████████████████████░░░
 | Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 2 files |
 | Phase 03-review-and-sign-off P06 | 20min | 4 tasks | 6 files |
 | Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 0 files |
+| Phase 04-exports-history-and-amendments P01 | 2min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,7 @@ Recent decisions affecting current work:
 - [Phase 03-review-and-sign-off]: Confidence badge prefixed with 'Confidence: ' label directly in _item_card.html template (no JavaScript needed)
 - [Phase 03-review-and-sign-off]: Dual-partial OOB pattern: _signoff_footer.html (initial render) + _signoff_footer_oob.html (hx-swap-oob=outerHTML) avoids double-id nesting for HTMX dynamic sign-off footer
 - [Phase 03-review-and-sign-off]: Stage checklist is_done extended to reviewing/signing_off/signed_off/warning — all post-pipeline statuses should show all 8 stages green
+- [Phase 04-exports-history-and-amendments]: WeasyPrint added unpinned; run_schema_migrations uses sa_inspect for idempotent SQLite ALTER TABLE; parent_run_id is self-referential FK for amendment lineage; packet_versions stored as JSON list on Run
 
 ### Pending Todos
 
@@ -159,6 +161,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T02:18:54.443Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-exports-history-and-amendments/04-CONTEXT.md
+Last session: 2026-03-08T12:03:33.205Z
+Stopped at: Completed 04-exports-history-and-amendments-01-PLAN.md
+Resume file: None
