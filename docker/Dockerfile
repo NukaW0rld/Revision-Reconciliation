@@ -20,7 +20,7 @@ RUN uv sync --locked --no-install-project
 FROM python:3.11-slim AS runtime
 WORKDIR /app
 # Install supervisor (manages uvicorn + huey_consumer as separate OS processes)
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends supervisor libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 && rm -rf /var/lib/apt/lists/*
 # Copy virtualenv from builder
 COPY --from=python-builder /app/.venv /app/.venv
 # Copy uv binary (needed for huey_consumer.py discovery)
