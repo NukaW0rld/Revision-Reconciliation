@@ -60,7 +60,7 @@
     </div>
 
     <!-- SSE terminal banner injection slot (populated by JS before page reload) -->
-    {% if run.status not in ["completed", "failed", "warning"] %}
+    {% if run.status not in ["completed", "failed", "warning", "reviewing", "signing_off", "signed_off"] %}
     <div id="terminal-banner-slot"></div>
     {% endif %}
 
@@ -126,7 +126,7 @@
 
 <!-- SSE listener: only active for non-terminal runs -->
 <script>
-{% if run.status not in ["completed", "failed", "warning"] %}
+{% if run.status not in ["completed", "failed", "warning", "reviewing", "signing_off", "signed_off"] %}
 (function () {
   var stageNames = [
     "Form 3 parsing", "Balloon detection", "Text extraction",
