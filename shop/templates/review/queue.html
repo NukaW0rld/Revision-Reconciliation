@@ -72,6 +72,13 @@
     </div>
   </form>
 
+  {# Read-only banner for signed-off runs #}
+  {% if read_only %}
+  <div class="alert alert-info mb-4">
+    <span>This run is signed off. Review decisions are shown in read-only mode.</span>
+  </div>
+  {% endif %}
+
   {# Error banner #}
   {% if error %}
   <div class="alert alert-error mb-4">

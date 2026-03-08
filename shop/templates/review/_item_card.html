@@ -67,6 +67,8 @@
           {% if error %}
             <p class="text-error text-sm">{{ error }}</p>
           {% endif %}
+          {% set read_only = read_only if read_only is defined else false %}
+          {% if not read_only %}
           <!-- Approve -->
           <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
                 hx-target="#review-item-{{ item.char_no }}"
@@ -95,6 +97,7 @@
             </div>
           </details>
           <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
+          {% endif %}
         {% endif %}
       </div>
     </div>

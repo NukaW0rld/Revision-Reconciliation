@@ -27,8 +27,8 @@ def review_queue(
     run = db.query(Run).filter(Run.id == run_id).first()
     if run is None:
         raise HTTPException(status_code=404)
-    # Only allow review of completed/warning/reviewing/signing_off runs
-    if run.status not in ("completed", "warning", "reviewing", "signing_off"):
+    # Only allow review of completed/warning/reviewing/signing_off/signed_off runs
+    if run.status not in ("completed", "warning", "reviewing", "signing_off", "signed_off"):
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
     all_items = open_review_queue(db, run)
@@ -51,6 +51,7 @@ def review_queue(
     if classification_filter != "all":
         visible_items = [i for i in visible_items if i.pipeline_classification == classification_filter]
 
+    read_only = run.status == "signed_off"
     error = request.query_params.get("error")
     nav = _get_nav_context(db, user)
     return templates.TemplateResponse(request, "review/queue.html", {
@@ -65,6 +66,7 @@ def review_queue(
         "status_filter": status_filter,
         "classification_filter": classification_filter,
         "error": error,
+        "read_only": read_only,
         **nav,
     })
 

@@ -42,18 +42,27 @@ def _get_nav_context(db: Session, user: User) -> dict:
 def list_runs(
     request: Request,
     part_number: str = None,
+    date_from: str = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    from datetime import datetime
     query = db.query(Run).order_by(Run.submitted_at.desc())
     if part_number:
         query = query.filter(Run.part_number.ilike(f"%{part_number}%"))
+    if date_from:
+        try:
+            dt = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(Run.submitted_at >= dt)
+        except ValueError:
+            pass  # invalid date format — ignore silently
     runs = query.all()
     nav = _get_nav_context(db, user)
     return templates.TemplateResponse(request, "runs/list.html", {
         "user": user,
         "runs": runs,
         "part_number": part_number or "",
+        "date_from": date_from or "",
         **nav,
     })
 

@@ -7,7 +7,7 @@
 </div>
 
 <!-- Filter form -->
-<form method="get" action="/runs" class="mb-6 flex gap-3 items-end">
+<form method="get" action="/runs" class="mb-6 flex gap-3 items-end flex-wrap">
     <div class="form-control">
         <label class="label"><span class="label-text">Part Number</span></label>
         <input
@@ -18,8 +18,17 @@
             class="input input-bordered input-sm w-56"
         >
     </div>
+    <div class="form-control">
+        <label class="label"><span class="label-text">From Date (UTC)</span></label>
+        <input
+            type="date"
+            name="date_from"
+            value="{{ date_from }}"
+            class="input input-bordered input-sm w-44"
+        >
+    </div>
     <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-    {% if part_number %}
+    {% if part_number or date_from %}
     <a href="/runs" class="btn btn-ghost btn-sm">Clear</a>
     {% endif %}
 </form>
@@ -57,7 +66,7 @@
 </div>
 {% else %}
 <div class="text-base-content/50 py-12 text-center">
-    {% if part_number %}
+    {% if part_number or date_from %}
     No runs match your filter. <a href="/runs" class="link">Clear filter</a>
     {% else %}
     No runs yet.
