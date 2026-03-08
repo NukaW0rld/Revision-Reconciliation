@@ -48,7 +48,6 @@ def _make_session_cookie(db_engine, user: User) -> str:
     return token
 
 
-@pytest.mark.xfail(strict=False, reason="Admin routes not yet implemented — Plan 05")
 def test_engineer_cannot_access_admin(client, db_engine):
     """AUTH-05: Engineer role cannot access admin-only routes.
 
@@ -63,7 +62,6 @@ def test_engineer_cannot_access_admin(client, db_engine):
     assert "/dashboard" in resp.headers.get("location", "")
 
 
-@pytest.mark.xfail(strict=False, reason="Admin routes not yet implemented — Plan 05")
 def test_no_session_redirects_to_login(client):
     """GET /admin/users without session cookie redirects to /login."""
     resp = client.get("/admin/users", follow_redirects=False)
@@ -71,7 +69,6 @@ def test_no_session_redirects_to_login(client):
     assert "/login" in resp.headers.get("location", "")
 
 
-@pytest.mark.xfail(strict=False, reason="Admin routes not yet implemented — Plan 05")
 def test_admin_can_access_admin(client, admin_user, db_engine):
     """AUTH-05: Admin role can access admin-only routes."""
     token = _make_session_cookie(db_engine, admin_user)
