@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 04-exports-history-and-amendments-01-PLAN.md
-last_updated: "2026-03-08T12:03:33.207Z"
+stopped_at: Completed 04-exports-history-and-amendments-02-PLAN.md
+last_updated: "2026-03-08T12:12:00.561Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 23
+  completed_plans: 24
   percent: 50
 ---
 
@@ -67,6 +67,7 @@ Progress: [████████████████████░░░
 | Phase 03-review-and-sign-off P06 | 20min | 4 tasks | 6 files |
 | Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 0 files |
 | Phase 04-exports-history-and-amendments P01 | 2min | 2 tasks | 8 files |
+| Phase 04-exports-history-and-amendments P02 | 6min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,8 @@ Recent decisions affecting current work:
 - [Phase 03-review-and-sign-off]: Dual-partial OOB pattern: _signoff_footer.html (initial render) + _signoff_footer_oob.html (hx-swap-oob=outerHTML) avoids double-id nesting for HTMX dynamic sign-off footer
 - [Phase 03-review-and-sign-off]: Stage checklist is_done extended to reviewing/signing_off/signed_off/warning — all post-pipeline statuses should show all 8 stages green
 - [Phase 04-exports-history-and-amendments]: WeasyPrint added unpinned; run_schema_migrations uses sa_inspect for idempotent SQLite ALTER TABLE; parent_run_id is self-referential FK for amendment lineage; packet_versions stored as JSON list on Run
+- [Phase 04-exports-history-and-amendments]: Inline import of generate_and_store_audit_packet inside attempt_sign_off try block avoids circular import; unittest.mock.patch targets module attribute and works with inline from-imports at call time inside patch context
+- [Phase 04-exports-history-and-amendments]: WeasyPrint base_url set to output_dir/snippets/ directory; template uses | basename filter for img paths; re-download serves stored FileResponse, falls back to StreamingResponse re-render
 
 ### Pending Todos
 
@@ -161,6 +164,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T12:03:33.205Z
-Stopped at: Completed 04-exports-history-and-amendments-01-PLAN.md
+Last session: 2026-03-08T12:12:00.559Z
+Stopped at: Completed 04-exports-history-and-amendments-02-PLAN.md
 Resume file: None
