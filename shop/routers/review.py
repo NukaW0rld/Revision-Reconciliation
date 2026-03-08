@@ -52,6 +52,7 @@ def review_queue(
         visible_items = [i for i in visible_items if i.pipeline_classification == classification_filter]
 
     read_only = run.status == "signed_off"
+    is_amendment = bool(run.parent_run_id)
     error = request.query_params.get("error")
     nav = _get_nav_context(db, user)
     return templates.TemplateResponse(request, "review/queue.html", {
@@ -67,6 +68,7 @@ def review_queue(
         "classification_filter": classification_filter,
         "error": error,
         "read_only": read_only,
+        "is_amendment": is_amendment,
         **nav,
     })
 
@@ -112,6 +114,7 @@ def approve_item(
         "overridden": overridden,
         "total": len(all_items),
         "oob_update": True,
+        "is_amendment": bool(run.parent_run_id),
     })
 
 
@@ -142,7 +145,8 @@ def override_item(
         return templates.TemplateResponse(
             request,
             "review/_item_card.html",
-            {"item": item, "run_id": run_id, "error": "Override note is required."},
+            {"item": item, "run_id": run_id, "error": "Override note is required.",
+             "is_amendment": bool(run.parent_run_id)},
             status_code=422,
         )
     if override_classification not in VALID_CLASSIFICATIONS:
@@ -164,6 +168,7 @@ def override_item(
         "overridden": overridden,
         "total": len(all_items),
         "oob_update": True,
+        "is_amendment": bool(run.parent_run_id),
     })
 
 

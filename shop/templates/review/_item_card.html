@@ -54,21 +54,25 @@
           <p class="text-sm"><span class="font-medium">Rev B:</span> {{ item.requirement_revB }}</p>
         {% endif %}
 
+        {% set read_only = read_only if read_only is defined else false %}
+        {% set is_amendment = is_amendment if is_amendment is defined else false %}
+
         {% if item.reviewer_decision %}
-          <!-- RESOLVED STATE -->
+          <!-- CURRENT DECISION BADGE -->
           {% if item.reviewer_decision == 'approved' %}
             <span class="badge badge-success badge-lg">Approved</span>
           {% else %}
             <span class="badge badge-warning badge-lg">Overridden &rarr; {{ item.override_classification }}</span>
             <p class="text-xs text-base-content/60">Note: {{ item.override_note }}</p>
           {% endif %}
-        {% else %}
-          <!-- UNRESOLVED STATE -->
+        {% endif %}
+
+        {% if not item.reviewer_decision or is_amendment %}
+          <!-- ACTION CONTROLS (shown when undecided, or in amendment context to allow re-deciding) -->
+          {% if not read_only %}
           {% if error %}
             <p class="text-error text-sm">{{ error }}</p>
           {% endif %}
-          {% set read_only = read_only if read_only is defined else false %}
-          {% if not read_only %}
           <!-- Approve -->
           <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
                 hx-target="#review-item-{{ item.char_no }}"
