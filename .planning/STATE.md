@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 04-exports-history-and-amendments-02-PLAN.md
-last_updated: "2026-03-08T12:12:00.561Z"
+stopped_at: Completed 04-exports-history-and-amendments-04-PLAN.md
+last_updated: "2026-03-08T12:17:39.493Z"
 last_activity: "2026-03-04 - Completed quick task 1: Review gitignore and README, push to GitHub, draft v0.2 release message"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 24
+  completed_plans: 25
   percent: 50
 ---
 
@@ -68,6 +68,7 @@ Progress: [████████████████████░░░
 | Phase 03-review-and-sign-off P06 | human-verify | 2 tasks | 0 files |
 | Phase 04-exports-history-and-amendments P01 | 2min | 2 tasks | 8 files |
 | Phase 04-exports-history-and-amendments P02 | 6min | 2 tasks | 8 files |
+| Phase 04-exports-history-and-amendments P04 | 5min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,9 @@ Recent decisions affecting current work:
 - [Phase 04-exports-history-and-amendments]: WeasyPrint added unpinned; run_schema_migrations uses sa_inspect for idempotent SQLite ALTER TABLE; parent_run_id is self-referential FK for amendment lineage; packet_versions stored as JSON list on Run
 - [Phase 04-exports-history-and-amendments]: Inline import of generate_and_store_audit_packet inside attempt_sign_off try block avoids circular import; unittest.mock.patch targets module attribute and works with inline from-imports at call time inside patch context
 - [Phase 04-exports-history-and-amendments]: WeasyPrint base_url set to output_dir/snippets/ directory; template uses | basename filter for img paths; re-download serves stored FileResponse, falls back to StreamingResponse re-render
+- [Phase 04-exports-history-and-amendments]: cleanup_old_runs uses deferred imports inside periodic task body to avoid circular imports at module load time
+- [Phase 04-exports-history-and-amendments]: signed_off runs allowed through review_queue guard with read_only=True so engineers can review final audit decisions
+- [Phase 04-exports-history-and-amendments]: DELETABLE_STATUSES excludes reviewing/signing_off/signed_off — only terminal-failure and pipeline-complete statuses eligible for cleanup
 
 ### Pending Todos
 
@@ -164,6 +168,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T12:12:00.559Z
-Stopped at: Completed 04-exports-history-and-amendments-02-PLAN.md
+Last session: 2026-03-08T12:17:39.491Z
+Stopped at: Completed 04-exports-history-and-amendments-04-PLAN.md
 Resume file: None
