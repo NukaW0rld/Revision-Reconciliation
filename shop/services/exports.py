@@ -107,3 +107,76 @@ def generate_and_store_audit_packet(db: Session, run: Run) -> None:
     run.packet_versions = existing + [new_entry]
     db.add(run)
     # Do NOT commit here — attempt_sign_off controls the transaction
+
+
+# ---------------------------------------------------------------------------
+# Work order helpers
+# ---------------------------------------------------------------------------
+
+def _effective_classification(item: "ReviewItem") -> str:
+    """Return the effective classification after reviewer decision."""
+    if item.reviewer_decision == "overridden" and item.override_classification:
+        return item.override_classification
+    return item.pipeline_classification
+
+
+def _work_order_rows(db: Session, run: Run) -> list[dict]:
+    """Return work order data rows for changed and added characteristics."""
+    items = (
+        db.query(ReviewItem)
+        .filter(ReviewItem.run_id == run.id)
+        .order_by(ReviewItem.char_no)
+        .all()
+    )
+    rows = []
+    for item in items:
+        eff = _effective_classification(item)
+        if eff not in ("changed", "added"):
+            continue
+        priority = "RE-MEASURE" if eff == "changed" else "NEW"
+        drawing_ref = f"Balloon {item.char_no}" if item.char_no is not None else "—"
+        rows.append({
+            "char_no": item.char_no,
+            "priority": priority,
+            "requirement_revB": item.requirement_revB or "",
+            "drawing_reference": drawing_ref,
+        })
+    return rows
+
+
+def generate_work_order_csv(db: Session, run: Run) -> io.StringIO:
+    """Generate work order CSV. Returns StringIO seeked to 0."""
+    rows = _work_order_rows(db, run)
+    output = io.StringIO()
+    fieldnames = ["char_no", "priority", "requirement_revB", "drawing_reference"]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    output.seek(0)
+    return output
+
+
+def generate_work_order_pdf(db: Session, run: Run) -> bytes:
+    """Render work order to PDF bytes using WeasyPrint. Raises on failure."""
+    from weasyprint import HTML
+    from shop.app import templates
+    from datetime import datetime as _dt
+
+    rows = _work_order_rows(db, run)
+
+    class _Row:
+        def __init__(self, d):
+            self.__dict__.update(d)
+            self.char_no = d["char_no"]
+            self.priority = d["priority"]
+            self.requirement_revB = d["requirement_revB"]
+            self.drawing_reference = d["drawing_reference"]
+
+    template_rows = [_Row(r) for r in rows]
+    html_string = templates.env.get_template("exports/work_order.html").render(
+        run=run,
+        items=template_rows,
+        generated_at=_dt.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+    )
+    # No images in work order — base_url irrelevant
+    return HTML(string=html_string, base_url=".").write_pdf()

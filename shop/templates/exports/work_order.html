@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: Letter; margin: 1in; }
+body { font-family: sans-serif; font-size: 10pt; }
+h1 { font-size: 14pt; margin-bottom: 0.1in; }
+.header-table { width: 60%; border-collapse: collapse; margin-bottom: 0.3in; }
+.header-table th, .header-table td { border: 1px solid #ccc; padding: 3px 8px; font-size: 9pt; }
+.header-table th { background: #f0f0f0; text-align: left; }
+.work-table { width: 100%; border-collapse: collapse; margin-top: 0.1in; }
+.work-table th { background: #222; color: #fff; padding: 5px 8px; text-align: left; font-size: 9pt; }
+.work-table td { border: 1px solid #ccc; padding: 4px 8px; font-size: 9pt; vertical-align: top; }
+.work-table tr:nth-child(even) td { background: #f8f8f8; }
+.priority-remeasure { font-weight: bold; }
+.priority-new { font-weight: bold; }
+.empty-msg { margin-top: 0.5in; font-style: italic; color: #666; }
+</style>
+</head>
+<body>
+<h1>Partial FAI Work Order</h1>
+
+<table class="header-table">
+  <tr><th>Part Number</th><td>{{ run.part_number }}</td></tr>
+  <tr><th>Revision</th><td>Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</td></tr>
+  <tr><th>Customer</th><td>{{ run.customer }}</td></tr>
+  <tr><th>Job Number</th><td>{{ run.job_number }}</td></tr>
+  <tr><th>Run ID</th><td>{{ run.id }}</td></tr>
+  <tr><th>Generated</th><td>{{ generated_at }}</td></tr>
+</table>
+
+{% if items %}
+<table class="work-table">
+  <thead>
+    <tr>
+      <th>Char #</th>
+      <th>Priority</th>
+      <th>Requirement (Rev B)</th>
+      <th>Drawing Reference</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in items %}
+    <tr>
+      <td>{{ row.char_no if row.char_no is not none else "—" }}</td>
+      <td class="priority-{{ row.priority | lower | replace('-', '') }}">{{ row.priority }}</td>
+      <td>{{ row.requirement_revB or "—" }}</td>
+      <td>{{ row.drawing_reference }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty-msg">No changed or added characteristics — full re-inspection not required.</p>
+{% endif %}
+</body>
+</html>
