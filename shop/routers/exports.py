@@ -67,3 +67,35 @@ def download_audit_packet_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="audit_packet_{run_id}.csv"'},
     )
+
+
+@router.get("/{run_id}/work-order.pdf")
+def download_work_order_pdf(
+    run_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = _get_signed_run(run_id, db)
+    from shop.services.exports import generate_work_order_pdf
+    pdf_bytes = generate_work_order_pdf(db, run)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="work_order_{run_id}.pdf"'},
+    )
+
+
+@router.get("/{run_id}/work-order.csv")
+def download_work_order_csv(
+    run_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    run = _get_signed_run(run_id, db)
+    from shop.services.exports import generate_work_order_csv
+    buf = generate_work_order_csv(db, run)
+    return StreamingResponse(
+        buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="work_order_{run_id}.csv"'},
+    )

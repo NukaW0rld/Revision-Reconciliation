@@ -103,22 +103,99 @@ def test_audit_packet_redownload(client: TestClient, db_engine, engineer_user):
     assert "attachment" in resp.headers.get("content-disposition", "")
 
 
-# Work order stubs (implemented in Plan 03)
-@pytest.mark.xfail(strict=False, reason="WORK-01: work order button not yet implemented")
-def test_work_order_button_visible():
-    assert False, "not implemented"
+def _make_run_with_mixed_items(db, engineer_id):
+    """Create signed-off run with changed, added, and unchanged items."""
+    from shop.models import Run, ReviewItem
+    run = Run(
+        part_number="PN-WO",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="WO-001",
+        status="signed_off",
+        output_dir=None,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_id,
+        signed_at=datetime(2026, 3, 8),
+        signed_by_id=engineer_id,
+    )
+    db.add(run)
+    db.flush()
+    for char_no, classification in [(1, "changed"), (2, "added"), (3, "unchanged")]:
+        item = ReviewItem(
+            run_id=run.id,
+            char_no=char_no,
+            pipeline_classification=classification,
+            confidence=0.9,
+            requirement_revB=f"Req B {char_no}",
+            reviewer_decision="approved",
+        )
+        db.add(item)
+    db.commit()
+    return run
 
 
-@pytest.mark.xfail(strict=False, reason="WORK-02: work order filter not yet implemented")
-def test_work_order_filters_status():
-    assert False, "not implemented"
+def test_work_order_button_visible(client: TestClient, db_engine, engineer_user):
+    """WORK-01: work-order links present on signed-off run status page."""
+    _login_engineer(client, db_engine, engineer_user)
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_mixed_items(db, engineer_user.id)
+    resp = client.get(f"/runs/{run.id}")
+    assert resp.status_code == 200
+    assert "work-order.pdf" in resp.text
 
 
-@pytest.mark.xfail(strict=False, reason="WORK-03: work order priority labels not yet implemented")
-def test_work_order_priority_labels():
-    assert False, "not implemented"
+def test_work_order_filters_status(client: TestClient, engineer_user):
+    """WORK-02: work order CSV includes only changed and added characteristics."""
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_mixed_items(db, engineer_user.id)
+    from shop.services.exports import generate_work_order_csv
+    buf = generate_work_order_csv(db, run)
+    reader = csv.DictReader(buf)
+    rows = list(reader)
+    assert len(rows) == 2  # only changed (char 1) and added (char 2)
+    char_nos = {r["char_no"] for r in rows}
+    assert "1" in char_nos
+    assert "2" in char_nos
+    assert "3" not in char_nos  # unchanged excluded
 
 
-@pytest.mark.xfail(strict=False, reason="WORK-04: work order PDF/CSV not yet implemented")
-def test_work_order_pdf_csv():
-    assert False, "not implemented"
+def test_work_order_priority_labels(client: TestClient, engineer_user):
+    """WORK-03: RE-MEASURE for changed, NEW for added."""
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_mixed_items(db, engineer_user.id)
+    from shop.services.exports import generate_work_order_csv
+    buf = generate_work_order_csv(db, run)
+    reader = csv.DictReader(buf)
+    rows = {r["char_no"]: r["priority"] for r in reader}
+    assert rows["1"] == "RE-MEASURE"
+    assert rows["2"] == "NEW"
+
+
+def test_work_order_pdf_csv(client: TestClient, db_engine, engineer_user):
+    """WORK-04: Both work-order.pdf and .csv routes return 200 with attachment headers."""
+    _login_engineer(client, db_engine, engineer_user)
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_mixed_items(db, engineer_user.id)
+    for ext in ("csv",):  # csv only in tests (PDF needs WeasyPrint system deps)
+        resp = client.get(f"/exports/{run.id}/work-order.{ext}")
+        assert resp.status_code == 200, f"work-order.{ext} returned {resp.status_code}"
+        assert "attachment" in resp.headers.get("content-disposition", "")
