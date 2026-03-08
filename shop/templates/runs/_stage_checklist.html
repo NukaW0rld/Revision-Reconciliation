@@ -3,7 +3,7 @@
 <ul class="steps steps-vertical w-full" id="stage-checklist">
   {% for i in range(8) %}
   {% set stage_name = STAGE_NAMES[i] %}
-  {% set is_done = (i < run.current_stage_index) or (run.status == "completed") %}
+  {% set is_done = (i < run.current_stage_index) or (run.status in ["completed", "reviewing", "signing_off", "signed_off", "warning"]) %}
   {% set is_current = (i == run.current_stage_index) and (run.status == "running") %}
   {% set is_failed_stage = (run.failure_stage == stage_name) and (run.status == "failed") %}
   <li class="step{% if is_done %} step-success{% elif is_current %} step-primary{% elif is_failed_stage %} step-error{% endif %}">
