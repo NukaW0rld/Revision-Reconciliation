@@ -235,6 +235,23 @@ def serve_snippet(
     return FileResponse(str(snippet_path), media_type="image/png")
 
 
+@router.post("/{run_id}/amend")
+def create_amendment_route(
+    run_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create an amendment for a signed-off run. Redirects to the amendment's review queue."""
+    from shop.services.amendments import create_amendment
+    run = db.get(Run, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if run.status != "signed_off":
+        raise HTTPException(status_code=403, detail="Only signed-off runs can be amended")
+    amendment = create_amendment(db, run, user.id)
+    return RedirectResponse(f"/review/{amendment.id}", status_code=303)
+
+
 @router.get("/{run_id}/generating", response_class=HTMLResponse)
 def review_generating(
     run_id: int,

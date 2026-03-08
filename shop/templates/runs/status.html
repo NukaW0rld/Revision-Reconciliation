@@ -136,8 +136,61 @@
       <a href="/exports/{{ run.id }}/work-order.csv" class="btn btn-outline btn-sm">
         Generate Work Order (CSV)
       </a>
+      <!-- Amend button -->
+      <button
+        class="btn btn-warning btn-sm"
+        onclick="document.getElementById('amend-modal-{{ run.id }}').showModal()"
+      >Amend</button>
     </div>
     {% endif %}
+
+<!-- Amendment confirmation modal -->
+{% if run.status == "signed_off" %}
+<dialog id="amend-modal-{{ run.id }}" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Create Amendment</h3>
+    <p class="py-4 text-sm">
+      This will create an amendment for Run #{{ run.id }}.
+      <strong>The original signed packet is preserved unchanged.</strong>
+      You will be able to modify review decisions and sign off to produce a new versioned packet.
+    </p>
+    <p class="text-sm text-base-content/70 mb-4">
+      Note: Input files (Rev A PDF, Rev B PDF, Form 3 Excel) cannot be changed in an amendment.
+      Submit a new run to re-analyze different files.
+    </p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm">Cancel</button>
+      </form>
+      <form method="POST" action="/review/{{ run.id }}/amend">
+        <button type="submit" class="btn btn-warning btn-sm">Create Amendment</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Versioned packet list (shows all versions for this run) -->
+{% if run.packet_versions %}
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body py-3">
+    <h3 class="font-semibold text-sm">Audit Packet Versions</h3>
+    <ul class="text-sm space-y-1">
+      {% for pv in run.packet_versions %}
+      <li>
+        <a href="/exports/{{ run.id }}/audit-packet.pdf?version={{ pv.version }}"
+           class="link link-primary">
+          v{{ pv.version }} ({{ pv.type }}, {{ pv.signed_at[:10] if pv.signed_at else "—" }})
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+{% endif %}
 
   </div><!-- /right column -->
 </div><!-- /flex row -->
