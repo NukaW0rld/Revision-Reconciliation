@@ -40,6 +40,8 @@ def create_app(session_factory=None) -> FastAPI:
     app = FastAPI(title="Delta Preservation")
     # Create all DB tables on startup
     Base.metadata.create_all(bind=engine)
+    from shop.database import run_schema_migrations
+    run_schema_migrations(engine)
     # Middleware (outermost registered = executes last)
     app.add_middleware(SetupGuardMiddleware, session_factory=session_factory)
     # Static files

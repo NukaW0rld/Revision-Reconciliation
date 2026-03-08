@@ -39,6 +39,7 @@ class ShopConfig(Base):
     setup_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     column_mapping: Mapped[dict] = mapped_column(JSON, default=dict)
     wizard_step: Mapped[int] = mapped_column(Integer, default=0)
+    retention_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=30)
 
     def __repr__(self) -> str:
         return f"<ShopConfig setup_complete={self.setup_complete} wizard_step={self.wizard_step}>"
@@ -73,6 +74,10 @@ class Run(Base):
     review_items: Mapped[list["ReviewItem"]] = relationship(back_populates="run", cascade="all, delete-orphan")
     signed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     signed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    parent_run_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("runs.id"), nullable=True
+    )
+    packet_versions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     def __repr__(self) -> str:
         return f"<Run id={self.id} part_number={self.part_number!r} status={self.status!r}>"
