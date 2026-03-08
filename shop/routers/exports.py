@@ -25,20 +25,22 @@ def _get_signed_run(run_id: int, db: Session) -> Run:
 @router.get("/{run_id}/audit-packet.pdf")
 def download_audit_packet_pdf(
     run_id: int,
+    version: int = 1,  # which version to download (1-based)
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     run = _get_signed_run(run_id, db)
 
-    # Try to serve from stored path (PACKET-03 re-download)
+    # Try to serve from stored path for the requested version
     versions = run.packet_versions or []
-    if versions:
-        stored_path = Path(versions[0]["path"])
+    entry = next((v for v in versions if v.get("version") == version), None)
+    if entry:
+        stored_path = Path(entry["path"])
         if stored_path.exists():
             return FileResponse(
                 path=str(stored_path),
                 media_type="application/pdf",
-                filename=f"audit_packet_{run_id}_v1.pdf",
+                filename=f"audit_packet_{run_id}_v{version}.pdf",
             )
 
     # Fallback: re-render (handles test environments without real output_dir)
@@ -49,7 +51,7 @@ def download_audit_packet_pdf(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="audit_packet_{run_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="audit_packet_{run_id}_v{version}.pdf"'},
     )
 
 
