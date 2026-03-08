@@ -142,6 +142,21 @@ async def settings_upload(
     )
 
 
+@router.post("/settings/retention")
+def settings_update_retention(
+    request: Request,
+    retention_days: int = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()
+    if config:
+        # Clamp to reasonable range: 1 day minimum, 3650 days (~10 years) maximum
+        config.retention_days = max(1, min(3650, retention_days))
+        db.commit()
+    return RedirectResponse("/admin/settings", status_code=302)
+
+
 @router.post("/settings/save")
 async def settings_save(
     request: Request,

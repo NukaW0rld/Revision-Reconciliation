@@ -36,6 +36,31 @@
         </div>
     </div>
 
+    <!-- Run Retention Section -->
+    <div class="card bg-base-100 shadow mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg">Run Retention</h2>
+            <p class="text-sm text-base-content/70 mb-3">
+                Unfinished and failed runs older than this many days will be automatically deleted.
+                Signed-off runs are always retained indefinitely.
+            </p>
+            <form method="POST" action="/admin/settings/retention" class="flex items-end gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Delete after (days)</span></label>
+                    <input
+                        type="number"
+                        name="retention_days"
+                        value="{{ config.retention_days if config and config.retention_days is not none else 30 }}"
+                        min="1"
+                        max="3650"
+                        class="input input-bordered input-sm w-32"
+                    >
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Column Mapping Section -->
     <div class="card bg-base-100 shadow">
         <div class="card-body">

@@ -3,7 +3,7 @@ import logging
 import os
 from pathlib import Path
 
-from huey import SqliteHuey
+from huey import SqliteHuey, crontab
 
 logger = logging.getLogger(__name__)
 
@@ -245,3 +245,52 @@ def run_pipeline_task(
     finally:
         if db is not None:
             db.close()
+
+
+@huey.periodic_task(crontab(hour="0", minute="0"))
+def cleanup_old_runs():
+    """Delete unfinished/failed runs older than retention_days. Runs daily at UTC midnight.
+
+    Eligible statuses: queued, running, failed, completed.
+    signed_off, reviewing, signing_off are NEVER deleted.
+    """
+    import shutil
+    from datetime import datetime, timedelta
+    from pathlib import Path as _Path
+    from shop.database import SessionLocal as _SessionLocal
+    from shop.models import Run as _Run, ShopConfig as _ShopConfig
+
+    DELETABLE_STATUSES = {"queued", "running", "failed", "completed"}
+
+    db = _SessionLocal()
+    try:
+        config = db.query(_ShopConfig).filter(_ShopConfig.id == 1).first()
+        retention_days = (getattr(config, "retention_days", None) or 30)
+        cutoff = datetime.utcnow() - timedelta(days=retention_days)
+
+        old_runs = (
+            db.query(_Run)
+            .filter(_Run.status.in_(DELETABLE_STATUSES), _Run.submitted_at < cutoff)
+            .all()
+        )
+        for run in old_runs:
+            # Delete pipeline output directory (snippets, delta_packet, debug)
+            if run.output_dir and _Path(run.output_dir).exists():
+                shutil.rmtree(run.output_dir, ignore_errors=True)
+            # Delete uploaded input files
+            for path_str in [run.revA_path, run.revB_path, run.form3_path]:
+                if path_str and _Path(path_str).exists():
+                    _Path(path_str).unlink(missing_ok=True)
+            db.delete(run)
+        if old_runs:
+            db.commit()
+            logger.info(
+                "cleanup_old_runs: deleted %d runs older than %d days",
+                len(old_runs),
+                retention_days,
+            )
+    except Exception:
+        logger.exception("cleanup_old_runs: error during cleanup")
+        db.rollback()
+    finally:
+        db.close()
