@@ -82,7 +82,7 @@ Each task was committed atomically:
 1. **Task 1: Amendment service, POST route, and confirmation modal** - `d64e105` (feat)
 2. **Task 2: Amendment review queue banner, version-aware download, and test implementations** - `37ad83b` (feat)
 
-**Plan metadata:** (pending — final commit)
+**Plan metadata:** `2860810` (docs: complete plan)
 
 ## Files Created/Modified
 - `shop/services/amendments.py` - create_amendment() service cloning run and review items
@@ -116,3 +116,13 @@ None - no external service configuration required.
 ---
 *Phase: 04-exports-history-and-amendments*
 *Completed: 2026-03-08*
+
+## Self-Check: PASSED
+- shop/services/amendments.py: FOUND
+- shop/routers/review.py: FOUND
+- shop/templates/runs/status.html: FOUND
+- shop/templates/review/queue.html: FOUND
+- tests/test_amendments.py: FOUND
+- Task 1 commit d64e105: FOUND
+- Task 2 commit 37ad83b: FOUND
+- Metadata commit 2860810: FOUND
