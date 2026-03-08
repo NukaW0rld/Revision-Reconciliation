@@ -105,5 +105,8 @@
   <div id="progress-bar" hx-swap-oob="true">
     {% include "review/_progress_bar.html" %}
   </div>
+  <!-- OOB signoff footer update — re-renders pending count and enables/disables Sign Off button -->
+  <!-- _signoff_footer.html root has id="signoff-footer"; add hx-swap-oob so HTMX targets that element -->
+  {% include "review/_signoff_footer_oob.html" %}
   {% endif %}
 </div>

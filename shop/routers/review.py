@@ -103,6 +103,7 @@ def approve_item(
     all_items, pending, approved, overridden = _item_counts(db, run_id)
     return templates.TemplateResponse(request, "review/_item_card.html", {
         "item": item,
+        "run": run,
         "run_id": run_id,
         "pending": pending,
         "approved": approved,
@@ -154,6 +155,7 @@ def override_item(
     all_items, pending, approved, overridden = _item_counts(db, run_id)
     return templates.TemplateResponse(request, "review/_item_card.html", {
         "item": item,
+        "run": run,
         "run_id": run_id,
         "pending": pending,
         "approved": approved,
