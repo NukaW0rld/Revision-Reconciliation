@@ -61,45 +61,5 @@
         </div>
     </div>
 
-    <!-- Column Mapping Section -->
-    <div class="card bg-base-100 shadow">
-        <div class="card-body">
-            <h2 class="card-title text-lg">Form 3 Column Mapping</h2>
-            <p class="text-sm text-base-content/70 mb-2">
-                Reconfigure how Form 3 Excel columns are mapped to required fields.
-                Changes apply to new pipeline runs only — existing runs are unaffected.
-            </p>
-
-            {% if config and config.column_mapping %}
-            <div class="mb-4 p-3 bg-base-200 rounded">
-                <p class="text-sm font-semibold mb-1">Current Mapping:</p>
-                <ul class="text-sm space-y-1">
-                    {% for field, col_idx in config.column_mapping.items() %}
-                    <li><span class="font-mono text-primary">{{ field }}</span> → column index {{ col_idx }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-
-            <form hx-post="/admin/settings/upload"
-                  hx-target="#settings-mapping-container"
-                  hx-swap="innerHTML"
-                  hx-encoding="multipart/form-data"
-                  class="mb-4">
-                <div class="form-control mb-3">
-                    <label class="label">
-                        <span class="label-text font-medium">Upload Sample Form 3 Excel</span>
-                    </label>
-                    <input type="file" name="file" accept=".xlsx,.xls"
-                           class="file-input file-input-bordered w-full" required>
-                </div>
-                <button type="submit" class="btn btn-outline btn-sm">Upload and Preview</button>
-            </form>
-
-            <div id="settings-mapping-container">
-                <!-- HTMX partial swap target -->
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}

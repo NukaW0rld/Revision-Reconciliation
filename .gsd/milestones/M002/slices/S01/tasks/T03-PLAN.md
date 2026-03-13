@@ -43,3 +43,15 @@ Remove the column mapping upload/save routes from admin settings and the corresp
 - `shop/templates/admin/settings.html` — column mapping section removed
 - `shop/templates/setup/step3_engineer.html` — deleted
 - `shop/templates/setup/step4_column_mapping.html` — deleted
+
+## Observability Impact
+
+**What changes:** `POST /admin/settings/upload` and `POST /admin/settings/save` are removed. Any request to those URLs will return 404. The admin settings page no longer renders a column mapping card.
+
+**How a future agent inspects this task:**
+- `grep "settings_upload\|settings_save" shop/routers/admin.py` — should return empty (routes gone)
+- `ls shop/templates/setup/` — should NOT contain `step3_engineer.html` or `step4_column_mapping.html`
+- `curl -s -o /dev/null -w "%{http_code}" -X POST http://host/admin/settings/upload` — expect 404 (or 302 if not authenticated)
+- `uv run pytest tests/test_admin.py tests/test_setup.py -v` — all pass
+
+**Failure surface:** If these routes were called by any remaining template (e.g. settings.html still had the form), requests to the removed endpoints would return 404 in production. The tests guard against template drift by verifying the settings page renders and the test_setup.py xlsx parsing tests continue to pass against the new `/runs/validate-xlsx` endpoint.

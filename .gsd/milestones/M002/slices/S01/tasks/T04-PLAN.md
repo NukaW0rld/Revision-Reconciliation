@@ -46,3 +46,13 @@ Remove tests for deleted wizard steps, add tests for 2-step wizard completion an
 
 - `tests/test_setup.py` — step 3/4 tests removed; new wizard completion + redirect tests added
 - `tests/test_runs.py` — new per-run xlsx mapping tests added
+
+## Observability Impact
+
+Test changes are not runtime artifacts, but their outcomes are observable via:
+
+- **Suite pass/fail:** `uv run pytest --tb=short` — authoritative signal; ≥87 pass, 0 failures confirms the slice's test contract is intact.
+- **New test names:** `grep "^def test_" tests/test_setup.py tests/test_runs.py` lists all test functions; new tests `test_removed_step4_redirects_when_complete`, `test_removed_step4_redirects_when_incomplete`, `test_validate_xlsx_autodetect`, `test_validate_xlsx_empty_file`, `test_validate_xlsx_noncontiguous_char_no`, `test_validate_xlsx_requires_auth` should all appear.
+- **Removed tests confirmed gone:** `grep "test_form3_upload_autodetect\|test_empty_file_error\|test_noncontiguous_char_no" tests/test_setup.py` → empty (those tests now live in test_runs.py).
+- **Auth gate check:** `test_validate_xlsx_requires_auth` directly verifies that unauthenticated requests to `/runs/validate-xlsx` are rejected; if the auth middleware is misconfigured, this test fails.
+- **Failure shape:** A failing `test_removed_step4_redirects_when_incomplete` likely means `ShopConfig` default `setup_complete` is not `False`, or multiple config rows exist (fixture isolation issue). Check with `SELECT id, setup_complete FROM shop_config;` in the test DB.

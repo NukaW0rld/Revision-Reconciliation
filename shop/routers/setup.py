@@ -1,14 +1,11 @@
 import logging
-from io import BytesIO
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db
 from shop.models import ShopConfig, User
 from shop.services.auth import hash_password
-from shop.services.form3 import parse_excel_preview, REQUIRED_FIELDS
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,7 +35,7 @@ def _step_redirect(step: int) -> RedirectResponse:
 @router.get("/", response_class=HTMLResponse)
 def setup_root(db: Session = Depends(get_db)):
     config = _get_or_create_config(db)
-    next_step = min(config.wizard_step + 1, 4)
+    next_step = min(config.wizard_step + 1, 2)
     return RedirectResponse(f"/setup/step{next_step}", status_code=302)
 
 
@@ -130,128 +127,39 @@ def step2_post(
         logger.info("Created admin user %s during setup wizard step 2", admin_email_env)
     if config.wizard_step < 2:
         config.wizard_step = 2
-        db.commit()
-    return _step_redirect(3)
-
-
-@router.get("/step3", response_class=HTMLResponse)
-def step3_get(request: Request, db: Session = Depends(get_db)):
-    config = _get_or_create_config(db)
-    if config.wizard_step < 2:
-        return _step_redirect(config.wizard_step + 1)
-    return templates.TemplateResponse(
-        request,
-        "setup/step3_engineer.html",
-        {"config": config, "current_step": 3},
-    )
-
-
-@router.post("/step3", response_class=HTMLResponse)
-def step3_post(
-    request: Request,
-    engineer_email: str = Form(...),
-    engineer_password: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    config = _get_or_create_config(db)
-    if config.wizard_step < 2:
-        return _step_redirect(config.wizard_step + 1)
-    new_engineer = User(
-        email=engineer_email,
-        hashed_password=hash_password(engineer_password),
-        role="engineer",
-        is_active=True,
-    )
-    db.add(new_engineer)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        return templates.TemplateResponse(
-            request,
-            "setup/step3_engineer.html",
-            {
-                "config": config,
-                "current_step": 3,
-                "error": f"Email '{engineer_email}' already exists",
-            },
-        )
-    if config.wizard_step < 3:
-        config.wizard_step = 3
-        db.commit()
-    return _step_redirect(4)
-
-
-@router.get("/step4", response_class=HTMLResponse)
-def step4_get(request: Request, db: Session = Depends(get_db)):
-    config = _get_or_create_config(db)
-    if config.wizard_step < 3:
-        return _step_redirect(config.wizard_step + 1)
-    return templates.TemplateResponse(
-        request,
-        "setup/step4_column_mapping.html",
-        {"config": config, "current_step": 4},
-    )
-
-
-@router.post("/step4/upload", response_class=HTMLResponse)
-async def step4_upload(
-    request: Request,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
-    content = await file.read()
-    try:
-        headers, preview_rows, detected = parse_excel_preview(content)
-    except ValueError as exc:
-        return templates.TemplateResponse(
-            request,
-            "setup/step4_error.html",
-            {"error": str(exc)},
-            status_code=200,
-        )
-    return templates.TemplateResponse(
-        request,
-        "setup/step4_mapping_partial.html",
-        {
-            "headers": headers,
-            "preview_rows": preview_rows,
-            "detected": detected,
-            "required_fields": REQUIRED_FIELDS,
-            "form_action": "/setup/step4/save",
-        },
-        status_code=200,
-    )
-
-
-@router.post("/step4/save")
-async def step4_save(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    form_data = await request.form()
-    mapping: dict[str, int] = {}
-    for key, val in form_data.multi_items():
-        if key.startswith("col_") and val and val != "ignore" and val in REQUIRED_FIELDS:
-            try:
-                mapping[val] = int(key[4:])
-            except ValueError:
-                pass
-    # Validate minimum required fields
-    if "char_no" not in mapping or "requirement" not in mapping:
-        config = _get_or_create_config(db)
-        return templates.TemplateResponse(
-            request,
-            "setup/step4_column_mapping.html",
-            {
-                "config": config,
-                "current_step": 4,
-                "error": "char_no and requirement columns must be mapped before saving.",
-            },
-        )
-    config = _get_or_create_config(db)
-    config.column_mapping = mapping
-    config.wizard_step = 4
     config.setup_complete = True
     db.commit()
-    return RedirectResponse("/dashboard", status_code=302)
+    logger.info("Setup wizard complete: admin password set, setup_complete=True")
+    return RedirectResponse("/login", status_code=302)
+
+
+@router.get("/step3")
+def step3_redirect(db: Session = Depends(get_db)):
+    config = _get_or_create_config(db)
+    if config.setup_complete:
+        return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/setup/", status_code=302)
+
+
+@router.post("/step3")
+def step3_post_redirect(db: Session = Depends(get_db)):
+    config = _get_or_create_config(db)
+    if config.setup_complete:
+        return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/setup/", status_code=302)
+
+
+@router.get("/step4/{path:path}")
+def step4_redirect(path: str, db: Session = Depends(get_db)):
+    config = _get_or_create_config(db)
+    if config.setup_complete:
+        return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/setup/", status_code=302)
+
+
+@router.post("/step4/{path:path}")
+async def step4_post_redirect(path: str, db: Session = Depends(get_db)):
+    config = _get_or_create_config(db)
+    if config.setup_complete:
+        return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/setup/", status_code=302)

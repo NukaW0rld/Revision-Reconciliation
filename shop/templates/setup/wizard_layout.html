@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Setup Wizard — Step {{ current_step }} of 4{% endblock %}
+{% block title %}Setup Wizard — Step {{ current_step }} of 2{% endblock %}
 {% block nav %}{% endblock %}
 {% block content %}
 <div class="min-h-screen flex flex-col items-center justify-center p-4">
@@ -7,7 +7,7 @@
         <div class="card-body">
             <!-- Step progress -->
             <ul class="steps w-full mb-6">
-                {% for step_num, step_label in [(1,'Shop'), (2,'Password'), (3,'Engineer'), (4,'Form 3')] %}
+                {% for step_num, step_label in [(1,'Shop'), (2,'Password')] %}
                 <li class="step {% if current_step >= step_num %}step-primary{% endif %}">
                     {{ step_label }}
                 </li>

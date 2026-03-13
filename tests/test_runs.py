@@ -244,6 +244,102 @@ def test_rev_labels_stored(client, db_engine, engineer_user, huey_immediate):
 
 
 # ---------------------------------------------------------------------------
+# Per-run xlsx column mapping validation (VALIDATE-01..03)
+# ---------------------------------------------------------------------------
+
+
+def _make_form3_xlsx_bytes(headers=None, rows=None) -> bytes:
+    """Return a minimal Form 3 xlsx with the given headers and data rows."""
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(headers or ["Char No", "Reference Location", "Requirement"])
+    for row in (rows or [[1, "Zone A", "1.25 +/- 0.05"]]):
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_validate_xlsx_autodetect(client, db_engine, engineer_user):
+    """VALIDATE-01: POST valid xlsx to /runs/validate-xlsx returns 200 with select dropdowns.
+
+    Steps:
+    - Authenticate as engineer.
+    - POST a minimal AS9102 Form 3 xlsx with auto-detectable column headers.
+    - Assert 200 response and HTML containing <select> elements for column mapping.
+    """
+    _login_engineer(client, db_engine, engineer_user)
+    xlsx_bytes = _make_form3_xlsx_bytes()
+
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("form3.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    assert "<select" in resp.text, "Expected select dropdowns in column mapping partial"
+
+
+def test_validate_xlsx_empty_file(client, db_engine, engineer_user):
+    """VALIDATE-02: POST empty/invalid xlsx returns error partial (no <select> elements).
+
+    Steps:
+    - Authenticate as engineer.
+    - POST empty bytes as xlsx.
+    - Assert 200 response with error messaging and no select dropdowns.
+    """
+    _login_engineer(client, db_engine, engineer_user)
+
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("empty.xlsx", b"", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    assert "<select" not in resp.text, "Error path should not contain select dropdowns"
+    assert "error" in resp.text.lower() or "empty" in resp.text.lower()
+
+
+def test_validate_xlsx_noncontiguous_char_no(client, db_engine, engineer_user):
+    """VALIDATE-03: Non-contiguous char_no values are accepted without normalization.
+
+    Steps:
+    - POST xlsx with char_no values [1, 5, 99, 200].
+    - Assert all four values appear in the response.
+    """
+    _login_engineer(client, db_engine, engineer_user)
+    xlsx_bytes = _make_form3_xlsx_bytes(
+        headers=["Char No", "Requirement"],
+        rows=[[v, f"Req {v}"] for v in [1, 5, 99, 200]],
+    )
+
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("form3.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    for val in ["1", "5", "99", "200"]:
+        assert val in resp.text, f"Expected char_no {val!r} in response"
+
+
+def test_validate_xlsx_requires_auth(client):
+    """VALIDATE-04: POST /runs/validate-xlsx without auth cookie redirects to login."""
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("form3.xlsx", b"data", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    # Unauthenticated requests must be redirected (302/303/307) to /login
+    assert resp.status_code in (302, 303, 307), f"Expected redirect, got {resp.status_code}"
+    assert "/login" in resp.headers.get("location", ""), (
+        f"Expected redirect to /login, got {resp.headers.get('location')!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Pipeline task requirements (remain as xfail stubs until Plan 03)
 # ---------------------------------------------------------------------------
 

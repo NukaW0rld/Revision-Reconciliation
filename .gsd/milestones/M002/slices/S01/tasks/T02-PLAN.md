@@ -48,3 +48,20 @@ Add a `/runs/validate-xlsx` POST endpoint that accepts an xlsx upload via HTMX, 
 - `shop/routers/runs.py` — new `validate_xlsx` endpoint
 - `shop/templates/runs/_xlsx_mapping.html` — new bare mapping confirmation partial
 - `shop/templates/runs/new.html` — HTMX attributes on xlsx input + target div
+
+## Observability Impact
+
+**New signals introduced:**
+- `INFO  "validate_xlsx: preview ok, cols={n}, detected={fields}"` — emitted on every successful xlsx validation; confirms which fields were auto-detected.
+- `WARNING "validate_xlsx: invalid file — {message}"` — emitted when `parse_excel_preview()` raises `ValueError`; surface in app logs to diagnose bad uploads.
+
+**How a future agent inspects this endpoint:**
+- `grep "validate_xlsx" app.log` — lists all xlsx validation attempts with result.
+- `grep "validate_xlsx: invalid" app.log` — narrows to failures.
+- Network tab in browser DevTools: `POST /runs/validate-xlsx` should return 200 with HTML fragment; a `div.alert.alert-error` in the response body signals the error path.
+- `curl -s -X POST http://localhost:8000/runs/validate-xlsx -F "form3_xlsx=@/path/to/bad.txt" -H "Cookie: session=..."` — triggers the error partial directly.
+
+**Failure states made visible:**
+- Empty upload or no xlsx field → endpoint returns empty `HTMLResponse("")` (target div cleared, no error logged).
+- Unreadable or empty file → `step4_error.html` partial rendered in `#xlsx-mapping-section` with the `ValueError` message.
+- Auth failure → `get_current_user` dependency raises 401/redirect (same as all other auth-gated endpoints).

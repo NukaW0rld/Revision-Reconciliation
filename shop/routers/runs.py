@@ -75,6 +75,74 @@ def new_run_form(
     return templates.TemplateResponse(request, "runs/new.html", {"user": user})
 
 
+@router.post("/validate-xlsx", response_class=HTMLResponse)
+async def validate_xlsx(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    """Validate an uploaded xlsx and return an inline column-mapping confirmation partial.
+
+    Accepts any multipart/form-data upload (HTMX sends all form fields on change).
+    Looks for the first file-like value to use as the xlsx bytes — extra PDF fields
+    are ignored gracefully.
+
+    Returns:
+        runs/_xlsx_mapping.html  — on valid xlsx (auto-detected mapping table)
+        setup/step4_error.html   — on invalid file (bad format, empty, unreadable)
+
+    Observable signals:
+        INFO  "validate_xlsx: preview ok, cols={n}, detected={fields}"
+        WARNING "validate_xlsx: invalid file — {error message}"
+    """
+    from shop.services.form3 import parse_excel_preview, REQUIRED_FIELDS
+
+    form = await request.form()
+
+    # Find the xlsx file — HTMX may include sibling PDF inputs too; pick the xlsx.
+    uploaded_file = None
+    for _key, value in form.multi_items():
+        if hasattr(value, "filename") and value.filename and value.filename.endswith(".xlsx"):
+            uploaded_file = value
+            break
+    # Fallback: any file-like value
+    if uploaded_file is None:
+        for _key, value in form.multi_items():
+            if hasattr(value, "read"):
+                uploaded_file = value
+                break
+
+    if uploaded_file is None:
+        return HTMLResponse("")  # No file — clear target div
+
+    content = await uploaded_file.read()
+
+    try:
+        headers, preview_rows, detected = parse_excel_preview(content)
+    except ValueError as exc:
+        logger.warning("validate_xlsx: invalid file — %s", exc)
+        return templates.TemplateResponse(
+            request,
+            "setup/step4_error.html",
+            {"error": str(exc)},
+        )
+
+    logger.info(
+        "validate_xlsx: preview ok, cols=%d, detected=%s",
+        len(headers),
+        list(detected.keys()),
+    )
+    return templates.TemplateResponse(
+        request,
+        "runs/_xlsx_mapping.html",
+        {
+            "headers": headers,
+            "preview_rows": preview_rows,
+            "detected": detected,
+            "required_fields": REQUIRED_FIELDS,
+        },
+    )
+
+
 @router.post("/validate-pdf", response_class=HTMLResponse)
 async def validate_pdf(
     request: Request,

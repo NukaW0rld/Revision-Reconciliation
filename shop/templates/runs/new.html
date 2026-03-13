@@ -107,12 +107,18 @@
                         name="form3_xlsx"
                         accept=".xlsx"
                         class="file-input file-input-bordered w-full"
+                        hx-post="/runs/validate-xlsx"
+                        hx-trigger="change"
+                        hx-encoding="multipart/form-data"
+                        hx-target="#xlsx-mapping-section"
+                        hx-swap="innerHTML"
                         required
                     >
                     <label class="label">
-                        <span class="label-text-alt">Excel validation occurs on submit.</span>
+                        <span class="label-text-alt">Column mapping will be confirmed inline after upload.</span>
                     </label>
                 </div>
+                <div id="xlsx-mapping-section"></div>
             </div>
         </div>
 

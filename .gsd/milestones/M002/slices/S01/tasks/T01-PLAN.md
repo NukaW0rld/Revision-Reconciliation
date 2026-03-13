@@ -37,6 +37,14 @@ Remove wizard steps 3 (engineer creation) and 4 (column mapping) from the setup 
 - `uv run pytest tests/test_setup.py::test_setup_step2_creates_admin -v` — passes (admin creation still works)
 - Step 3/4 tests expected to fail at this point (repaired in T04)
 
+## Observability Impact
+
+- **New log line:** `step2_post` emits `INFO "Setup wizard complete: admin password set, setup_complete=True"` — confirms the wizard transition is happening and provides a grep-able audit signal.
+- **Removed routes become redirects:** `/setup/step3` and `/setup/step4/*` now return 302 instead of 404 or 200. A future agent can verify with `curl -sI /setup/step3 | grep Location` — should be `/login` or `/setup/`.
+- **DB state is the ground truth:** `ShopConfig.setup_complete=True` and `wizard_step=2` are set atomically in one commit. Inspect via `SELECT setup_complete, wizard_step FROM shop_config;`.
+- **Failure mode:** Password mismatch or default-password reuse returns 200 with an error template (unchanged). DB commit failure surfaces as 500. No partial state (both fields committed together).
+- **Secrets:** Admin password is never logged. Only the admin email is logged at INFO level.
+
 ## Inputs
 
 - `shop/routers/setup.py` — current 4-step wizard with step2_post redirecting to step3

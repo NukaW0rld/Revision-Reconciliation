@@ -1,0 +1,61 @@
+{% set detected_by_col = {} %}
+{% for field, col_idx in detected.items() %}
+  {% if detected_by_col.update({col_idx: field}) %}{% endif %}
+{% endfor %}
+
+<div class="mt-4">
+    <div class="flex items-center gap-2 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="text-sm font-medium">Column mapping detected — confirm or adjust before submitting.</span>
+    </div>
+
+    <div class="overflow-x-auto mb-3">
+        <table class="table table-sm w-full border border-base-300">
+            <thead>
+                <tr>
+                    {% for col_idx in range(headers|length) %}
+                    {% set matched_field = detected_by_col.get(col_idx) %}
+                    <th class="text-center min-w-[140px]">
+                        <select name="col_{{ col_idx }}"
+                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-amber-100 border-amber-400{% endif %}"
+                                data-col="{{ col_idx }}">
+                            <option value="ignore" {% if not matched_field %}selected{% endif %}>(ignore)</option>
+                            {% for field in required_fields %}
+                            <option value="{{ field }}"
+                                {% if matched_field == field %}selected{% endif %}>
+                                {{ field }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                    {% endfor %}
+                </tr>
+                <tr class="bg-base-200">
+                    {% for header in headers %}
+                    <th class="text-center font-semibold text-xs py-2">
+                        {{ header if header is not none else "(empty)" }}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr>
+                    {% for cell in row %}
+                    <td class="text-center text-xs">
+                        {{ cell if cell is not none else "" }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-xs text-base-content/60 flex items-center gap-1">
+        <span class="inline-block w-3 h-3 bg-amber-100 border border-amber-400 rounded"></span>
+        Amber columns were not auto-detected — select the matching field or leave as (ignore).
+    </div>
+</div>

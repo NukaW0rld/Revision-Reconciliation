@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -109,39 +109,6 @@ def settings_update_name(
     return RedirectResponse("/admin/settings", status_code=302)
 
 
-@router.post("/settings/upload", response_class=HTMLResponse)
-async def settings_upload(
-    request: Request,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    from shop.services.form3 import parse_excel_preview, REQUIRED_FIELDS
-
-    content = await file.read()
-    try:
-        headers, preview_rows, detected = parse_excel_preview(content)
-    except ValueError as exc:
-        return templates.TemplateResponse(
-            request,
-            "setup/step4_error.html",
-            {"error": str(exc)},
-            status_code=200,
-        )
-    return templates.TemplateResponse(
-        request,
-        "setup/step4_mapping_partial.html",
-        {
-            "headers": headers,
-            "preview_rows": preview_rows,
-            "detected": detected,
-            "required_fields": REQUIRED_FIELDS,
-            "form_action": "/admin/settings/save",
-        },
-        status_code=200,
-    )
-
-
 @router.post("/settings/retention")
 def settings_update_retention(
     request: Request,
@@ -157,24 +124,4 @@ def settings_update_retention(
     return RedirectResponse("/admin/settings", status_code=302)
 
 
-@router.post("/settings/save")
-async def settings_save(
-    request: Request,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    from shop.services.form3 import REQUIRED_FIELDS
 
-    form_data = await request.form()
-    mapping: dict[str, int] = {}
-    for key, val in form_data.multi_items():
-        if key.startswith("col_") and val and val != "ignore" and val in REQUIRED_FIELDS:
-            try:
-                mapping[val] = int(key[4:])
-            except ValueError:
-                pass
-    config = db.query(ShopConfig).filter(ShopConfig.id == 1).first()
-    if config and mapping:
-        config.column_mapping = mapping
-        db.commit()
-    return RedirectResponse("/admin/settings", status_code=302)

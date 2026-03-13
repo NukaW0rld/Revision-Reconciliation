@@ -48,7 +48,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Two-step wizard & per-run column mapping** `risk:medium` `depends:[]`
+- [x] **S01: Two-step wizard & per-run column mapping** `risk:medium` `depends:[]`
   > After this: fresh install completes setup in 2 steps; new run form shows inline xlsx column mapping confirmation after file selection; admin settings page has no column mapping section; all tests pass
 
 ## Boundary Map

@@ -48,8 +48,8 @@ Every characteristic classification is confirmed by a human engineer with image 
 - ✓ Amendment model: reopen finalized run, original packet preserved, own sign-off produces versioned packet — v2.1
 - ✓ Amendment scope limited to review decisions; input files locked — v2.1
 - ✓ Admin/engineer roles with RBAC enforcement — v2.1
-- ✓ Setup wizard on first admin login (shop name, password, engineer account, Form 3 mapping) — v2.1
-- ✓ Excel column mapping: one-time setup, fatal/minor error distinction — v2.1
+- ✓ Setup wizard on first admin login: 2 steps (shop name, admin password → /login) — M002
+- ✓ Per-run xlsx column mapping confirmation inline on new run form (HTMX; amber indicators for undetected columns) — M002
 - ✓ Non-contiguous characteristic numbers accepted as-is — v2.1
 - ✓ Run history list filterable by part number and date — v2.1
 - ✓ Reopen any past completed review (read-only) — v2.1
@@ -128,7 +128,7 @@ v2.1 closes the gap between the raw pipeline CLI and a production-ready quality 
 | Milestone | Description | Completed | Test Count |
 |-----------|-------------|-----------|------------|
 | M001: Migration | Full-stack web application wrapping pipeline CLI — upload → review → sign-off → audit packet → amendment | 2026-03-13 | 87 passed, 2 xfailed |
-| M002: Setup Simplification & Per-Run Column Mapping | Reduce wizard to 2 steps (shop name + admin password); move Form 3 column mapping to per-run inline confirmation at upload time | Queued | — |
+| M002: Setup Simplification & Per-Run Column Mapping | Reduce wizard to 2 steps (shop name + admin password); move Form 3 column mapping to per-run inline confirmation at upload time | 2026-03-13 | 93 passed, 2 xfailed |
 
 ---
-*Last updated: 2026-03-13 after M002 queued*
+*Last updated: 2026-03-13 after M002 S01 complete*
