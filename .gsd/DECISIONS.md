@@ -101,3 +101,7 @@
 - "M002: column_mapping in ShopConfig confirmed never wired to run_pipeline() — load_form3() does its own keyword detection independently; per-run mapping UI is a UX confirmation only, not a new pipeline input"
 - "M002: wizard_step cap drops from 4 to 2; setup_complete=True set at end of step 2 POST; existing deployments with wizard_step=4 must be treated as setup_complete (guard logic: any wizard_step >= 2 is sufficient)"
 - "M002: per-run column mapping confirmation follows validate-pdf HTMX pattern — xlsx file input triggers hx-post to validate-xlsx endpoint → inline mapping partial with confirmed hidden inputs"
+- "M002: single-slice decomposition — wizard strip, per-run mapping, admin cleanup, and test updates are tightly coupled with no independent demo value; splitting would create artificial handoffs"
+- "M002: runs/_xlsx_mapping.html is a new bare fragment partial (no <form> tag) — step4_mapping_partial.html is NOT reused for per-run context because its <form> wrapper would create invalid nested forms in new.html"
+- "M002: removed wizard steps redirect (not 404) — redirect to /login if setup_complete, else to /setup/; preserves bookmarked URLs and avoids confusing error pages"
+- "M002: validate-xlsx endpoint uses request.form() iteration (not typed UploadFile) — consistent with validate_pdf pattern; resilient to receiving extra multipart fields from the outer form"
