@@ -31,9 +31,6 @@ CLAUDE.md
 .git/
 .gitignore
 
-# GSD
-.planning/
-
 # ── GSD baseline (auto-generated) ──
 .gsd/activity/
 .gsd/runtime/
@@ -41,6 +38,7 @@ CLAUDE.md
 .gsd/auto.lock
 .gsd/metrics.json
 .gsd/STATE.md
+.gsd/
 .DS_Store
 Thumbs.db
 *.swp
@@ -63,6 +61,7 @@ vendor/
 coverage/
 .cache/
 tmp/
+.bg-shell
 
 # ── GSD baseline (auto-generated) ──
 .gsd/completed-units.json
