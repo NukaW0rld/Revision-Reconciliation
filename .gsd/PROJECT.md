@@ -128,6 +128,7 @@ v2.1 closes the gap between the raw pipeline CLI and a production-ready quality 
 | Milestone | Description | Completed | Test Count |
 |-----------|-------------|-----------|------------|
 | M001: Migration | Full-stack web application wrapping pipeline CLI — upload → review → sign-off → audit packet → amendment | 2026-03-13 | 87 passed, 2 xfailed |
+| M002: Setup Simplification & Per-Run Column Mapping | Reduce wizard to 2 steps (shop name + admin password); move Form 3 column mapping to per-run inline confirmation at upload time | Queued | — |
 
 ---
-*Last updated: 2026-03-13 after M001 milestone close*
+*Last updated: 2026-03-13 after M002 queued*

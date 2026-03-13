@@ -98,3 +98,6 @@
 - "Version-aware PDF download uses ?version=N query param; falls back to re-render if stored file absent"
 - "Amendment banner uses run.parent_run_id check — zero overhead, no extra DB query"
 - "No deviations from plan — one auto-fix applied (stale xfail markers on RBAC tests removed)"
+- "M002: column_mapping in ShopConfig confirmed never wired to run_pipeline() — load_form3() does its own keyword detection independently; per-run mapping UI is a UX confirmation only, not a new pipeline input"
+- "M002: wizard_step cap drops from 4 to 2; setup_complete=True set at end of step 2 POST; existing deployments with wizard_step=4 must be treated as setup_complete (guard logic: any wizard_step >= 2 is sufficient)"
+- "M002: per-run column mapping confirmation follows validate-pdf HTMX pattern — xlsx file input triggers hx-post to validate-xlsx endpoint → inline mapping partial with confirmed hidden inputs"
