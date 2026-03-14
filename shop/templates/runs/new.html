@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}New Run — Delta Preservation{% endblock %}
+{% block page_title %}New Run{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
-    <h1 class="text-2xl font-bold mb-6">Submit New Comparison Run</h1>
+    <h1 class="text-2xl font-bold font-mono mb-6">Submit New Comparison Run</h1>
 
     {% if error %}
     <div class="alert alert-error mb-4">
@@ -18,111 +19,103 @@
     <form method="post" action="/runs/new" enctype="multipart/form-data">
 
         <!-- Part Metadata -->
-        <div class="card bg-base-100 shadow mb-6">
-            <div class="card-body">
-                <h2 class="card-title text-lg">Part Metadata</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Part Number</span></label>
-                        <input type="text" name="part_number" class="input input-bordered" required>
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Customer</span></label>
-                        <input type="text" name="customer" class="input input-bordered" required>
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">First Revision Label</span></label>
-                        <input type="text" name="rev_a_label" class="input input-bordered" required placeholder="e.g. A">
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Second Revision Label</span></label>
-                        <input type="text" name="rev_b_label" class="input input-bordered" required placeholder="e.g. B">
-                    </div>
-                    <div class="form-control col-span-2">
-                        <label class="label"><span class="label-text">Job Number</span></label>
-                        <input type="text" name="job_number" class="input input-bordered" required>
-                    </div>
+        <div class="border border-base-300 bg-base-200 p-5 mb-6">
+            <h2 class="text-base font-semibold font-mono mb-3">Part Metadata</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Part Number</span></label>
+                    <input type="text" name="part_number" class="input input-bordered" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Customer</span></label>
+                    <input type="text" name="customer" class="input input-bordered" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">First Revision Label</span></label>
+                    <input type="text" name="rev_a_label" class="input input-bordered" required placeholder="e.g. A">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Second Revision Label</span></label>
+                    <input type="text" name="rev_b_label" class="input input-bordered" required placeholder="e.g. B">
+                </div>
+                <div class="form-control col-span-2">
+                    <label class="label"><span class="label-text">Job Number</span></label>
+                    <input type="text" name="job_number" class="input input-bordered" required>
                 </div>
             </div>
         </div>
 
         <!-- Rev A PDF -->
-        <div class="card bg-base-100 shadow mb-4">
-            <div class="card-body">
-                <h2 class="card-title text-lg">Rev A PDF (Ballooned Drawing)</h2>
-                <div class="form-control">
-                    <input
-                        type="file"
-                        name="revA_pdf"
-                        accept=".pdf"
-                        class="file-input file-input-bordered w-full"
-                        hx-post="/runs/validate-pdf"
-                        hx-trigger="change"
-                        hx-encoding="multipart/form-data"
-                        hx-vals='{"field": "revA"}'
-                        hx-target="#revA-section"
-                        hx-swap="innerHTML"
-                        required
-                    >
-                </div>
-                <!-- Default hidden page input (replaced by page selector partial if multi-page) -->
-                <div id="revA-section">
-                    <input type="hidden" name="revA_page" value="0">
-                </div>
+        <div class="border border-base-300 bg-base-200 p-5 mb-4">
+            <h2 class="text-base font-semibold font-mono mb-3">Rev A PDF (Ballooned Drawing)</h2>
+            <div class="form-control">
+                <input
+                    type="file"
+                    name="revA_pdf"
+                    accept=".pdf"
+                    class="file-input file-input-bordered w-full"
+                    hx-post="/runs/validate-pdf"
+                    hx-trigger="change"
+                    hx-encoding="multipart/form-data"
+                    hx-vals='{"field": "revA"}'
+                    hx-target="#revA-section"
+                    hx-swap="innerHTML"
+                    required
+                >
+            </div>
+            <!-- Default hidden page input (replaced by page selector partial if multi-page) -->
+            <div id="revA-section">
+                <input type="hidden" name="revA_page" value="0">
             </div>
         </div>
 
         <!-- Rev B PDF -->
-        <div class="card bg-base-100 shadow mb-4">
-            <div class="card-body">
-                <h2 class="card-title text-lg">Rev B PDF (Comparison Drawing)</h2>
-                <div class="form-control">
-                    <input
-                        type="file"
-                        name="revB_pdf"
-                        accept=".pdf"
-                        class="file-input file-input-bordered w-full"
-                        hx-post="/runs/validate-pdf"
-                        hx-trigger="change"
-                        hx-encoding="multipart/form-data"
-                        hx-vals='{"field": "revB"}'
-                        hx-target="#revB-section"
-                        hx-swap="innerHTML"
-                        required
-                    >
-                </div>
-                <div id="revB-section">
-                    <input type="hidden" name="revB_page" value="0">
-                </div>
+        <div class="border border-base-300 bg-base-200 p-5 mb-4">
+            <h2 class="text-base font-semibold font-mono mb-3">Rev B PDF (Comparison Drawing)</h2>
+            <div class="form-control">
+                <input
+                    type="file"
+                    name="revB_pdf"
+                    accept=".pdf"
+                    class="file-input file-input-bordered w-full"
+                    hx-post="/runs/validate-pdf"
+                    hx-trigger="change"
+                    hx-encoding="multipart/form-data"
+                    hx-vals='{"field": "revB"}'
+                    hx-target="#revB-section"
+                    hx-swap="innerHTML"
+                    required
+                >
+            </div>
+            <div id="revB-section">
+                <input type="hidden" name="revB_page" value="0">
             </div>
         </div>
 
         <!-- Form 3 Excel -->
-        <div class="card bg-base-100 shadow mb-6">
-            <div class="card-body">
-                <h2 class="card-title text-lg">Form 3 Excel (AS9102 FAIR)</h2>
-                <div class="form-control">
-                    <input
-                        type="file"
-                        name="form3_xlsx"
-                        accept=".xlsx"
-                        class="file-input file-input-bordered w-full"
-                        hx-post="/runs/validate-xlsx"
-                        hx-trigger="change"
-                        hx-encoding="multipart/form-data"
-                        hx-target="#xlsx-mapping-section"
-                        hx-swap="innerHTML"
-                        required
-                    >
-                    <label class="label">
-                        <span class="label-text-alt">Column mapping will be confirmed inline after upload.</span>
-                    </label>
-                </div>
-                <div id="xlsx-mapping-section"></div>
+        <div class="border border-base-300 bg-base-200 p-5 mb-6">
+            <h2 class="text-base font-semibold font-mono mb-3">Form 3 Excel (AS9102 FAIR)</h2>
+            <div class="form-control">
+                <input
+                    type="file"
+                    name="form3_xlsx"
+                    accept=".xlsx"
+                    class="file-input file-input-bordered w-full"
+                    hx-post="/runs/validate-xlsx"
+                    hx-trigger="change"
+                    hx-encoding="multipart/form-data"
+                    hx-target="#xlsx-mapping-section"
+                    hx-swap="innerHTML"
+                    required
+                >
+                <label class="label">
+                    <span class="label-text-alt">Column mapping will be confirmed inline after upload.</span>
+                </label>
             </div>
+            <div id="xlsx-mapping-section"></div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-full">Submit Run</button>
+        <button type="submit" class="btn btn-primary w-full font-mono">Submit Run</button>
     </form>
 </div>
 {% endblock %}

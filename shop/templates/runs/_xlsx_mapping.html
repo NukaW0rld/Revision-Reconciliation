@@ -19,7 +19,7 @@
                     {% set matched_field = detected_by_col.get(col_idx) %}
                     <th class="text-center min-w-[140px]">
                         <select name="col_{{ col_idx }}"
-                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-amber-100 border-amber-400{% endif %}"
+                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-warning/15 border-warning{% endif %}"
                                 data-col="{{ col_idx }}">
                             <option value="ignore" {% if not matched_field %}selected{% endif %}>(ignore)</option>
                             {% for field in required_fields %}
@@ -55,7 +55,7 @@
     </div>
 
     <div class="text-xs text-base-content/60 flex items-center gap-1">
-        <span class="inline-block w-3 h-3 bg-amber-100 border border-amber-400 rounded"></span>
-        Amber columns were not auto-detected — select the matching field or leave as (ignore).
+        <span class="inline-block w-3 h-3 bg-warning/15 border border-warning rounded"></span>
+        Highlighted columns were not auto-detected — select the matching field or leave as (ignore).
     </div>
 </div>

@@ -53,7 +53,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S02; bordered dark sections, font-mono headings, no card/shadow artifacts; CSS builds clean, 93 tests pass
 
 ### R006 — New run submission form redesign
 - Class: primary-user-loop
@@ -63,7 +63,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S02; bordered form sections replace card wrappers; _xlsx_mapping uses bg-warning/15 tokens; all HTMX swap IDs intact; CSS builds clean, tests pass
 
 ### R007 — Pipeline status / run detail page redesign
 - Class: primary-user-loop
@@ -83,7 +83,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S02; mono table headers, hover rows, no light-mode artifacts; CSS builds clean, tests pass
 
 ### R009 — Full-screen focused review queue
 - Class: differentiator
@@ -179,10 +179,10 @@ This file is the explicit capability and coverage contract for the project.
 | R002 | primary-user-loop | active | M003/S01 | S02,S03,S04,S05 | partial — sidebar + top bar layout verified on login/wizard/dashboard; remaining screens validated in S02–S05 |
 | R003 | launchability | active | M003/S01 | none | verified — M003/S01 |
 | R004 | launchability | active | M003/S01 | none | verified — M003/S01 |
-| R005 | primary-user-loop | active | M003/S02 | none | unmapped |
-| R006 | primary-user-loop | active | M003/S02 | none | unmapped |
+| R005 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered dark sections, font-mono headings, no card artifacts |
+| R006 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered form sections, HTMX swap IDs intact, warning tokens semantic |
 | R007 | primary-user-loop | active | M003/S03 | none | unmapped |
-| R008 | primary-user-loop | active | M003/S03 | none | unmapped |
+| R008 | primary-user-loop | active | M003/S03 | none | verified — M003/S02; mono table headers, hover rows, no light artifacts |
 | R009 | differentiator | active | M003/S04 | none | unmapped |
 | R010 | differentiator | active | M003/S04 | none | unmapped |
 | R011 | primary-user-loop | active | M003/S04 | none | unmapped |
@@ -196,5 +196,5 @@ This file is the explicit capability and coverage contract for the project.
 
 - Active requirements: 13
 - Mapped to slices: 13
-- Validated: 2
+- Validated: 5
 - Unmapped active requirements: 0

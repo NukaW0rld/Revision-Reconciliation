@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 {% block content %}
 <div class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Dashboard</h1>
-    <p class="text-base-content/70">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
+    <h1 class="text-2xl font-bold font-mono">Dashboard</h1>
+    <p class="text-base-content/70 text-sm">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
 </div>
 
 {% if unread_alerts %}
@@ -16,45 +17,39 @@
 
 <!-- Submit New Run CTA -->
 <div class="mb-8">
-    <a href="/runs/new" class="btn btn-primary btn-lg">Submit New Run</a>
+    <a href="/runs/new" class="btn btn-primary btn-lg font-mono">Submit New Run</a>
 </div>
 
 <!-- Admin management links -->
 {% if user.role == 'admin' %}
 <div class="grid gap-4 md:grid-cols-2 mb-8">
-    <a href="/admin/users" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-        <div class="card-body">
-            <h2 class="card-title">User Management</h2>
-            <p class="text-sm text-base-content/70">Create engineers, view and deactivate accounts.</p>
-        </div>
+    <a href="/admin/users" class="border border-base-300 bg-base-200 hover:bg-base-300 transition-colors p-5 block">
+        <h2 class="text-base font-semibold font-mono mb-1">User Management</h2>
+        <p class="text-sm text-base-content/70">Create engineers, view and deactivate accounts.</p>
     </a>
-    <a href="/admin/settings" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-        <div class="card-body">
-            <h2 class="card-title">Settings</h2>
-            <p class="text-sm text-base-content/70">Shop name and run retention days.</p>
-        </div>
+    <a href="/admin/settings" class="border border-base-300 bg-base-200 hover:bg-base-300 transition-colors p-5 block">
+        <h2 class="text-base font-semibold font-mono mb-1">Settings</h2>
+        <p class="text-sm text-base-content/70">Shop name and run retention days.</p>
     </a>
 </div>
 {% endif %}
 
 <!-- Recent runs section -->
 <div class="mb-4 flex items-center justify-between">
-    <h2 class="text-xl font-semibold">Recent Runs</h2>
+    <h2 class="text-xl font-semibold font-mono">Recent Runs</h2>
     <a href="/runs" class="btn btn-ghost btn-sm">View all runs</a>
 </div>
 
 {% if recent_runs %}
 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
     {% for run in recent_runs %}
-    <a href="/runs/{{ run.id }}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-        <div class="card-body">
-            <div class="flex items-start justify-between">
-                <h3 class="card-title text-base">{{ run.part_number }}</h3>
-                <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
-            </div>
-            <p class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</p>
-            <p class="text-xs text-base-content/50">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }} &middot; Reviewer: {{ run.reviewer.email if run.reviewer else "Unassigned" }}</p>
+    <a href="/runs/{{ run.id }}" class="border border-base-300 bg-base-200 hover:bg-base-300 transition-colors p-4 block">
+        <div class="flex items-start justify-between mb-1">
+            <h3 class="text-base font-semibold font-mono">{{ run.part_number }}</h3>
+            <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
         </div>
+        <p class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</p>
+        <p class="text-xs text-base-content/50">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }} &middot; Reviewer: {{ run.reviewer.email if run.reviewer else "Unassigned" }}</p>
     </a>
     {% endfor %}
 </div>

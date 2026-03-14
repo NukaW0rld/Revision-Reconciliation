@@ -54,7 +54,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Design Foundation & Layout Shell** `risk:high` `depends:[]`
   > After this: app loads with dark industrial theme, sidebar nav, new login and setup wizard screens — full visual identity established and verified in a running browser
 
-- [ ] **S02: Dashboard, Runs List & New Run Form** `risk:medium` `depends:[S01]`
+- [x] **S02: Dashboard, Runs List & New Run Form** `risk:medium` `depends:[S01]`
   > After this: the complete run submission flow is navigable in the new design — dashboard, run list, new run form, and inline column mapping partial all render correctly
 
 - [ ] **S03: Pipeline Status & Run Detail** `risk:medium` `depends:[S01]`

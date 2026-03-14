@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block title %}All Runs{% endblock %}
+{% block page_title %}All Runs{% endblock %}
 {% block content %}
 <div class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">All Runs</h1>
-    <a href="/runs/new" class="btn btn-primary btn-sm">New Run</a>
+    <h1 class="text-2xl font-bold font-mono">All Runs</h1>
+    <a href="/runs/new" class="btn btn-primary btn-sm font-mono">New Run</a>
 </div>
 
 <!-- Filter form -->
 <form method="get" action="/runs" class="mb-6 flex gap-3 items-end flex-wrap">
     <div class="form-control">
-        <label class="label"><span class="label-text">Part Number</span></label>
+        <label class="label"><span class="label-text text-xs font-mono uppercase tracking-wider text-base-content/60">Part Number</span></label>
         <input
             type="text"
             name="part_number"
@@ -19,7 +20,7 @@
         >
     </div>
     <div class="form-control">
-        <label class="label"><span class="label-text">From Date (UTC)</span></label>
+        <label class="label"><span class="label-text text-xs font-mono uppercase tracking-wider text-base-content/60">From Date (UTC)</span></label>
         <input
             type="date"
             name="date_from"
@@ -35,9 +36,9 @@
 
 {% if runs %}
 <div class="overflow-x-auto">
-    <table class="table table-zebra w-full">
+    <table class="table w-full">
         <thead>
-            <tr>
+            <tr class="font-mono uppercase text-xs tracking-wider text-base-content/50">
                 <th>Part Number</th>
                 <th>Revision</th>
                 <th>Status</th>
@@ -48,8 +49,8 @@
         </thead>
         <tbody>
             {% for run in runs %}
-            <tr>
-                <td class="font-medium">{{ run.part_number }}</td>
+            <tr class="hover:bg-base-300 transition-colors">
+                <td class="font-medium font-mono">{{ run.part_number }}</td>
                 <td class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</td>
                 <td>
                     <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
