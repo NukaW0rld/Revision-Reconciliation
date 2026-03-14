@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="industrial">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,37 +8,95 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/htmx-sse.js"></script>
 </head>
-<body class="min-h-screen bg-base-200">
+<body class="min-h-screen flex bg-base-100 text-base-content">
+
+  {# ── Sidebar ── #}
+  <aside class="w-56 h-screen sticky top-0 flex-shrink-0 flex flex-col bg-base-200 border-r border-base-300">
+    <div class="px-4 py-5 border-b border-base-300">
+      <a href="/dashboard" class="text-sm font-mono font-bold uppercase tracking-widest text-primary">
+        {{ shop_name | default("Delta") }}
+      </a>
+    </div>
+    <nav class="flex-1 py-4 flex flex-col gap-1 px-2">
+      {% set path = request.url.path if request is defined else "" %}
+      <a href="/dashboard"
+         class="flex items-center gap-2 px-3 py-2 text-sm font-mono rounded-none transition-colors
+                {% if path == '/dashboard' %}bg-primary/10 text-primary border-l-2 border-primary{% else %}text-base-content/70 hover:bg-base-300 hover:text-base-content{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        Dashboard
+      </a>
+      <a href="/runs"
+         class="flex items-center gap-2 px-3 py-2 text-sm font-mono rounded-none transition-colors
+                {% if path.startswith('/runs') and path != '/runs/new' %}bg-primary/10 text-primary border-l-2 border-primary{% else %}text-base-content/70 hover:bg-base-300 hover:text-base-content{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        Runs
+      </a>
+      <a href="/runs/new"
+         class="flex items-center gap-2 px-3 py-2 text-sm font-mono rounded-none transition-colors
+                {% if path == '/runs/new' %}bg-primary/10 text-primary border-l-2 border-primary{% else %}text-base-content/70 hover:bg-base-300 hover:text-base-content{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        New Run
+      </a>
+      <a href="/admin/users"
+         class="flex items-center gap-2 px-3 py-2 text-sm font-mono rounded-none transition-colors
+                {% if path.startswith('/admin') %}bg-primary/10 text-primary border-l-2 border-primary{% else %}text-base-content/70 hover:bg-base-300 hover:text-base-content{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        Admin
+      </a>
+    </nav>
+    <div class="px-4 py-3 border-t border-base-300 text-xs font-mono text-base-content/40">
+      v{{ version | default("—") }}
+    </div>
+  </aside>
+
+  {# ── Right column: top bar + content ── #}
+  <div class="flex flex-col flex-1 min-h-screen overflow-hidden">
+
+    {# ── Top bar ── #}
     {% block nav %}
-    <div class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
-      <div class="navbar-start">
-        <a href="/dashboard" class="text-lg font-bold px-4">{{ shop_name | default("Delta Preservation") }}</a>
+    <header class="sticky top-0 z-40 flex items-center justify-between px-6 py-3 bg-base-200 border-b border-base-300 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-mono text-base-content/40 uppercase tracking-widest">
+          {% block page_title %}{% endblock %}
+        </span>
       </div>
-      <div class="navbar-end gap-2 pr-4">
-        {% if user %}
-          <a href="/runs/new" class="btn btn-primary btn-sm">New Run</a>
-          <a href="/runs" class="btn btn-ghost btn-sm">My Runs</a>
-          <!-- Alert bell -->
+      <div class="flex items-center gap-3">
+        {% if user | default(none) %}
+          {# Alert badge #}
+          {% set alert_count = unread_alert_count | default(0) %}
           <div class="indicator">
-            <a href="/dashboard" class="btn btn-ghost btn-sm btn-circle">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <a href="/dashboard" class="btn btn-ghost btn-sm btn-circle" title="Alerts">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-2.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </a>
-            {% if unread_alert_count and unread_alert_count > 0 %}
-            <span class="badge badge-error badge-xs indicator-item">{{ unread_alert_count }}</span>
+            {% if alert_count > 0 %}
+            <span class="badge badge-error badge-xs indicator-item">{{ alert_count }}</span>
             {% endif %}
           </div>
-          <span class="text-sm text-base-content/70">{{ user.email }}</span>
-          <form method="post" action="/logout">
-            <button type="submit" class="btn btn-outline btn-xs">Log out</button>
+          <span class="text-xs font-mono text-base-content/60">{{ user.email }}</span>
+          <form method="post" action="/logout" class="flex">
+            <button type="submit" class="btn btn-outline btn-xs font-mono">Log out</button>
           </form>
         {% endif %}
       </div>
-    </div>
+    </header>
     {% endblock %}
-    <div id="main-content" class="container mx-auto p-6">
-        {% block content %}{% endblock %}
-    </div>
+
+    {# ── Scrollable content area ── #}
+    <main class="flex-1 overflow-y-auto p-6">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+
 </body>
 </html>

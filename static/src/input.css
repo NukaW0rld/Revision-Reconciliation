@@ -1,2 +1,47 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+[data-theme="industrial"] {
+  /* Base backgrounds — near-black, neutral-cool, no blue cast */
+  --color-base-100: oklch(13% 0.005 260);
+  --color-base-200: oklch(17% 0.006 260);
+  --color-base-300: oklch(22% 0.007 260);
+  --color-base-content: oklch(88% 0.008 260);
+
+  /* Primary — aerospace amber */
+  --color-primary: oklch(75% 0.19 75);
+  --color-primary-content: oklch(15% 0.04 75);
+
+  /* Secondary — muted slate */
+  --color-secondary: oklch(48% 0.04 260);
+  --color-secondary-content: oklch(90% 0.005 260);
+
+  /* Accent — electric teal */
+  --color-accent: oklch(70% 0.14 195);
+  --color-accent-content: oklch(13% 0.03 195);
+
+  /* State colors */
+  --color-success: oklch(68% 0.18 145);
+  --color-success-content: oklch(13% 0.04 145);
+
+  --color-warning: oklch(72% 0.17 65);
+  --color-warning-content: oklch(13% 0.04 65);
+
+  --color-error: oklch(62% 0.22 25);
+  --color-error-content: oklch(96% 0.01 25);
+
+  --color-info: oklch(65% 0.15 230);
+  --color-info-content: oklch(13% 0.03 230);
+
+  /* Neutral */
+  --color-neutral: oklch(28% 0.008 260);
+  --color-neutral-content: oklch(80% 0.008 260);
+
+  /* Hard industrial edges */
+  --radius-selector: 0;
+  --radius-field: 0;
+  --radius-box: 0;
+
+  /* Subtle borders */
+  --border: 1px;
+}

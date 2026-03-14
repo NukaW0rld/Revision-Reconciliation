@@ -1,28 +1,96 @@
-{% extends "base.html" %}
-{% block title %}Log In{% endblock %}
-{% block nav %}{% endblock %}
+{% extends "_base_standalone.html" %}
+{% block title %}Sign In — Delta Preservation{% endblock %}
 {% block content %}
-<div class="min-h-screen flex items-center justify-center">
-    <div class="card w-96 bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h2 class="card-title">Delta Preservation</h2>
-            {% if error %}
-            <div class="alert alert-error mb-4">
-                <span>{{ error }}</span>
-            </div>
-            {% endif %}
-            <form method="post" action="/login">
-                <div class="form-control mb-3">
-                    <label class="label"><span class="label-text">Email</span></label>
-                    <input type="email" name="email" class="input input-bordered" required autofocus>
-                </div>
-                <div class="form-control mb-4">
-                    <label class="label"><span class="label-text">Password</span></label>
-                    <input type="password" name="password" class="input input-bordered" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-full">Log In</button>
-            </form>
-        </div>
+<div class="min-h-screen flex">
+
+  {# — Left rail: branding stripe — #}
+  <div class="hidden lg:flex flex-col justify-between w-64 bg-base-200 border-r border-base-300 p-8 shrink-0">
+    <div>
+      <div class="text-primary font-mono text-xs tracking-[0.25em] uppercase mb-1">AS9102 Compliance</div>
+      <div class="text-base-content/40 font-mono text-[10px] tracking-widest uppercase">FAIR Delta System</div>
     </div>
+    <div class="space-y-6">
+      <div class="border-l-2 border-primary/30 pl-4">
+        <div class="text-base-content/50 text-[11px] font-mono uppercase tracking-widest mb-1">System</div>
+        <div class="text-base-content/30 text-xs font-mono">v2.0 · Industrial</div>
+      </div>
+      <div class="border-l-2 border-base-300 pl-4">
+        <div class="text-base-content/50 text-[11px] font-mono uppercase tracking-widest mb-1">Clearance</div>
+        <div class="text-base-content/30 text-xs font-mono">Quality Team Only</div>
+      </div>
+    </div>
+  </div>
+
+  {# — Main login panel — #}
+  <div class="flex-1 flex items-center justify-center px-6 py-12 bg-base-100">
+    <div class="w-full max-w-sm">
+
+      {# App identity #}
+      <div class="mb-10">
+        <h1 class="font-mono text-3xl font-bold tracking-tight text-base-content mb-1">
+          DELTA<span class="text-primary">.</span>PRES
+        </h1>
+        <p class="text-base-content/50 text-sm font-mono tracking-widest uppercase">Preservation System</p>
+      </div>
+
+      {# Error alert #}
+      {% if error %}
+      <div class="alert alert-error mb-6 text-sm font-mono">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      {# Login form #}
+      <form method="post" action="/login" class="space-y-0">
+
+        <div class="form-control">
+          <label class="label pb-1">
+            <span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Email</span>
+          </label>
+          <input
+            type="email"
+            name="email"
+            class="input input-bordered w-full bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+            required
+            autofocus
+            autocomplete="email"
+            placeholder="operator@facility.com"
+          >
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label pb-1">
+            <span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Password</span>
+          </label>
+          <input
+            type="password"
+            name="password"
+            class="input input-bordered w-full bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <div class="mt-8">
+          <button type="submit" class="btn btn-primary w-full font-mono tracking-widest uppercase text-sm">
+            Authenticate
+          </button>
+        </div>
+
+      </form>
+
+      {# Footer mark #}
+      <div class="mt-12 pt-6 border-t border-base-300">
+        <p class="text-base-content/25 text-[10px] font-mono tracking-widest uppercase text-center">
+          Authorized Personnel Only
+        </p>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 {% endblock %}

@@ -1,25 +1,77 @@
-{% extends "base.html" %}
-{% block title %}Setup Wizard — Step {{ current_step }} of 2{% endblock %}
-{% block nav %}{% endblock %}
+{% extends "_base_standalone.html" %}
+{% block title %}Setup — Step {{ current_step }} of 2 — Delta Preservation{% endblock %}
 {% block content %}
-<div class="min-h-screen flex flex-col items-center justify-center p-4">
-    <div class="card w-full max-w-lg bg-base-100 shadow-xl">
-        <div class="card-body">
-            <!-- Step progress -->
-            <ul class="steps w-full mb-6">
-                {% for step_num, step_label in [(1,'Shop'), (2,'Password')] %}
-                <li class="step {% if current_step >= step_num %}step-primary{% endif %}">
-                    {{ step_label }}
-                </li>
-                {% endfor %}
-            </ul>
-            {% if error %}
-            <div class="alert alert-error mb-4">
-                <span>{{ error }}</span>
-            </div>
-            {% endif %}
-            {% block step_content %}{% endblock %}
-        </div>
+<div class="min-h-screen flex items-start justify-center bg-base-100 px-6 py-16">
+  <div class="w-full max-w-lg">
+
+    {# — Header — #}
+    <div class="mb-10">
+      <h1 class="font-mono text-2xl font-bold tracking-tight text-base-content mb-1">
+        DELTA<span class="text-primary">.</span>PRES
+      </h1>
+      <p class="text-base-content/50 text-xs font-mono tracking-widest uppercase">Initial Configuration</p>
     </div>
+
+    {# — Step progress — #}
+    <div class="flex items-center gap-0 mb-8">
+      {% for step_num, step_label in [(1,'Shop Details'), (2,'Admin Password')] %}
+        <div class="flex items-center {% if not loop.last %}flex-1{% endif %}">
+          {# Step node #}
+          <div class="flex flex-col items-center">
+            <div class="w-8 h-8 flex items-center justify-center font-mono text-xs font-bold border
+              {% if current_step > step_num %}
+                bg-primary border-primary text-primary-content
+              {% elif current_step == step_num %}
+                bg-transparent border-primary text-primary
+              {% else %}
+                bg-transparent border-base-300 text-base-content/30
+              {% endif %}">
+              {% if current_step > step_num %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              {% else %}
+                {{ "%02d" | format(step_num) }}
+              {% endif %}
+            </div>
+            <span class="mt-1 font-mono text-[10px] tracking-widest uppercase
+              {% if current_step >= step_num %}text-base-content/70{% else %}text-base-content/25{% endif %}">
+              {{ step_label }}
+            </span>
+          </div>
+          {# Connector line #}
+          {% if not loop.last %}
+            <div class="flex-1 h-px mx-2 {% if current_step > step_num %}bg-primary/50{% else %}bg-base-300{% endif %}"></div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {# — Panel — #}
+    <div class="bg-base-200 border border-base-300 p-8">
+
+      {# Error alert #}
+      {% if error %}
+      <div class="alert alert-error mb-6 text-sm font-mono">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      {# Step content injected by sub-templates #}
+      {% block step_content %}{% endblock %}
+
+    </div>
+
+    {# — Footer — #}
+    <div class="mt-6 text-center">
+      <p class="text-base-content/25 text-[10px] font-mono tracking-widest uppercase">
+        Step {{ current_step }} / 2 · First-Run Configuration
+      </p>
+    </div>
+
+  </div>
 </div>
 {% endblock %}
