@@ -14,7 +14,7 @@ Two milestones complete:
 - **M001:** Core pipeline and web app — login, setup wizard, run submission, SSE pipeline progress, review queue with approve/override, sign-off, audit packet PDF/CSV export, amendments
 - **M002:** Setup simplification and per-run column mapping — column mapping moved to run submission form, setup wizard trimmed to 2 steps
 
-Active redesign: M003 is a complete UI/UX redesign of all ~20 templates. S01 and S02 complete — industrial dark theme compiles, sidebar + top-bar layout shell live, login and wizard redesigned (S01); dashboard, runs list, new run form, and HTMX partials (xlsx mapping, page selector, alert banner) all redesigned with bordered industrial sections (S02). Backend and pipeline are untouched.
+Active redesign: M003 is a complete UI/UX redesign of all ~20 templates. S01, S02, and S03 complete — industrial dark theme compiles, sidebar + top-bar layout shell live, login and wizard redesigned (S01); dashboard, runs list, new run form, and HTMX partials (xlsx mapping, page selector, alert banner) all redesigned with bordered industrial sections (S02); run status page redesigned with bordered sections and border-l-4 status banners, SSE JS updated to match Jinja2 banners (S03). Backend and pipeline are untouched.
 
 ## Architecture / Key Patterns
 

@@ -57,7 +57,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Dashboard, Runs List & New Run Form** `risk:medium` `depends:[S01]`
   > After this: the complete run submission flow is navigable in the new design — dashboard, run list, new run form, and inline column mapping partial all render correctly
 
-- [ ] **S03: Pipeline Status & Run Detail** `risk:medium` `depends:[S01]`
+- [x] **S03: Pipeline Status & Run Detail** `risk:medium` `depends:[S01]`
   > After this: the run status page renders in the new design with all status states (running, failed, warning, completed, signed-off); SSE stage checklist updates live in the browser
 
 - [ ] **S04: Review Queue — Full-Screen Focused Mode** `risk:high` `depends:[S01]`

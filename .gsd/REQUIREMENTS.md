@@ -73,7 +73,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S03; all card/shadow artifacts removed, all alert alert-* banners replaced with border-l-4 pattern in both Jinja2 and JS, DOM IDs preserved, CSS builds clean, 93 tests pass
 
 ### R008 — Run list page redesign
 - Class: primary-user-loop
@@ -181,7 +181,7 @@ This file is the explicit capability and coverage contract for the project.
 | R004 | launchability | active | M003/S01 | none | verified — M003/S01 |
 | R005 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered dark sections, font-mono headings, no card artifacts |
 | R006 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered form sections, HTMX swap IDs intact, warning tokens semantic |
-| R007 | primary-user-loop | active | M003/S03 | none | unmapped |
+| R007 | primary-user-loop | active | M003/S03 | none | verified — M003/S03; bordered sections, border-l-4 banners, SSE JS updated, DOM IDs preserved |
 | R008 | primary-user-loop | active | M003/S03 | none | verified — M003/S02; mono table headers, hover rows, no light artifacts |
 | R009 | differentiator | active | M003/S04 | none | unmapped |
 | R010 | differentiator | active | M003/S04 | none | unmapped |
@@ -196,5 +196,5 @@ This file is the explicit capability and coverage contract for the project.
 
 - Active requirements: 13
 - Mapped to slices: 13
-- Validated: 5
+- Validated: 6
 - Unmapped active requirements: 0

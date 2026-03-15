@@ -1,62 +1,59 @@
 {% extends "base.html" %}
 {% block title %}Run {{ run.id }} &mdash; {{ run.part_number }}{% endblock %}
+{% block page_title %}Run #{{ run.id }}{% endblock %}
 {% block content %}
 {% if signed %}
-<div class="alert alert-success mb-4">
-  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+<div class="border-l-4 border-success bg-base-200 p-4 flex items-start gap-3 mb-4">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-success mt-0.5" viewBox="0 0 20 20" fill="currentColor">
     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
   </svg>
   <span class="font-bold">Run signed off successfully. Audit packet ready.</span>
 </div>
 {% endif %}
 <div class="mb-4 flex items-center gap-3">
-  <a href="/runs" class="btn btn-ghost btn-sm">&larr; All Runs</a>
-  <h1 class="text-2xl font-bold">Run #{{ run.id }}</h1>
+  <a href="/runs" class="btn btn-ghost btn-sm font-mono">&larr; All Runs</a>
+  <h1 class="text-2xl font-bold font-mono">Run #{{ run.id }}</h1>
   <span class="badge badge-{{ run.status | status_badge_class }} badge-lg">{{ run.status }}</span>
 </div>
 
 <div class="flex flex-col lg:flex-row gap-6">
 
   <!-- Left: Stage Checklist -->
-  <div class="card bg-base-100 shadow-sm flex-1 max-w-sm">
-    <div class="card-body">
-      <h2 class="card-title text-base">Pipeline Stages</h2>
-      {% include "runs/_stage_checklist.html" %}
-    </div>
+  <div class="border border-base-300 bg-base-200 p-4 flex-1 max-w-sm">
+    <h2 class="text-base font-semibold font-mono mb-3">Pipeline Stages</h2>
+    {% include "runs/_stage_checklist.html" %}
   </div>
 
   <!-- Right: Run Metadata + Status Actions -->
   <div class="flex-1 flex flex-col gap-4">
 
-    <!-- Run details card -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body">
-        <h2 class="card-title text-base">Run Details</h2>
-        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <dt class="text-base-content/60">Part Number</dt>
-          <dd class="font-medium">{{ run.part_number }}</dd>
-          <dt class="text-base-content/60">Revision</dt>
-          <dd>Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</dd>
-          <dt class="text-base-content/60">Customer</dt>
-          <dd>{{ run.customer }}</dd>
-          <dt class="text-base-content/60">Job Number</dt>
-          <dd>{{ run.job_number }}</dd>
-          <dt class="text-base-content/60">Submitted</dt>
-          <dd>{{ run.submitted_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
-          <dt class="text-base-content/60">Reviewer</dt>
-          <dd>{{ run.reviewer.email if run.reviewer else "Unassigned" }}</dd>
-        </dl>
-        {% if user.role == 'admin' and run.status not in ('signed_off',) %}
-        <form method="POST" action="/review/{{ run.id }}/reassign" class="flex gap-2 items-center mt-2">
-          <select name="reviewer_id" class="select select-sm select-bordered">
-            {% for eng in engineers %}
-              <option value="{{ eng.id }}" {{ 'selected' if eng.id == run.reviewer_id }}>{{ eng.email }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="btn btn-sm">Reassign</button>
-        </form>
-        {% endif %}
-      </div>
+    <!-- Run details section -->
+    <div class="border border-base-300 bg-base-200 p-4">
+      <h2 class="text-base font-semibold font-mono mb-3">Run Details</h2>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dt class="text-base-content/60">Part Number</dt>
+        <dd class="font-medium">{{ run.part_number }}</dd>
+        <dt class="text-base-content/60">Revision</dt>
+        <dd>Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</dd>
+        <dt class="text-base-content/60">Customer</dt>
+        <dd>{{ run.customer }}</dd>
+        <dt class="text-base-content/60">Job Number</dt>
+        <dd>{{ run.job_number }}</dd>
+        <dt class="text-base-content/60">Submitted</dt>
+        <dd>{{ run.submitted_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+        <dt class="text-base-content/60">Reviewer</dt>
+        <dd>{{ run.reviewer.email if run.reviewer else "Unassigned" }}</dd>
+      </dl>
+      {% if user.role == 'admin' and run.status not in ('signed_off',) %}
+      <form method="POST" action="/review/{{ run.id }}/reassign" class="flex gap-2 items-center mt-3">
+        <select name="reviewer_id" class="select select-sm select-bordered">
+          {% for eng in engineers %}
+            <option value="{{ eng.id }}" {{ 'selected' if eng.id == run.reviewer_id }}>{{ eng.email }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm">Reassign</button>
+      </form>
+      {% endif %}
     </div>
 
     <!-- SSE terminal banner injection slot (populated by JS before page reload) -->
@@ -66,8 +63,8 @@
 
     <!-- PIPE-04: Hard fail state -->
     {% if run.status == "failed" %}
-    <div class="alert alert-error">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+    <div class="border-l-4 border-error bg-base-200 p-4 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-error mt-0.5" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
       </svg>
       <div>
@@ -80,8 +77,8 @@
 
     <!-- PIPE-05: revB balloon warning state -->
     {% if run.status == "warning" and run.warning_type == "revB_balloon" %}
-    <div class="alert alert-warning">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+    <div class="border-l-4 border-warning bg-base-200 p-4 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-warning mt-0.5" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
       </svg>
       <div>
@@ -94,8 +91,8 @@
 
     <!-- PIPE-06: Low confidence alignment warning state -->
     {% if run.status == "warning" and run.warning_type == "low_confidence" %}
-    <div class="alert alert-warning">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+    <div class="border-l-4 border-warning bg-base-200 p-4 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-warning mt-0.5" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
       </svg>
       <div>
@@ -174,20 +171,18 @@
 
 <!-- Versioned packet list (shows all versions for this run) -->
 {% if run.packet_versions %}
-<div class="card bg-base-100 shadow-sm mt-4">
-  <div class="card-body py-3">
-    <h3 class="font-semibold text-sm">Audit Packet Versions</h3>
-    <ul class="text-sm space-y-1">
-      {% for pv in run.packet_versions %}
-      <li>
-        <a href="/exports/{{ run.id }}/audit-packet.pdf?version={{ pv.version }}"
-           class="link link-primary">
-          v{{ pv.version }} ({{ pv.type }}, {{ pv.signed_at[:10] if pv.signed_at else "—" }})
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
+<div class="border border-base-300 bg-base-200 p-4 mt-4">
+  <h3 class="text-base font-semibold font-mono mb-2">Audit Packet Versions</h3>
+  <ul class="text-sm space-y-1">
+    {% for pv in run.packet_versions %}
+    <li>
+      <a href="/exports/{{ run.id }}/audit-packet.pdf?version={{ pv.version }}"
+         class="link link-primary">
+        v{{ pv.version }} ({{ pv.type }}, {{ pv.signed_at[:10] if pv.signed_at else "—" }})
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 {% endif %}
@@ -232,8 +227,8 @@
     if (!container) return;
     var html = "";
     if (data.status === "failed") {
-      html = '<div class="alert alert-error">'
-        + '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">'
+      html = '<div class="border-l-4 border-error bg-base-200 p-4 flex items-start gap-3">'
+        + '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-error mt-0.5" viewBox="0 0 20 20" fill="currentColor">'
         + '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>'
         + '</svg><div>'
         + '<p class="font-bold">Run failed at: ' + (data.failure_stage || "Unknown stage") + '</p>'
@@ -241,15 +236,15 @@
         + '<p class="text-sm mt-1">Submit a new run to try again.</p>'
         + '</div></div>';
     } else if (data.status === "warning") {
-      html = '<div class="alert alert-warning">'
-        + '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">'
+      html = '<div class="border-l-4 border-warning bg-base-200 p-4 flex items-start gap-3">'
+        + '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-warning mt-0.5" viewBox="0 0 20 20" fill="currentColor">'
         + '<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>'
         + '</svg><div>'
         + '<p class="font-bold">Warning: low alignment confidence</p>'
         + '<p class="text-sm">Some characteristics may have low location confidence in Rev B.</p>'
         + '</div></div>';
     } else if (data.status === "completed") {
-      html = '<div class="alert alert-success">'
+      html = '<div class="border-l-4 border-success bg-base-200 p-4 flex items-start gap-3">'
         + '<span class="font-bold">Pipeline completed successfully.</span>'
         + '</div>';
     }
