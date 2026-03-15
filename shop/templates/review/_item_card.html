@@ -1,109 +1,151 @@
-<div id="review-item-{{ item.char_no }}" class="card bg-base-100 shadow-md mb-4
-  border-l-4 {{ 'border-success' if item.reviewer_decision else 'border-base-300' }}">
-  <div class="card-body">
-    <!-- Two-column layout: left=snippets, right=controls -->
-    <div class="flex gap-6">
-      <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
-      <div class="flex flex-col gap-2 w-1/2">
-        <p class="text-xs font-semibold text-base-content/60">Rev A</p>
-        {% if item.revA_snippet_path %}
-          <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
-               class="cursor-pointer max-w-full rounded border border-base-300"
-               onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
-          <dialog id="modal-{{ item.char_no }}-revA" class="modal">
-            <div class="modal-box max-w-5xl">
-              <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
-              <div class="modal-action"><form method="dialog"><button class="btn">Close</button></form></div>
-            </div>
-          </dialog>
-        {% else %}
-          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
-        {% endif %}
+{% set read_only = read_only if read_only is defined else false %}
+{% set is_amendment = is_amendment if is_amendment is defined else false %}
+<div id="review-item-{{ item.char_no }}"
+     class="item-card border border-base-300 bg-base-200 border-l-4 p-5
+            {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
+     data-pending="{{ 'true' if not item.reviewer_decision else 'false' }}"
+     data-char-no="{{ item.char_no }}">
 
-        <p class="text-xs font-semibold text-base-content/60 mt-2">Rev B</p>
-        {% if item.revB_snippet_path %}
-          <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
-               class="cursor-pointer max-w-full rounded border border-base-300"
-               onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
-          <dialog id="modal-{{ item.char_no }}-revB" class="modal">
-            <div class="modal-box max-w-5xl">
-              <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
-              <div class="modal-action"><form method="dialog"><button class="btn">Close</button></form></div>
-            </div>
-          </dialog>
-        {% elif item.pipeline_classification == 'removed' and item.revB_bbox %}
-          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
-        {% elif item.pipeline_classification == 'removed' %}
-          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Not found in Rev B</div>
-        {% else %}
-          <div class="bg-base-200 rounded p-4 text-center text-base-content/40 text-sm">Image unavailable</div>
-        {% endif %}
-      </div>
+  <!-- Two-column layout: left=snippets, right=controls -->
+  <div class="flex gap-6 h-full">
 
-      <!-- RIGHT PANEL: metadata + actions -->
-      <div class="flex flex-col gap-3 w-1/2">
-        <div>
-          <span class="text-2xl font-bold">#{{ item.char_no }}</span>
-          <span class="badge badge-outline ml-2">{{ item.pipeline_classification }}</span>
-          <span class="badge badge-ghost ml-1">Confidence: {{ "%.0f"|format(item.confidence * 100) }}%</span>
+    <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
+    <div class="flex flex-col gap-3 flex-1">
+      <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest">Rev A</p>
+      {% if item.revA_snippet_path %}
+        <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
+             class="cursor-pointer max-w-full rounded border border-base-300 hover:border-primary/50 transition-colors"
+             onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
+        <dialog id="modal-{{ item.char_no }}-revA" class="modal">
+          <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
+            <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
+            <div class="flex justify-end mt-3">
+              <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+      {% else %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex-1 flex items-center justify-center">
+          Image unavailable
         </div>
-        {% if item.requirement_revA %}
-          <p class="text-sm"><span class="font-medium">Rev A:</span> {{ item.requirement_revA }}</p>
-        {% endif %}
-        {% if item.requirement_revB %}
-          <p class="text-sm"><span class="font-medium">Rev B:</span> {{ item.requirement_revB }}</p>
-        {% endif %}
+      {% endif %}
 
-        {% set read_only = read_only if read_only is defined else false %}
-        {% set is_amendment = is_amendment if is_amendment is defined else false %}
-
-        {% if item.reviewer_decision %}
-          <!-- CURRENT DECISION BADGE -->
-          {% if item.reviewer_decision == 'approved' %}
-            <span class="badge badge-success badge-lg">Approved</span>
-          {% else %}
-            <span class="badge badge-warning badge-lg">Overridden &rarr; {{ item.override_classification }}</span>
-            <p class="text-xs text-base-content/60">Note: {{ item.override_note }}</p>
-          {% endif %}
-        {% endif %}
-
-        {% if not item.reviewer_decision or is_amendment %}
-          <!-- ACTION CONTROLS (shown when undecided, or in amendment context to allow re-deciding) -->
-          {% if not read_only %}
-          {% if error %}
-            <p class="text-error text-sm">{{ error }}</p>
-          {% endif %}
-          <!-- Approve -->
-          <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
-                hx-target="#review-item-{{ item.char_no }}"
-                hx-swap="outerHTML"
-                hx-indicator="#spinner-{{ item.char_no }}">
-            <button type="submit" class="btn btn-success btn-sm w-full">Approve</button>
-          </form>
-          <!-- Override -->
-          <details class="collapse collapse-arrow border border-base-300 rounded">
-            <summary class="collapse-title text-sm font-medium py-2 min-h-0">Override</summary>
-            <div class="collapse-content">
-              <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
-                    hx-target="#review-item-{{ item.char_no }}"
-                    hx-swap="outerHTML">
-                <select name="override_classification" class="select select-sm select-bordered w-full mb-2">
-                  <option value="unchanged">Unchanged</option>
-                  <option value="changed" selected>Changed</option>
-                  <option value="removed">Removed</option>
-                  <option value="added">Added</option>
-                  <option value="uncertain">Uncertain</option>
-                </select>
-                <textarea name="override_note" required placeholder="Override reason (required)"
-                          class="textarea textarea-bordered textarea-sm w-full mb-2" rows="3"></textarea>
-                <button type="submit" class="btn btn-warning btn-sm w-full">Save Override</button>
-              </form>
+      <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest mt-2">Rev B</p>
+      {% if item.revB_snippet_path %}
+        <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
+             class="cursor-pointer max-w-full rounded border border-base-300 hover:border-primary/50 transition-colors"
+             onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
+        <dialog id="modal-{{ item.char_no }}-revB" class="modal">
+          <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
+            <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
+            <div class="flex justify-end mt-3">
+              <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
             </div>
-          </details>
-          <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
-          {% endif %}
-        {% endif %}
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+      {% elif item.pipeline_classification == 'removed' and item.revB_bbox %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+          Image unavailable
+        </div>
+      {% elif item.pipeline_classification == 'removed' %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+          Not found in Rev B
+        </div>
+      {% else %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+          Image unavailable
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- RIGHT PANEL: metadata + actions -->
+    <div class="flex flex-col gap-4 w-80 flex-shrink-0">
+
+      <!-- Char number + classification + confidence -->
+      <div class="flex flex-wrap items-baseline gap-3">
+        <span class="text-3xl font-bold font-mono">#{{ item.char_no }}</span>
+        <span class="font-mono text-sm bg-base-300 px-2 py-0.5 rounded text-base-content/80">{{ item.pipeline_classification }}</span>
+        <span class="font-mono text-xs text-base-content/50">{{ "%.0f"|format(item.confidence * 100) }}% conf</span>
       </div>
+
+      <!-- Requirements -->
+      {% if item.requirement_revA %}
+        <div>
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev A Requirement</p>
+          <p class="text-sm font-mono bg-base-300/40 border border-base-300 px-3 py-2 rounded">{{ item.requirement_revA }}</p>
+        </div>
+      {% endif %}
+      {% if item.requirement_revB %}
+        <div>
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev B Requirement</p>
+          <p class="text-sm font-mono bg-base-300/40 border border-base-300 px-3 py-2 rounded">{{ item.requirement_revB }}</p>
+        </div>
+      {% endif %}
+
+      {% if item.reviewer_decision %}
+        <!-- CURRENT DECISION DISPLAY -->
+        {% if item.reviewer_decision == 'approved' %}
+          <div class="border-l-4 border-success bg-base-300/30 px-3 py-2">
+            <span class="font-mono font-bold text-success">✓ Approved</span>
+          </div>
+        {% else %}
+          <div class="border-l-4 border-warning bg-base-300/30 px-3 py-2">
+            <span class="font-mono font-bold text-warning">⚠ Overridden → {{ item.override_classification }}</span>
+            <p class="text-xs text-base-content/60 mt-1 font-mono">{{ item.override_note }}</p>
+          </div>
+        {% endif %}
+      {% endif %}
+
+      {% if not item.reviewer_decision or is_amendment %}
+        <!-- ACTION CONTROLS (shown when undecided, or in amendment context) -->
+        {% if not read_only %}
+        {% if error %}
+          <p class="text-error text-sm font-mono">{{ error }}</p>
+        {% endif %}
+
+        <!-- Approve button (full width, large in focused mode) -->
+        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
+              hx-target="#review-item-{{ item.char_no }}"
+              hx-swap="outerHTML"
+              hx-indicator="#spinner-{{ item.char_no }}">
+          <button type="submit" class="btn btn-success w-full font-mono">
+            Approve <span class="opacity-50 text-xs ml-1">[A]</span>
+          </button>
+        </form>
+
+        <!-- Override toggle button -->
+        <button type="button"
+                class="btn btn-outline btn-warning w-full font-mono"
+                data-override-toggle="{{ item.char_no }}">
+          Override (O)
+        </button>
+
+        <!-- Override panel — hidden by default, toggled by O key or button -->
+        <div id="override-panel-{{ item.char_no }}" hidden
+             class="border border-base-300 bg-base-200 p-4 mt-2">
+          <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
+                hx-target="#review-item-{{ item.char_no }}"
+                hx-swap="outerHTML">
+            <select name="override_classification"
+                    class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary">
+              <option value="unchanged">Unchanged</option>
+              <option value="changed" selected>Changed</option>
+              <option value="removed">Removed</option>
+              <option value="added">Added</option>
+              <option value="uncertain">Uncertain</option>
+            </select>
+            <textarea name="override_note" required placeholder="Override reason (required)"
+                      class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                      rows="3"></textarea>
+            <button type="submit" class="btn btn-warning w-full font-mono">Save Override</button>
+          </form>
+        </div>
+
+        <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 

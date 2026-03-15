@@ -93,7 +93,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S04; full-screen focused layout, one item visible at a time, large snippet images; confirmed in running browser
 
 ### R010 — Keyboard shortcuts in review queue
 - Class: differentiator
@@ -103,7 +103,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S04; A=approve, O=override (auto-focuses textarea), J/K=navigate; shortcuts suppressed in inputs and dialogs; keyboard legend visible on screen; confirmed in running browser
 - Notes: Override panel opened by O should auto-focus the note textarea
 
 ### R011 — Sign-off footer and progress bar redesign
@@ -114,7 +114,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S04; OOB swaps update progress bar and sign-off footer live after each approve/override; Sign Off CTA enables when all items resolved; modal fires and redirects; confirmed in running browser
 
 ### R012 — Admin screens redesign
 - Class: admin/support
@@ -183,9 +183,9 @@ This file is the explicit capability and coverage contract for the project.
 | R006 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered form sections, HTMX swap IDs intact, warning tokens semantic |
 | R007 | primary-user-loop | active | M003/S03 | none | verified — M003/S03; bordered sections, border-l-4 banners, SSE JS updated, DOM IDs preserved |
 | R008 | primary-user-loop | active | M003/S03 | none | verified — M003/S02; mono table headers, hover rows, no light artifacts |
-| R009 | differentiator | active | M003/S04 | none | unmapped |
-| R010 | differentiator | active | M003/S04 | none | unmapped |
-| R011 | primary-user-loop | active | M003/S04 | none | unmapped |
+| R009 | differentiator | active | M003/S04 | none | verified — M003/S04; full-screen focused layout, one item at a time, large snippets, no scrolling |
+| R010 | differentiator | active | M003/S04 | none | verified — M003/S04; J/K navigate, A approve, O override + auto-focus, legend visible, shortcuts suppressed in inputs/dialogs |
+| R011 | primary-user-loop | active | M003/S04 | none | verified — M003/S04; OOB swaps live, Sign Off CTA enables when all resolved, modal fires |
 | R012 | admin/support | active | M003/S05 | none | unmapped |
 | R013 | quality-attribute | active | M003/S05 | S04 | unmapped |
 | R014 | quality-attribute | deferred | none | none | unmapped |
@@ -196,5 +196,5 @@ This file is the explicit capability and coverage contract for the project.
 
 - Active requirements: 13
 - Mapped to slices: 13
-- Validated: 6
+- Validated: 9
 - Unmapped active requirements: 0

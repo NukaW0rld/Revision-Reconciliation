@@ -60,7 +60,7 @@ This milestone is complete only when all are true:
 - [x] **S03: Pipeline Status & Run Detail** `risk:medium` `depends:[S01]`
   > After this: the run status page renders in the new design with all status states (running, failed, warning, completed, signed-off); SSE stage checklist updates live in the browser
 
-- [ ] **S04: Review Queue — Full-Screen Focused Mode** `risk:high` `depends:[S01]`
+- [x] **S04: Review Queue — Full-Screen Focused Mode** `risk:high` `depends:[S01]`
   > After this: a reviewer can open the review queue, navigate items with J/K, approve with A, open override panel with O, and sign off — all keyboard-driven, all in the new design
 
 - [ ] **S05: Admin, Setup Wizard & Fragment Cleanup** `risk:low` `depends:[S01,S02,S03,S04]`

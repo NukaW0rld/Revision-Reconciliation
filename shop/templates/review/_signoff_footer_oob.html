@@ -1,19 +1,17 @@
-<div id="signoff-footer" hx-swap-oob="outerHTML" class="sticky bottom-0 bg-base-200 border-t border-base-300 p-4 flex items-center justify-between">
+<div id="signoff-footer" hx-swap-oob="outerHTML" class="sticky bottom-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between flex-shrink-0">
   <div>
     {% if pending > 0 %}
-      <p class="text-sm text-base-content/60">{{ pending }} item{{ 's' if pending != 1 else '' }} remaining</p>
+      <p class="text-sm font-mono text-base-content/60">{{ pending }} item{{ 's' if pending != 1 else '' }} remaining</p>
     {% else %}
-      <p class="text-sm text-success font-medium">All items resolved — ready to sign off</p>
+      <p class="text-sm font-mono text-success">All items resolved — ready to sign off</p>
     {% endif %}
   </div>
   {% if pending == 0 and run.status == 'reviewing' %}
-    <!-- Enabled: open confirmation modal -->
-    <button class="btn btn-primary" onclick="document.getElementById('signoff-modal').showModal()">
+    <button class="btn btn-primary font-mono" onclick="document.getElementById('signoff-modal').showModal()">
       Sign Off
     </button>
   {% else %}
-    <!-- Disabled: show remaining count -->
-    <button class="btn btn-primary btn-disabled" disabled>
+    <button class="btn btn-primary font-mono opacity-40 cursor-not-allowed" disabled>
       Sign Off{% if pending > 0 %} ({{ pending }} pending){% endif %}
     </button>
   {% endif %}

@@ -1,146 +1,323 @@
 {% extends "base.html" %}
 
 {% block title %}Review Queue — {{ run.part_number }} | Delta Preservation{% endblock %}
+{% block page_title %}Review Queue{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="flex flex-col h-full overflow-hidden -m-6">
 
-  {# Header breadcrumb #}
-  <div class="flex items-center gap-2 text-sm breadcrumbs">
-    <ul>
-      <li><a href="/runs">My Runs</a></li>
-      <li><a href="/runs/{{ run.id }}">{{ run.part_number }}</a></li>
-      <li>Review Queue</li>
-    </ul>
-  </div>
+  {# ── TOP ZONE: Run metadata strip + filters + progress bar ── #}
+  <div class="border-b border-base-300 bg-base-200 px-6 py-4 flex-shrink-0">
 
-  {# Run metadata card #}
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body py-4">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex flex-wrap gap-6 text-sm">
-          <div>
-            <span class="text-base-content/60">Part Number</span>
-            <div class="font-semibold">{{ run.part_number }}</div>
-          </div>
-          <div>
-            <span class="text-base-content/60">Rev A</span>
-            <div class="font-semibold">{{ run.rev_a_label }}</div>
-          </div>
-          <div>
-            <span class="text-base-content/60">Rev B</span>
-            <div class="font-semibold">{{ run.rev_b_label }}</div>
-          </div>
-          <div>
-            <span class="text-base-content/60">Customer</span>
-            <div class="font-semibold">{{ run.customer }}</div>
-          </div>
-          <div>
-            <span class="text-base-content/60">Job</span>
-            <div class="font-semibold">{{ run.job_number }}</div>
-          </div>
+    {# Breadcrumb #}
+    <div class="flex items-center gap-2 text-xs text-base-content/50 font-mono mb-3">
+      <a href="/runs" class="hover:text-base-content transition-colors">Runs</a>
+      <span>/</span>
+      <a href="/runs/{{ run.id }}" class="hover:text-base-content transition-colors">{{ run.part_number }}</a>
+      <span>/</span>
+      <span class="text-base-content/80">Review Queue</span>
+    </div>
+
+    {# Metadata row + progress bar #}
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap gap-6 text-sm">
+        <div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Part Number</div>
+          <div class="font-mono font-semibold">{{ run.part_number }}</div>
         </div>
-        {# Progress bar partial — HTMX OOB swap target for Plan 03 approve/override #}
-        {% include "review/_progress_bar.html" %}
+        <div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Rev A</div>
+          <div class="font-mono font-semibold">{{ run.rev_a_label }}</div>
+        </div>
+        <div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Rev B</div>
+          <div class="font-mono font-semibold">{{ run.rev_b_label }}</div>
+        </div>
+        {% if run.customer %}
+        <div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Customer</div>
+          <div class="font-mono font-semibold">{{ run.customer }}</div>
+        </div>
+        {% endif %}
+        {% if run.job_number %}
+        <div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Job</div>
+          <div class="font-mono font-semibold">{{ run.job_number }}</div>
+        </div>
+        {% endif %}
       </div>
+      {# Progress bar partial — HTMX OOB swap target #}
+      {% include "review/_progress_bar.html" %}
     </div>
-  </div>
 
-  {# Filter bar #}
-  <form method="GET" action="/review/{{ run.id }}" class="flex flex-wrap gap-4 items-end">
-    <div class="form-control">
-      <label class="label label-text" for="status_filter">Review Status</label>
-      <select id="status_filter" name="status_filter" class="select select-bordered select-sm"
-              onchange="this.form.submit()">
-        <option value="all" {% if status_filter == "all" %}selected{% endif %}>All statuses</option>
-        <option value="pending"    {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
-        <option value="approved"   {% if status_filter == "approved" %}selected{% endif %}>Approved</option>
-        <option value="overridden" {% if status_filter == "overridden" %}selected{% endif %}>Overridden</option>
-      </select>
+    {# Filters + position counter #}
+    <div class="flex flex-wrap items-center gap-4 mt-3">
+      <form method="GET" action="/review/{{ run.id }}" class="flex flex-wrap gap-3 items-center">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-mono text-base-content/50 uppercase tracking-widest whitespace-nowrap" for="status_filter">Status</label>
+          <select id="status_filter" name="status_filter"
+                  class="bg-base-300 border border-base-300 text-base-content text-xs font-mono px-2 py-1 focus:outline-none focus:border-primary"
+                  onchange="this.form.submit()">
+            <option value="all" {% if status_filter == "all" %}selected{% endif %}>All</option>
+            <option value="pending"    {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+            <option value="approved"   {% if status_filter == "approved" %}selected{% endif %}>Approved</option>
+            <option value="overridden" {% if status_filter == "overridden" %}selected{% endif %}>Overridden</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-mono text-base-content/50 uppercase tracking-widest whitespace-nowrap" for="classification_filter">Class</label>
+          <select id="classification_filter" name="classification_filter"
+                  class="bg-base-300 border border-base-300 text-base-content text-xs font-mono px-2 py-1 focus:outline-none focus:border-primary"
+                  onchange="this.form.submit()">
+            <option value="all"       {% if classification_filter == "all" %}selected{% endif %}>All</option>
+            <option value="unchanged" {% if classification_filter == "unchanged" %}selected{% endif %}>Unchanged</option>
+            <option value="changed"   {% if classification_filter == "changed" %}selected{% endif %}>Changed</option>
+            <option value="removed"   {% if classification_filter == "removed" %}selected{% endif %}>Removed</option>
+            <option value="uncertain" {% if classification_filter == "uncertain" %}selected{% endif %}>Uncertain</option>
+            <option value="added"     {% if classification_filter == "added" %}selected{% endif %}>Added</option>
+          </select>
+        </div>
+      </form>
+
+      {# Position counter — updated by JS #}
+      <span id="item-counter" class="font-mono text-sm text-base-content/60 ml-auto">
+        {% if items %}1 / {{ items | length }}{% else %}0 / 0{% endif %}
+      </span>
     </div>
-    <div class="form-control">
-      <label class="label label-text" for="classification_filter">Pipeline Classification</label>
-      <select id="classification_filter" name="classification_filter" class="select select-bordered select-sm"
-              onchange="this.form.submit()">
-        <option value="all"       {% if classification_filter == "all" %}selected{% endif %}>All classifications</option>
-        <option value="unchanged" {% if classification_filter == "unchanged" %}selected{% endif %}>Unchanged</option>
-        <option value="changed"   {% if classification_filter == "changed" %}selected{% endif %}>Changed</option>
-        <option value="removed"   {% if classification_filter == "removed" %}selected{% endif %}>Removed</option>
-        <option value="uncertain" {% if classification_filter == "uncertain" %}selected{% endif %}>Uncertain</option>
-        <option value="added"     {% if classification_filter == "added" %}selected{% endif %}>Added</option>
-      </select>
+
+    {# Banners #}
+    {% if run.parent_run_id %}
+    <div class="border-l-4 border-warning bg-base-300/30 p-3 flex items-start gap-3 mt-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-warning mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <span class="text-sm font-mono">
+        <strong>Amendment</strong> for Run #{{ run.parent_run_id }}.
+        Review decisions only — input files (Rev A, Rev B, Form 3) are locked.
+      </span>
     </div>
-  </form>
-
-  {# Amendment banner — shown when reviewing an amendment run #}
-  {% if run.parent_run_id %}
-  <div class="alert alert-warning mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-    </svg>
-    <span>
-      <strong>Amendment</strong> for Run #{{ run.parent_run_id }}.
-      Review decisions only — input files (Rev A, Rev B, Form 3) are locked and cannot be changed.
-    </span>
-  </div>
-  {% endif %}
-
-  {# Read-only banner for signed-off runs #}
-  {% if read_only %}
-  <div class="alert alert-info mb-4">
-    <span>This run is signed off. Review decisions are shown in read-only mode.</span>
-  </div>
-  {% endif %}
-
-  {# Error banner #}
-  {% if error %}
-  <div class="alert alert-error mb-4">
-    {% if error == 'pending_items' %}
-      Cannot sign off: {{ pending }} item{{ 's' if pending != 1 else '' }} still pending.
-    {% elif error == 'sign_off_failed' %}
-      Sign-off failed. Please try again or contact support.
-    {% else %}
-      {{ error }}
     {% endif %}
-  </div>
-  {% endif %}
 
-  {# Item list #}
-  <div class="space-y-3" id="item-list">
+    {% if read_only %}
+    <div class="border-l-4 border-info bg-base-300/30 p-3 mt-3">
+      <span class="text-sm font-mono">This run is signed off. Review decisions are shown in read-only mode.</span>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="border-l-4 border-error bg-base-300/30 p-3 mt-3 font-mono text-sm">
+      {% if error == 'pending_items' %}
+        Cannot sign off: {{ pending }} item{{ 's' if pending != 1 else '' }} still pending.
+      {% elif error == 'sign_off_failed' %}
+        Sign-off failed. Please try again or contact support.
+      {% else %}
+        {{ error }}
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ── MIDDLE ZONE: Focused item list (one visible at a time) ── #}
+  <div class="flex-1 overflow-y-auto" id="item-list">
     {% for item in items %}
       {% include "review/_item_card.html" %}
     {% else %}
-    <div class="text-center text-base-content/60 py-8">No items match the selected filters.</div>
+    <div class="flex items-center justify-center h-full text-base-content/40 font-mono text-sm">
+      No items match the selected filters.
+    </div>
     {% endfor %}
   </div>
 
-  {# Sign-off section — sticky footer bar (OOB-swappable via _signoff_footer.html) #}
+  {# ── BOTTOM ZONE: Sticky sign-off footer ── #}
   {% include "review/_signoff_footer.html" %}
 
-  <!-- Confirmation modal (DaisyUI dialog) -->
-  <dialog id="signoff-modal" class="modal">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg">Confirm Sign-Off</h3>
-      <div class="py-4 space-y-1 text-sm">
-        <p><span class="font-medium">Part:</span> {{ run.part_number }}</p>
-        <p><span class="font-medium">Rev A &rarr; B:</span> {{ run.rev_a_label }} &rarr; {{ run.rev_b_label }}</p>
-        <p><span class="font-medium">Reviewer:</span> {{ user.email }}</p>
-        <p><span class="font-medium">Total items:</span> {{ total }}</p>
-      </div>
-      <p class="text-sm text-base-content/60 mb-4">
-        This action is permanent. The signed audit packet cannot be modified after sign-off.
-      </p>
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn btn-ghost">Cancel</button>
-        </form>
-        <form method="POST" action="/review/{{ run.id }}/sign-off/confirm">
-          <button type="submit" class="btn btn-primary">Confirm Sign-Off</button>
-        </form>
-      </div>
-    </div>
-    <form method="dialog" class="modal-backdrop"><button>close</button></form>
-  </dialog>
+  {# Keyboard legend — fixed overlay bottom-right #}
+  <div class="fixed bottom-20 right-6 font-mono text-xs text-base-content/30 text-right pointer-events-none select-none z-10">
+    <div><span class="text-base-content/50">J/↓</span> next</div>
+    <div><span class="text-base-content/50">K/↑</span> prev</div>
+    <div><span class="text-base-content/50">A</span> approve</div>
+    <div><span class="text-base-content/50">O</span> override</div>
+  </div>
 
 </div>
+
+{# Confirmation modal — industrial style #}
+<dialog id="signoff-modal" class="modal">
+  <div class="bg-base-200 border border-base-300 p-6 max-w-md w-full mx-auto">
+    <h3 class="font-mono font-bold text-base uppercase tracking-widest mb-4">Confirm Sign-Off</h3>
+    <div class="space-y-1 text-sm font-mono mb-4 border border-base-300 bg-base-300/30 p-3">
+      <p><span class="text-base-content/50">Part:</span> {{ run.part_number }}</p>
+      <p><span class="text-base-content/50">Rev A → B:</span> {{ run.rev_a_label }} → {{ run.rev_b_label }}</p>
+      <p><span class="text-base-content/50">Reviewer:</span> {{ user.email }}</p>
+      <p><span class="text-base-content/50">Total items:</span> {{ total }}</p>
+    </div>
+    <p class="text-sm text-base-content/50 font-mono mb-5">
+      This action is permanent. The signed audit packet cannot be modified after sign-off.
+    </p>
+    <div class="flex gap-3 justify-end">
+      <form method="dialog">
+        <button class="btn btn-outline btn-sm font-mono">Cancel</button>
+      </form>
+      <form method="POST" action="/review/{{ run.id }}/sign-off/confirm">
+        <button type="submit" class="btn btn-primary btn-sm font-mono">Confirm Sign-Off</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{# ── Keyboard shortcut IIFE ── #}
+<script>
+(function () {
+  'use strict';
+
+  const itemList = document.getElementById('item-list');
+  if (!itemList) return;
+
+  let currentIndex = 0;
+
+  // Collect all .item-card elements
+  function getCards() {
+    return Array.from(itemList.querySelectorAll('.item-card'));
+  }
+
+  // Show only the card at targetIndex, hide the rest
+  function showCard(targetIndex) {
+    const cards = getCards();
+    if (cards.length === 0) return;
+    targetIndex = Math.max(0, Math.min(targetIndex, cards.length - 1));
+    currentIndex = targetIndex;
+
+    cards.forEach((card, i) => {
+      card.style.display = i === currentIndex ? 'block' : 'none';
+    });
+
+    // Update position counter
+    const counter = document.getElementById('item-counter');
+    if (counter) {
+      counter.textContent = (currentIndex + 1) + ' / ' + cards.length;
+    }
+
+    console.log('[queue] navigate currentIndex=' + currentIndex);
+  }
+
+  // Initialize display
+  showCard(0);
+
+  // Keyboard handler
+  document.addEventListener('keydown', function (e) {
+    // Skip when typing in a form field
+    if (e.target.matches('input, textarea, select')) return;
+    // Skip when a dialog/modal is open
+    if (document.querySelector('dialog[open]')) return;
+
+    const cards = getCards();
+    if (cards.length === 0) return;
+
+    const currentCard = cards[currentIndex];
+
+    switch (e.key) {
+      case 'j':
+      case 'J':
+      case 'ArrowDown':
+        e.preventDefault();
+        showCard(currentIndex + 1);
+        break;
+
+      case 'k':
+      case 'K':
+      case 'ArrowUp':
+        e.preventDefault();
+        showCard(currentIndex - 1);
+        break;
+
+      case 'a':
+      case 'A': {
+        if (!currentCard) break;
+        e.preventDefault();
+        const approveBtn = currentCard.querySelector('form[hx-post*="/approve"] button[type="submit"]');
+        if (approveBtn) {
+          console.log('[queue] A approve currentIndex=' + currentIndex);
+          approveBtn.click();
+        }
+        break;
+      }
+
+      case 'o':
+      case 'O': {
+        if (!currentCard) break;
+        e.preventDefault();
+        const charNo = currentCard.dataset.charNo;
+        const panel = document.getElementById('override-panel-' + charNo);
+        if (panel) {
+          panel.hidden = !panel.hidden;
+          console.log('[queue] O override-panel currentIndex=' + currentIndex + ' hidden=' + panel.hidden);
+          if (!panel.hidden) {
+            const ta = panel.querySelector('textarea');
+            if (ta) ta.focus();
+          }
+        }
+        break;
+      }
+    }
+  });
+
+  // Override toggle buttons
+  itemList.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-override-toggle]');
+    if (!btn) return;
+    const charNo = btn.dataset.overrideToggle;
+    const panel = document.getElementById('override-panel-' + charNo);
+    if (panel) {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) {
+        const ta = panel.querySelector('textarea');
+        if (ta) ta.focus();
+      }
+    }
+  });
+
+  // HTMX afterSwap: auto-advance to next pending item
+  document.addEventListener('htmx:afterSwap', function (e) {
+    // Only trigger when a review item card is swapped inside item-list.
+    // For hx-swap="outerHTML", e.detail.target is detached from DOM after swap,
+    // so itemList.contains() always returns false. Use the target's id instead.
+    var targetId = e.detail.target && e.detail.target.id;
+    if (!targetId || !targetId.startsWith('review-item-')) return;
+
+    const cards = getCards();
+    if (cards.length === 0) return;
+
+    // Find next pending item after current index (wrapping search)
+    let nextIndex = -1;
+    // Search forward from currentIndex+1
+    for (let i = currentIndex + 1; i < cards.length; i++) {
+      if (cards[i].dataset.pending === 'true') {
+        nextIndex = i;
+        break;
+      }
+    }
+    // If not found forward, search from beginning
+    if (nextIndex === -1) {
+      for (let i = 0; i < currentIndex; i++) {
+        if (cards[i].dataset.pending === 'true') {
+          nextIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (nextIndex !== -1) {
+      console.log('[queue] afterSwap: auto-advancing to index=' + nextIndex);
+      showCard(nextIndex);
+    } else {
+      // No pending items — stay on current (now-decided) card
+      console.log('[queue] afterSwap: no more pending items');
+      showCard(currentIndex);
+    }
+  });
+
+})();
+</script>
 {% endblock %}

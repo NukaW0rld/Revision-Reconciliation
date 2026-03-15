@@ -2,9 +2,11 @@
 {% block title %}Generating Audit Packet{% endblock %}
 {% block content %}
 <div class="max-w-lg mx-auto mt-16 text-center" hx-ext="sse" sse-connect="/review/{{ run.id }}/sign-off/sse">
-  <div class="loading loading-spinner loading-lg text-primary mb-6"></div>
-  <h1 class="text-2xl font-bold mb-2">Generating Audit Packet</h1>
-  <p class="text-base-content/60">Finalizing sign-off for {{ run.part_number }} Rev {{ run.rev_b_label }}&hellip;</p>
+  <div class="flex justify-center mb-6">
+    <span class="inline-block w-3 h-3 rounded-full bg-warning animate-pulse"></span>
+  </div>
+  <h1 class="text-2xl font-mono font-bold tracking-wide mb-2">Generating Audit Packet</h1>
+  <p class="text-base-content/60 font-mono text-sm">Finalizing sign-off for {{ run.part_number }} Rev {{ run.rev_b_label }}&hellip;</p>
   <div id="sse-status" sse-swap="status_update" hx-swap="none"></div>
 </div>
 <script>
