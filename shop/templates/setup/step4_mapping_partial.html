@@ -12,7 +12,7 @@
                     <th class="text-center min-w-[120px]">
                         {% set matched_field = detected_by_col.get(col_idx) %}
                         <select name="col_{{ col_idx }}"
-                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-amber-100 border-amber-400{% endif %}"
+                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-warning/15 border-warning{% endif %}"
                                 data-col="{{ col_idx }}">
                             <option value="ignore" {% if not matched_field %}selected{% endif %}>(ignore)</option>
                             {% for field in required_fields %}
@@ -27,7 +27,7 @@
                 </tr>
                 <tr class="bg-base-200">
                     {% for header in headers %}
-                    <th class="text-center font-semibold text-xs">
+                    <th class="text-center font-mono uppercase text-xs tracking-wider text-base-content/50">
                         {{ header if header is not none else "(empty)" }}
                     </th>
                     {% endfor %}
@@ -48,8 +48,8 @@
     </div>
 
     <div class="text-sm text-base-content/60 mb-3">
-        <span class="inline-block w-3 h-3 bg-amber-100 border border-amber-400 rounded mr-1"></span>
-        Amber columns were not auto-detected. Select the matching field or leave as (ignore).
+        <span class="inline-block w-3 h-3 bg-warning/15 border border-warning rounded mr-1"></span>
+        Undetected columns were not auto-matched. Select the matching field or leave as (ignore).
     </div>
 
     <button type="submit" class="btn btn-primary w-full">Save Column Mapping</button>

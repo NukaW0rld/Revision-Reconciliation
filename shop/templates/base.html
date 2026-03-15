@@ -79,7 +79,7 @@
               </svg>
             </a>
             {% if alert_count > 0 %}
-            <span class="badge badge-error badge-xs indicator-item">{{ alert_count }}</span>
+            <span class="bg-error text-error-content rounded-full badge-xs indicator-item flex items-center justify-center min-w-[1rem] h-4 px-1 text-[10px] font-mono">{{ alert_count }}</span>
             {% endif %}
           </div>
           <span class="text-xs font-mono text-base-content/60">{{ user.email }}</span>

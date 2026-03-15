@@ -14,7 +14,7 @@ Two milestones complete:
 - **M001:** Core pipeline and web app — login, setup wizard, run submission, SSE pipeline progress, review queue with approve/override, sign-off, audit packet PDF/CSV export, amendments
 - **M002:** Setup simplification and per-run column mapping — column mapping moved to run submission form, setup wizard trimmed to 2 steps
 
-Active redesign: M003 is a complete UI/UX redesign of all ~20 templates. S01–S04 complete — industrial dark theme compiles, sidebar + top-bar layout shell live, login and wizard redesigned (S01); dashboard, runs list, new run form, and HTMX partials (S02); run status page with SSE live updates (S03); review queue converted to full-screen focused mode with J/K/A/O keyboard shortcuts, HTMX OOB swaps for progress bar and sign-off footer, all 6 review templates redesigned (S04). S05 (admin screens, setup wizard sub-templates, visual consistency audit) is the final slice. Backend and pipeline are untouched.
+Active redesign: **M003 complete.** All 5 slices done — industrial dark theme compiles, sidebar + top-bar layout shell live, login and wizard redesigned (S01); dashboard, runs list, new run form, and HTMX partials (S02); run status page with SSE live updates (S03); review queue converted to full-screen focused mode with J/K/A/O keyboard shortcuts, HTMX OOB swaps for progress bar and sign-off footer, all 6 review templates redesigned (S04); admin screens, setup wizard sub-templates, and full template-tree visual consistency audit complete — zero legacy DaisyUI alert/card/shadow patterns remain (S05). All 13 active requirements validated. Backend and pipeline untouched.
 
 ## Architecture / Key Patterns
 
@@ -32,4 +32,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 - [x] M001: Core Pipeline & Web App — end-to-end FAIR compliance tool
 - [x] M002: Setup Simplification & Per-Run Column Mapping — streamlined onboarding
-- [ ] M003: UI/UX Redesign — industrial dark-mode aesthetic, sidebar layout, full-screen review queue
+- [x] M003: UI/UX Redesign — industrial dark-mode aesthetic, sidebar layout, full-screen review queue

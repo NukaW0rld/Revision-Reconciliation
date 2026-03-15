@@ -1,84 +1,80 @@
 {% extends "base.html" %}
 {% block title %}User Management{% endblock %}
+{% block page_title %}User Management{% endblock %}
 {% block content %}
-<div class="container mx-auto p-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">User Management</h1>
-        <a href="/dashboard" class="btn btn-outline btn-sm">Back to Dashboard</a>
-    </div>
-
     {% if error %}
-    <div class="alert alert-error mb-4">
+    <div class="border-l-4 border-error bg-base-200 p-3 flex items-center gap-3 font-mono text-sm mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
         <span>{{ error }}</span>
     </div>
     {% endif %}
 
-    <div class="card bg-base-100 shadow mb-8">
-        <div class="card-body p-0">
-            <table id="users-table" class="table w-full">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr id="user-{{ user.id }}">
-                        <td>{{ user.email }}</td>
-                        <td>
-                            <span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %}">
-                                {{ user.role }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge {% if user.is_active %}badge-success{% else %}badge-error{% endif %}">
-                                {% if user.is_active %}Active{% else %}Inactive{% endif %}
-                            </span>
-                        </td>
-                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                        <td>
-                            {% if user.role == 'engineer' and user.is_active %}
-                            <button class="btn btn-xs btn-warning"
-                                hx-post="/admin/users/{{ user.id }}/deactivate"
-                                hx-target="closest tr"
-                                hx-swap="outerHTML"
-                                hx-confirm="Deactivate {{ user.email }}?">
-                                Deactivate
-                            </button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="border border-base-300 bg-base-200 p-5 mb-8">
+        <p class="text-base font-semibold font-mono mb-3">Registered Users</p>
+        <table id="users-table" class="table w-full">
+            <thead>
+                <tr class="font-mono uppercase text-xs tracking-wider text-base-content/50">
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr id="user-{{ user.id }}" class="hover:bg-base-300 transition-colors">
+                    <td class="font-mono text-sm">{{ user.email }}</td>
+                    <td>
+                        <span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %} font-mono text-xs">
+                            {{ user.role }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="font-mono text-xs {% if user.is_active %}text-success{% else %}text-error{% endif %}">
+                            {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td class="font-mono text-sm text-base-content/60">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if user.role == 'engineer' and user.is_active %}
+                        <button class="btn btn-xs btn-warning font-mono"
+                            hx-post="/admin/users/{{ user.id }}/deactivate"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            hx-confirm="Deactivate {{ user.email }}?">
+                            Deactivate
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <div class="card bg-base-100 shadow">
-        <div class="card-body">
-            <h2 class="card-title">Add Engineer</h2>
-            <form hx-post="/admin/users"
-                  hx-target="#users-table tbody"
-                  hx-swap="beforeend"
-                  class="space-y-4">
-                <input type="hidden" name="role" value="engineer">
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Email</span></label>
-                    <input type="email" name="email" required
-                           class="input input-bordered" placeholder="engineer@example.com">
-                </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Password</span></label>
-                    <input type="password" name="password" required minlength="8"
-                           class="input input-bordered" placeholder="Min 8 characters">
-                </div>
-                <button type="submit" class="btn btn-primary">Create Engineer</button>
-            </form>
-        </div>
+    <div class="border border-base-300 bg-base-200 p-5">
+        <p class="text-base font-semibold font-mono mb-3">Add Engineer</p>
+        <form hx-post="/admin/users"
+              hx-target="#users-table tbody"
+              hx-swap="beforeend"
+              class="space-y-4">
+            <input type="hidden" name="role" value="engineer">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Email</span></label>
+                <input type="email" name="email" required
+                       class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                       placeholder="engineer@example.com">
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Password</span></label>
+                <input type="password" name="password" required minlength="8"
+                       class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                       placeholder="Min 8 characters">
+            </div>
+            <button type="submit" class="btn btn-primary font-mono">Create Engineer</button>
+        </form>
     </div>
-</div>
 {% endblock %}

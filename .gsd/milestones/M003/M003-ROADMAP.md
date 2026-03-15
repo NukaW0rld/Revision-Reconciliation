@@ -63,7 +63,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Review Queue — Full-Screen Focused Mode** `risk:high` `depends:[S01]`
   > After this: a reviewer can open the review queue, navigate items with J/K, approve with A, open override panel with O, and sign off — all keyboard-driven, all in the new design
 
-- [ ] **S05: Admin, Setup Wizard & Fragment Cleanup** `risk:low` `depends:[S01,S02,S03,S04]`
+- [x] **S05: Admin, Setup Wizard & Fragment Cleanup** `risk:low` `depends:[S01,S02,S03,S04]`
   > After this: every screen and partial in the app is on the new design — admin screens, setup wizard, all HTMX fragments; the app is visually consistent end-to-end
 
 ## Boundary Map

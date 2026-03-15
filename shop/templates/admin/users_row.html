@@ -1,14 +1,14 @@
 {% if error %}
-<tr><td colspan="5"><div class="alert alert-error">{{ error }}</div></td></tr>
+<tr><td colspan="5"><div class="border-l-4 border-error bg-base-200 p-3 font-mono text-sm">{{ error }}</div></td></tr>
 {% else %}
-<tr id="user-{{ user.id }}">
-    <td>{{ user.email }}</td>
-    <td><span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %}">{{ user.role }}</span></td>
-    <td><span class="badge {% if user.is_active %}badge-success{% else %}badge-error{% endif %}">{% if user.is_active %}Active{% else %}Inactive{% endif %}</span></td>
-    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+<tr id="user-{{ user.id }}" class="hover:bg-base-300 transition-colors">
+    <td class="font-mono text-sm">{{ user.email }}</td>
+    <td><span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %} font-mono text-xs">{{ user.role }}</span></td>
+    <td><span class="font-mono text-xs {% if user.is_active %}text-success{% else %}text-error{% endif %}">{% if user.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+    <td class="font-mono text-sm text-base-content/60">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
     <td>
         {% if user.role == 'engineer' and user.is_active %}
-        <button class="btn btn-xs btn-warning"
+        <button class="btn btn-xs btn-warning font-mono"
             hx-post="/admin/users/{{ user.id }}/deactivate"
             hx-target="closest tr"
             hx-swap="outerHTML"

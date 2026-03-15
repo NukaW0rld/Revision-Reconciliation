@@ -4,13 +4,13 @@
 {% block page_title %}New Run{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<div class="max-w-3xl">
     <h1 class="text-2xl font-bold font-mono mb-6">Submit New Comparison Run</h1>
 
     {% if error %}
-    <div class="alert alert-error mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div class="border-l-4 border-error bg-base-200 p-3 flex items-center gap-3 font-mono text-sm mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
         </svg>
         <span>{{ error }}</span>
     </div>
@@ -23,24 +23,34 @@
             <h2 class="text-base font-semibold font-mono mb-3">Part Metadata</h2>
             <div class="grid grid-cols-2 gap-4">
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Part Number</span></label>
-                    <input type="text" name="part_number" class="input input-bordered" required>
+                    <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Part Number</span></label>
+                    <input type="text" name="part_number"
+                           class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                           required>
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Customer</span></label>
-                    <input type="text" name="customer" class="input input-bordered" required>
+                    <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Customer</span></label>
+                    <input type="text" name="customer"
+                           class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                           required>
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text">First Revision Label</span></label>
-                    <input type="text" name="rev_a_label" class="input input-bordered" required placeholder="e.g. A">
+                    <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">First Revision Label</span></label>
+                    <input type="text" name="rev_a_label"
+                           class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                           required placeholder="e.g. A">
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Second Revision Label</span></label>
-                    <input type="text" name="rev_b_label" class="input input-bordered" required placeholder="e.g. B">
+                    <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Second Revision Label</span></label>
+                    <input type="text" name="rev_b_label"
+                           class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                           required placeholder="e.g. B">
                 </div>
                 <div class="form-control col-span-2">
-                    <label class="label"><span class="label-text">Job Number</span></label>
-                    <input type="text" name="job_number" class="input input-bordered" required>
+                    <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Job Number</span></label>
+                    <input type="text" name="job_number"
+                           class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+                           required>
                 </div>
             </div>
         </div>
@@ -109,7 +119,7 @@
                     required
                 >
                 <label class="label">
-                    <span class="label-text-alt">Column mapping will be confirmed inline after upload.</span>
+                    <span class="label-text-alt font-mono text-xs text-base-content/50">Column mapping will be confirmed inline after upload.</span>
                 </label>
             </div>
             <div id="xlsx-mapping-section"></div>

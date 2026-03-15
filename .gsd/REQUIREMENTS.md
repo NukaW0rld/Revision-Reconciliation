@@ -124,7 +124,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M003/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: verified — M003/S05; dark bordered sections, mono headings, status as font-mono text-success/text-error, no card/badge artifacts; confirmed in browser and test suite (93 passed)
 
 ### R013 — All HTMX partial/fragment templates updated
 - Class: quality-attribute
@@ -134,7 +134,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: inferred
 - Primary owning slice: M003/S05
 - Supporting slices: M003/S04
-- Validation: unmapped
+- Validation: verified — M003/S05; all fragment templates updated; zero legacy patterns confirmed by grep; HTMX swap targets preserved (grep verified); CSS builds clean; 93 tests pass
 
 ## Deferred
 
@@ -175,8 +175,8 @@ This file is the explicit capability and coverage contract for the project.
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | differentiator | active | M003/S01 | S02,S03,S04,S05 | partial — theme compiles, dark base + amber primary active in browser; all screens validated in S02–S05 |
-| R002 | primary-user-loop | active | M003/S01 | S02,S03,S04,S05 | partial — sidebar + top bar layout verified on login/wizard/dashboard; remaining screens validated in S02–S05 |
+| R001 | differentiator | active | M003/S01 | S02,S03,S04,S05 | verified — M003/S05; entire template tree on industrial dark-mode; zero legacy patterns confirmed by grep across all 20+ templates |
+| R002 | primary-user-loop | active | M003/S01 | S02,S03,S04,S05 | verified — M003/S01–S05; sidebar + top bar on every authenticated page; admin and setup pages confirmed in S05 |
 | R003 | launchability | active | M003/S01 | none | verified — M003/S01 |
 | R004 | launchability | active | M003/S01 | none | verified — M003/S01 |
 | R005 | primary-user-loop | active | M003/S02 | none | verified — M003/S02; bordered dark sections, font-mono headings, no card artifacts |
@@ -186,8 +186,8 @@ This file is the explicit capability and coverage contract for the project.
 | R009 | differentiator | active | M003/S04 | none | verified — M003/S04; full-screen focused layout, one item at a time, large snippets, no scrolling |
 | R010 | differentiator | active | M003/S04 | none | verified — M003/S04; J/K navigate, A approve, O override + auto-focus, legend visible, shortcuts suppressed in inputs/dialogs |
 | R011 | primary-user-loop | active | M003/S04 | none | verified — M003/S04; OOB swaps live, Sign Off CTA enables when all resolved, modal fires |
-| R012 | admin/support | active | M003/S05 | none | unmapped |
-| R013 | quality-attribute | active | M003/S05 | S04 | unmapped |
+| R012 | admin/support | active | M003/S05 | none | verified — M003/S05; dark bordered sections, mono headings, font-mono status text, industrial inputs; confirmed in browser |
+| R013 | quality-attribute | active | M003/S05 | S04 | verified — M003/S05; all partials updated; zero legacy patterns; HTMX targets preserved; 93 tests pass |
 | R014 | quality-attribute | deferred | none | none | unmapped |
 | R015 | anti-feature | out-of-scope | none | none | n/a |
 | R016 | anti-feature | out-of-scope | none | none | n/a |
@@ -196,5 +196,5 @@ This file is the explicit capability and coverage contract for the project.
 
 - Active requirements: 13
 - Mapped to slices: 13
-- Validated: 9
+- Validated: 13
 - Unmapped active requirements: 0
