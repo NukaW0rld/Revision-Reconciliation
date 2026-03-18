@@ -79,10 +79,6 @@
         </div>
       </form>
 
-      {# Position counter — updated by JS #}
-      <span id="item-counter" class="font-mono text-sm text-base-content/60 ml-auto">
-        {% if items %}1 / {{ items | length }}{% else %}0 / 0{% endif %}
-      </span>
     </div>
 
     {# Banners #}
@@ -182,28 +178,14 @@
     return Array.from(itemList.querySelectorAll('.item-card'));
   }
 
-  // Show only the card at targetIndex, hide the rest
-  function showCard(targetIndex) {
+  // Scroll to the card at targetIndex (flat-list: all cards always visible)
+  function focusCard(targetIndex) {
     const cards = getCards();
-    if (cards.length === 0) return;
-    targetIndex = Math.max(0, Math.min(targetIndex, cards.length - 1));
+    if (targetIndex < 0 || targetIndex >= cards.length) return;
     currentIndex = targetIndex;
-
-    cards.forEach((card, i) => {
-      card.style.display = i === currentIndex ? 'block' : 'none';
-    });
-
-    // Update position counter
-    const counter = document.getElementById('item-counter');
-    if (counter) {
-      counter.textContent = (currentIndex + 1) + ' / ' + cards.length;
-    }
-
+    cards[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
     console.log('[queue] navigate currentIndex=' + currentIndex);
   }
-
-  // Initialize display
-  showCard(0);
 
   // Keyboard handler
   document.addEventListener('keydown', function (e) {
@@ -222,14 +204,14 @@
       case 'J':
       case 'ArrowDown':
         e.preventDefault();
-        showCard(currentIndex + 1);
+        focusCard(currentIndex + 1);
         break;
 
       case 'k':
       case 'K':
       case 'ArrowUp':
         e.preventDefault();
-        showCard(currentIndex - 1);
+        focusCard(currentIndex - 1);
         break;
 
       case 'a':
@@ -310,11 +292,11 @@
 
     if (nextIndex !== -1) {
       console.log('[queue] afterSwap: auto-advancing to index=' + nextIndex);
-      showCard(nextIndex);
+      focusCard(nextIndex);
     } else {
       // No pending items — stay on current (now-decided) card
       console.log('[queue] afterSwap: no more pending items');
-      showCard(currentIndex);
+      focusCard(currentIndex);
     }
   });
 
