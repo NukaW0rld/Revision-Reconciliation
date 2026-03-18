@@ -88,6 +88,11 @@ def test_review_queue_loads(client: TestClient, engineer_user, db_engine, tmp_pa
     for char_no in [1, 2, 3]:
         assert str(char_no) in resp.text, f"char_no {char_no} not found in response"
 
+    # Item cards must NOT have display:none — they should be visible in the flat list
+    assert 'style="display:none"' not in resp.text, (
+        "Item cards have display:none — review queue items are invisible to the user"
+    )
+
     # Run.status should now be "reviewing"
     from shop.models import Run
     from sqlalchemy.orm import sessionmaker
