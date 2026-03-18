@@ -260,13 +260,34 @@
     }
   });
 
-  // HTMX afterSwap: auto-advance to next pending item
+  // HTMX afterSwap: auto-advance to next pending item.
+  //
+  // htmx fires htmx:afterSwap once per element in the swap's elts list, which
+  // includes both the main target AND any OOB-swapped elements (progress bar,
+  // signoff footer). All firings share the same eventInfo, so e.detail.target
+  // always identifies the original review-item card. Without deduplication the
+  // handler would run 3× per action (1 main + 2 OOB), advancing 3 positions
+  // instead of 1. We deduplicate by tracking the last-processed targetId and
+  // using a one-shot timeout so that only the first firing within a given tick
+  // schedules the advance; subsequent firings for the same targetId are no-ops.
+  var _lastAutoAdvanceId = null;
+  var _autoAdvanceTimer = null;
+
   document.addEventListener('htmx:afterSwap', function (e) {
     // Only trigger when a review item card is swapped inside item-list.
     // For hx-swap="outerHTML", e.detail.target is detached from DOM after swap,
     // so itemList.contains() always returns false. Use the target's id instead.
     var targetId = e.detail.target && e.detail.target.id;
     if (!targetId || !targetId.startsWith('review-item-')) return;
+
+    // Deduplicate: ignore repeat firings for the same swap (OOB elements reuse
+    // the same eventInfo, so targetId is identical across all firings).
+    if (targetId === _lastAutoAdvanceId) return;
+    _lastAutoAdvanceId = targetId;
+
+    // Reset after a short delay so the next distinct action can fire again.
+    clearTimeout(_autoAdvanceTimer);
+    _autoAdvanceTimer = setTimeout(function () { _lastAutoAdvanceId = null; }, 500);
 
     const cards = getCards();
     if (cards.length === 0) return;
