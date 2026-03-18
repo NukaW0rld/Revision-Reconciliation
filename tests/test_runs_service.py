@@ -130,7 +130,7 @@ class TestCreateRun:
         # Seed a user
         db = self.Session()
         user = User(
-            email="eng@test.local",
+            username="eng_test",
             hashed_password=hash_password("x"),
             role="engineer",
             is_active=True,

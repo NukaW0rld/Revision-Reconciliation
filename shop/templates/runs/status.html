@@ -2,6 +2,30 @@
 {% block title %}Run {{ run.id }} &mdash; {{ run.part_number }}{% endblock %}
 {% block page_title %}Run #{{ run.id }}{% endblock %}
 {% block content %}
+
+{# ── Loading splash: shown only for queued/running runs before stage 1 ── #}
+{% if run.status in ["queued", "running"] %}
+<div id="pipeline-splash"
+     class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-base-100/95 backdrop-blur-sm">
+  <div class="flex flex-col items-center gap-6 max-w-sm text-center">
+    <div class="relative">
+      <div class="w-16 h-16 border-2 border-base-300 flex items-center justify-center">
+        <span class="text-primary font-mono text-xl font-bold">▶</span>
+      </div>
+      <div class="absolute -inset-2 border border-primary/30 animate-ping"></div>
+    </div>
+    <div>
+      <p class="font-mono font-bold text-base-content text-lg tracking-wide">Pipeline Starting</p>
+      <p class="font-mono text-sm text-base-content/50 mt-1">Part {{ run.part_number }} · Rev {{ run.rev_a_label }} → {{ run.rev_b_label }}</p>
+    </div>
+    <div class="flex items-center gap-2 font-mono text-xs text-base-content/40 uppercase tracking-widest">
+      <span class="loading loading-dots loading-sm text-primary"></span>
+      <span id="splash-stage-label">Initializing…</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if signed %}
 <div class="border-l-4 border-success bg-base-200 p-4 flex items-start gap-3 mb-4">
   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-success mt-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -42,13 +66,13 @@
         <dt class="text-base-content/60">Submitted</dt>
         <dd>{{ run.submitted_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
         <dt class="text-base-content/60">Reviewer</dt>
-        <dd>{{ run.reviewer.email if run.reviewer else "Unassigned" }}</dd>
+        <dd>{{ run.reviewer.username if run.reviewer else "Unassigned" }}</dd>
       </dl>
       {% if user.role == 'admin' and run.status not in ('signed_off',) %}
       <form method="POST" action="/review/{{ run.id }}/reassign" class="flex gap-2 items-center mt-3">
         <select name="reviewer_id" class="select select-sm select-bordered">
           {% for eng in engineers %}
-            <option value="{{ eng.id }}" {{ 'selected' if eng.id == run.reviewer_id }}>{{ eng.email }}</option>
+            <option value="{{ eng.id }}" {{ 'selected' if eng.id == run.reviewer_id }}>{{ eng.username }}</option>
           {% endfor %}
         </select>
         <button type="submit" class="btn btn-sm">Reassign</button>
@@ -115,6 +139,13 @@
     {% if run.status == "completed" %}
     <div>
       <a href="/review/{{ run.id }}" class="btn btn-primary">Open Review Queue</a>
+    </div>
+    {% endif %}
+
+    <!-- Reviewing state CTA — resume where they left off -->
+    {% if run.status == "reviewing" %}
+    <div>
+      <a href="/review/{{ run.id }}" class="btn btn-primary">Resume Review Queue</a>
     </div>
     {% endif %}
 
@@ -208,6 +239,8 @@
     var data = JSON.parse(e.data);
     lastData = data;
     updateChecklist(data);
+    // Dismiss splash once stage 1 (index 0 = Form 3 parsing) has started or completed
+    dismissSplash(data);
   });
 
   evtSource.addEventListener("close", function (e) {
@@ -218,9 +251,32 @@
     if (lastData) {
       injectTerminalBanner(lastData);
     }
+    dismissSplash({ status: lastData ? lastData.status : "completed", current_stage_index: 99 });
     // Reload after a short delay to fully refresh all page sections.
     setTimeout(function () { window.location.reload(); }, 500);
   });
+
+  function dismissSplash(data) {
+    // Hide splash as soon as stage 1 (index 0) is confirmed running, or pipeline is terminal
+    var splash = document.getElementById("pipeline-splash");
+    if (!splash) return;
+    var stage1Started = (data.current_stage_index >= 0 && data.status === "running") ||
+                        ["completed", "failed", "warning"].indexOf(data.status) !== -1;
+    if (stage1Started) {
+      splash.style.opacity = "0";
+      splash.style.transition = "opacity 0.3s ease";
+      setTimeout(function () { splash.remove(); }, 350);
+    }
+    // Update stage label on splash
+    var label = document.getElementById("splash-stage-label");
+    if (label && data.current_stage_index !== undefined) {
+      var stageNames = [
+        "Form 3 parsing", "Balloon detection", "Text extraction",
+        "Anchor building", "Alignment", "Candidate matching", "Classification", "Output"
+      ];
+      label.textContent = stageNames[data.current_stage_index] || "Processing…";
+    }
+  }
 
   function injectTerminalBanner(data) {
     var container = document.getElementById("terminal-banner-slot");

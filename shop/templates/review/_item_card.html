@@ -1,8 +1,8 @@
 {% set read_only = read_only if read_only is defined else false %}
 {% set is_amendment = is_amendment if is_amendment is defined else false %}
 <div id="review-item-{{ item.char_no }}"
-     class="item-card border border-base-300 bg-base-200 border-l-4 p-5
-            {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
+     class="item-card border border-base-300 bg-base-200 border-l-4 p-5 {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
+     style="display:none"
      data-pending="{{ 'true' if not item.reviewer_decision else 'false' }}"
      data-char-no="{{ item.char_no }}">
 
@@ -10,11 +10,11 @@
   <div class="flex gap-6 h-full">
 
     <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
-    <div class="flex flex-col gap-3 flex-1">
+    <div class="flex flex-col gap-3 w-64 flex-shrink-0">
       <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest">Rev A</p>
       {% if item.revA_snippet_path %}
         <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
-             class="cursor-pointer max-w-full rounded border border-base-300 hover:border-primary/50 transition-colors"
+             class="cursor-pointer w-full max-h-48 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors bg-base-300/20"
              onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
         <dialog id="modal-{{ item.char_no }}-revA" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
@@ -26,7 +26,7 @@
           <form method="dialog" class="modal-backdrop"><button>close</button></form>
         </dialog>
       {% else %}
-        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex-1 flex items-center justify-center">
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
           Image unavailable
         </div>
       {% endif %}
@@ -34,7 +34,7 @@
       <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest mt-2">Rev B</p>
       {% if item.revB_snippet_path %}
         <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
-             class="cursor-pointer max-w-full rounded border border-base-300 hover:border-primary/50 transition-colors"
+             class="cursor-pointer w-full max-h-48 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors bg-base-300/20"
              onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
         <dialog id="modal-{{ item.char_no }}-revB" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
@@ -46,15 +46,15 @@
           <form method="dialog" class="modal-backdrop"><button>close</button></form>
         </dialog>
       {% elif item.pipeline_classification == 'removed' and item.revB_bbox %}
-        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
           Image unavailable
         </div>
       {% elif item.pipeline_classification == 'removed' %}
-        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
           Not found in Rev B
         </div>
       {% else %}
-        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono flex items-center justify-center">
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
           Image unavailable
         </div>
       {% endif %}

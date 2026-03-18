@@ -19,29 +19,29 @@
     </div>
 
     {# Metadata row + progress bar #}
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex flex-wrap gap-6 text-sm">
+    <div class="flex flex-wrap items-start justify-between gap-6">
+      <div class="flex flex-wrap gap-8 text-sm">
         <div>
-          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Part Number</div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-1">Part Number</div>
           <div class="font-mono font-semibold">{{ run.part_number }}</div>
         </div>
         <div>
-          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Rev A</div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-1">Rev A</div>
           <div class="font-mono font-semibold">{{ run.rev_a_label }}</div>
         </div>
         <div>
-          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Rev B</div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-1">Rev B</div>
           <div class="font-mono font-semibold">{{ run.rev_b_label }}</div>
         </div>
         {% if run.customer %}
         <div>
-          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Customer</div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-1">Customer</div>
           <div class="font-mono font-semibold">{{ run.customer }}</div>
         </div>
         {% endif %}
         {% if run.job_number %}
         <div>
-          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-0.5">Job</div>
+          <div class="text-xs text-base-content/50 font-mono uppercase tracking-widest mb-1">Job</div>
           <div class="font-mono font-semibold">{{ run.job_number }}</div>
         </div>
         {% endif %}
@@ -149,7 +149,7 @@
     <div class="space-y-1 text-sm font-mono mb-4 border border-base-300 bg-base-300/30 p-3">
       <p><span class="text-base-content/50">Part:</span> {{ run.part_number }}</p>
       <p><span class="text-base-content/50">Rev A → B:</span> {{ run.rev_a_label }} → {{ run.rev_b_label }}</p>
-      <p><span class="text-base-content/50">Reviewer:</span> {{ user.email }}</p>
+      <p><span class="text-base-content/50">Reviewer:</span> {{ user.username }}</p>
       <p><span class="text-base-content/50">Total items:</span> {{ total }}</p>
     </div>
     <p class="text-sm text-base-content/50 font-mono mb-5">

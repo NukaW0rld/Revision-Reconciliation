@@ -4,7 +4,7 @@
 {% block content %}
 <div class="mb-6 flex items-center justify-between">
     <h1 class="text-2xl font-bold font-mono">Dashboard</h1>
-    <p class="text-base-content/70 text-sm">Logged in as <strong>{{ user.email }}</strong> ({{ user.role }})</p>
+    <p class="text-base-content/70 text-sm">Logged in as <strong>{{ user.username }}</strong> ({{ user.role }})</p>
 </div>
 
 {% if unread_alerts %}
@@ -49,7 +49,7 @@
             <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
         </div>
         <p class="text-sm text-base-content/70">Rev {{ run.rev_a_label }} &rarr; Rev {{ run.rev_b_label }}</p>
-        <p class="text-xs text-base-content/50">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }} &middot; Reviewer: {{ run.reviewer.email if run.reviewer else "Unassigned" }}</p>
+        <p class="text-xs text-base-content/50">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }} &middot; Reviewer: {{ run.reviewer.username if run.reviewer else "Unassigned" }}</p>
     </a>
     {% endfor %}
 </div>

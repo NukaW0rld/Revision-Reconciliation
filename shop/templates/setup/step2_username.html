@@ -1,0 +1,16 @@
+{% extends "setup/wizard_layout.html" %}
+{% block step_content %}
+<h2 class="text-xl font-bold font-mono mb-4">Step 2: Admin Username</h2>
+<p class="text-sm text-base-content/70 font-mono mb-4">Choose a username for the admin account. You'll use this to log in.</p>
+<form method="post" action="/setup/step2">
+    <div class="form-control mb-4">
+        <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Admin Username</span></label>
+        <input type="text" name="admin_username"
+               class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
+               required minlength="2" maxlength="64"
+               placeholder="e.g. admin, quality_lead"
+               autocomplete="username">
+    </div>
+    <button type="submit" class="btn btn-primary w-full font-mono">Continue</button>
+</form>
+{% endblock %}

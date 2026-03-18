@@ -33,7 +33,7 @@ def _seed_engineer(db_engine) -> User:
     db = Session()
     try:
         user = User(
-            email="engineer@shop.local",
+            username="engineer_test",
             hashed_password=hash_password("password123"),
             role="engineer",
             is_active=True,
@@ -51,7 +51,7 @@ def test_admin_list_users(client, admin_user, db_engine):
     token = _make_session_cookie(db_engine, admin_user)
     resp = client.get("/admin/users", cookies={"session_token": token}, follow_redirects=False)
     assert resp.status_code == 200
-    assert admin_user.email in resp.text
+    assert admin_user.username in resp.text
 
 
 def test_create_engineer(client, admin_user, db_engine):
@@ -59,18 +59,18 @@ def test_create_engineer(client, admin_user, db_engine):
     token = _make_session_cookie(db_engine, admin_user)
     resp = client.post(
         "/admin/users",
-        data={"email": "new@shop.local", "password": "securepass", "role": "engineer"},
+        data={"username": "new_engineer", "password": "securepass", "role": "engineer"},
         cookies={"session_token": token},
         follow_redirects=False,
     )
     assert resp.status_code == 200
     # Verify row HTML is returned
-    assert "new@shop.local" in resp.text
+    assert "new_engineer" in resp.text
     # Verify user exists in DB
     Session = sessionmaker(bind=db_engine)
     db = Session()
     try:
-        created = db.query(User).filter(User.email == "new@shop.local").first()
+        created = db.query(User).filter(User.username == "new_engineer").first()
         assert created is not None
         assert created.is_active is True
         assert created.role == "engineer"
@@ -85,19 +85,19 @@ def test_create_engineer_duplicate_email(client, admin_user, db_engine):
     # First creation
     client.post(
         "/admin/users",
-        data={"email": "dupe@shop.local", "password": "pass12345"},
+        data={"username": "dupe_user", "password": "pass12345"},
         cookies={"session_token": token},
         follow_redirects=False,
     )
     # Second creation — should return error partial, not 500
     resp = client.post(
         "/admin/users",
-        data={"email": "dupe@shop.local", "password": "pass12345"},
+        data={"username": "dupe_user", "password": "pass12345"},
         cookies={"session_token": token},
         follow_redirects=False,
     )
     assert resp.status_code == 200
-    assert "already exists" in resp.text.lower() or "dupe@shop.local" in resp.text
+    assert "already exists" in resp.text.lower() or "dupe_user" in resp.text
 
 
 def test_deactivate_engineer(client, admin_user, db_engine):

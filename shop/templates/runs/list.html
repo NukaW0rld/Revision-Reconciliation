@@ -56,7 +56,7 @@
                     <span class="badge badge-{{ run.status | status_badge_class }}">{{ run.status }}</span>
                 </td>
                 <td class="text-sm text-base-content/70">{{ run.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
-                <td class="text-sm text-base-content/70">{{ run.reviewer.email if run.reviewer else "Unassigned" }}</td>
+                <td class="text-sm text-base-content/70">{{ run.reviewer.username if run.reviewer else "Unassigned" }}</td>
                 <td>
                     <a href="/runs/{{ run.id }}" class="btn btn-ghost btn-xs">View</a>
                 </td>

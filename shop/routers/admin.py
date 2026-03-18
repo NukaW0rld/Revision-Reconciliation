@@ -29,14 +29,14 @@ def list_users(
 @router.post("/users", response_class=HTMLResponse)
 def create_user(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     role: str = Form(default="engineer"),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     new_user = User(
-        email=email,
+        username=username,
         hashed_password=hash_password(password),
         role=role,
         is_active=True,
@@ -50,7 +50,7 @@ def create_user(
         return templates.TemplateResponse(
             request,
             "admin/users_row.html",
-            {"error": f"Email '{email}' already exists"},
+            {"error": f"Username '{username}' already exists"},
             status_code=200,
         )
     return templates.TemplateResponse(

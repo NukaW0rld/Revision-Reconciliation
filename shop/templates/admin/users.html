@@ -16,7 +16,7 @@
         <table id="users-table" class="table w-full">
             <thead>
                 <tr class="font-mono uppercase text-xs tracking-wider text-base-content/50">
-                    <th>Email</th>
+                    <th>Username</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -26,7 +26,7 @@
             <tbody>
                 {% for user in users %}
                 <tr id="user-{{ user.id }}" class="hover:bg-base-300 transition-colors">
-                    <td class="font-mono text-sm">{{ user.email }}</td>
+                    <td class="font-mono text-sm">{{ user.username }}</td>
                     <td>
                         <span class="badge {% if user.role == 'admin' %}badge-primary{% else %}badge-neutral{% endif %} font-mono text-xs">
                             {{ user.role }}
@@ -44,7 +44,7 @@
                             hx-post="/admin/users/{{ user.id }}/deactivate"
                             hx-target="closest tr"
                             hx-swap="outerHTML"
-                            hx-confirm="Deactivate {{ user.email }}?">
+                            hx-confirm="Deactivate {{ user.username }}?">
                             Deactivate
                         </button>
                         {% endif %}
@@ -63,10 +63,10 @@
               class="space-y-4">
             <input type="hidden" name="role" value="engineer">
             <div class="form-control">
-                <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Email</span></label>
-                <input type="email" name="email" required
+                <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Username</span></label>
+                <input type="text" name="username" required
                        class="input input-bordered bg-base-200 font-mono text-sm focus:border-primary focus:outline-none"
-                       placeholder="engineer@example.com">
+                       placeholder="e.g. john_q, quality_eng1">
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text font-mono text-xs tracking-widest uppercase text-base-content/60">Password</span></label>

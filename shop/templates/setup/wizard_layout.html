@@ -1,5 +1,5 @@
 {% extends "_base_standalone.html" %}
-{% block title %}Setup — Step {{ current_step }} of 2 — Delta Preservation{% endblock %}
+{% block title %}Setup — Step {{ current_step }} of 3 — Delta Preservation{% endblock %}
 {% block content %}
 <div class="min-h-screen flex items-start justify-center bg-base-100 px-6 py-16">
   <div class="w-full max-w-lg">
@@ -14,7 +14,7 @@
 
     {# — Step progress — #}
     <div class="flex items-center gap-0 mb-8">
-      {% for step_num, step_label in [(1,'Shop Details'), (2,'Admin Password')] %}
+      {% for step_num, step_label in [(1,'Shop Details'), (2,'Admin Username'), (3,'Admin Password')] %}
         <div class="flex items-center {% if not loop.last %}flex-1{% endif %}">
           {# Step node #}
           <div class="flex flex-col items-center">
@@ -68,7 +68,7 @@
     {# — Footer — #}
     <div class="mt-6 text-center">
       <p class="text-base-content/25 text-[10px] font-mono tracking-widest uppercase">
-        Step {{ current_step }} / 2 · First-Run Configuration
+        Step {{ current_step }} / 3 · First-Run Configuration
       </p>
     </div>
 

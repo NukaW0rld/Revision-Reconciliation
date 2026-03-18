@@ -16,7 +16,7 @@ def _seed_engineer(db_engine) -> User:
     db = Session()
     try:
         user = User(
-            email="engineer@shop.local",
+            username="engineer_rbac",
             hashed_password=hash_password("password123"),
             role="engineer",
             is_active=True,

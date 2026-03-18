@@ -82,7 +82,7 @@ def admin_user(db_engine):
     db = Session()
     try:
         user = User(
-            email="admin@shop.local",
+            username="admin",
             hashed_password=hash_password("changeme"),
             role="admin",
             is_active=True,
@@ -117,7 +117,7 @@ def engineer_user(db_engine):
     db = Session()
     try:
         user = User(
-            email="engineer@shop.local",
+            username="engineer",
             hashed_password=hash_password("changeme"),
             role="engineer",
             is_active=True,

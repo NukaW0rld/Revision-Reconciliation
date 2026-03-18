@@ -1,5 +1,6 @@
 """
 Setup wizard tests: SETUP-01 through SETUP-04.
+Wizard is now 3 steps: shop name → admin username → admin password.
 """
 import pytest
 
@@ -43,8 +44,8 @@ def test_setup_step2_blocks_skip(client_setup_incomplete, shop_config):
     assert "/setup/step1" in response.headers["location"]
 
 
-def test_setup_step2_rejects_default_password(client_setup_incomplete, db_engine):
-    """POST /setup/step2 with 'changeme' returns 200 with an error message."""
+def test_setup_step2_post_advances_to_step3(client_setup_incomplete, db_engine):
+    """POST /setup/step2 with admin_username redirects to /setup/step3?u=<name>."""
     from sqlalchemy.orm import sessionmaker
     from shop.models import ShopConfig
     Session = sessionmaker(bind=db_engine)
@@ -57,18 +58,37 @@ def test_setup_step2_rejects_default_password(client_setup_incomplete, db_engine
 
     response = client_setup_incomplete.post(
         "/setup/step2",
-        data={"new_password": "changeme", "confirm_password": "changeme"},
+        data={"admin_username": "admin"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert "/setup/step3" in response.headers["location"]
+    assert "u=admin" in response.headers["location"]
+
+
+def test_setup_step3_rejects_default_password(client_setup_incomplete, db_engine):
+    """POST /setup/step3 with 'changeme' returns 200 with an error message."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import ShopConfig
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        db.add(ShopConfig(id=1, setup_complete=False, wizard_step=2))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client_setup_incomplete.post(
+        "/setup/step3",
+        data={"admin_username": "admin", "new_password": "changeme", "confirm_password": "changeme"},
         follow_redirects=False,
     )
     assert response.status_code == 200
     assert "Cannot reuse the default password" in response.text
 
 
-def test_setup_step1_to_step2(client_setup_incomplete, shop_config):
-    """Full step 1 → step 2 → completion flow redirects to /login."""
-    from sqlalchemy.orm import sessionmaker
-    from shop.models import ShopConfig, User
-
+def test_setup_full_flow(client_setup_incomplete, shop_config):
+    """Full step 1 → step 2 → step 3 → completion flow redirects to /login."""
     # Step 1: post shop name
     r1 = client_setup_incomplete.post(
         "/setup/step1",
@@ -78,37 +98,43 @@ def test_setup_step1_to_step2(client_setup_incomplete, shop_config):
     assert r1.status_code == 302
     assert "/setup/step2" in r1.headers["location"]
 
-    # Seed wizard_step=1 so step2 allows access
-    # (the test client already committed wizard_step=1 via step1_post)
-
-    # Step 2: set admin password — should complete setup and redirect to /login
+    # Step 2: choose admin username
     r2 = client_setup_incomplete.post(
         "/setup/step2",
-        data={"new_password": "secure1234", "confirm_password": "secure1234"},
+        data={"admin_username": "admin"},
         follow_redirects=False,
     )
     assert r2.status_code == 302
-    assert r2.headers["location"] == "/login"
+    assert "/setup/step3" in r2.headers["location"]
+
+    # Step 3: set admin password — should complete setup and redirect to /login
+    r3 = client_setup_incomplete.post(
+        "/setup/step3",
+        data={"admin_username": "admin", "new_password": "secure1234", "confirm_password": "secure1234"},
+        follow_redirects=False,
+    )
+    assert r3.status_code == 302
+    assert r3.headers["location"] == "/login"
 
 
-def test_setup_step2_creates_admin(client_setup_incomplete, db_engine):
-    """Step 2 with no existing admin creates an admin user and sets setup_complete=True."""
+def test_setup_step3_creates_admin(client_setup_incomplete, db_engine):
+    """Step 3 with no existing admin creates an admin user and sets setup_complete=True."""
     from sqlalchemy.orm import sessionmaker
     from shop.models import ShopConfig, User
 
     Session = sessionmaker(bind=db_engine)
 
-    # Seed wizard_step=1 (step1 already done)
+    # Seed wizard_step=2 (steps 1 and 2 already done)
     db = Session()
     try:
-        db.add(ShopConfig(id=1, setup_complete=False, wizard_step=1))
+        db.add(ShopConfig(id=1, setup_complete=False, wizard_step=2))
         db.commit()
     finally:
         db.close()
 
     response = client_setup_incomplete.post(
-        "/setup/step2",
-        data={"new_password": "secure1234", "confirm_password": "secure1234"},
+        "/setup/step3",
+        data={"admin_username": "admin", "new_password": "secure1234", "confirm_password": "secure1234"},
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -121,7 +147,7 @@ def test_setup_step2_creates_admin(client_setup_incomplete, db_engine):
         assert config.setup_complete is True
         admin = db.query(User).filter(User.role == "admin").first()
         assert admin is not None
-        assert admin.email == "admin@shop.local"
+        assert admin.username == "admin"
     finally:
         db.close()
 
@@ -131,13 +157,6 @@ def test_setup_step3_redirects_to_login_when_complete(client, shop_config):
     response = client.get("/setup/step3", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
-
-
-def test_setup_step3_redirects_to_setup_when_incomplete(client_setup_incomplete, shop_config):
-    """GET /setup/step3 redirects to /setup/ when setup is not complete."""
-    response = client_setup_incomplete.get("/setup/step3", follow_redirects=False)
-    assert response.status_code == 302
-    assert response.headers["location"] == "/setup/"
 
 
 def test_removed_step4_redirects_when_complete(client, shop_config):

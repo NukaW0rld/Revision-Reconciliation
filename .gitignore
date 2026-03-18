@@ -23,10 +23,6 @@ uploads/
 node_modules/
 package-lock.json
 
-# Claude
-.claude/
-CLAUDE.md
-
 # Git
 .git/
 .gitignore

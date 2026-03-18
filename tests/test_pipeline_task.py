@@ -50,7 +50,7 @@ def SessionLocal(db_engine):
 @pytest.fixture
 def reviewer(db):
     user = User(
-        email="reviewer@shop.local",
+        username="reviewer",
         hashed_password="x",
         role="engineer",
         is_active=True,

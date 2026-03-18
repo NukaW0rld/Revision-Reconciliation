@@ -25,16 +25,16 @@ def login_page(request: Request):
 def login(
     request: Request,
     response: Response,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(password, user.hashed_password):
         return templates.TemplateResponse(
             request,
             "auth/login.html",
-            {"error": "Invalid email or password"},
+            {"error": "Invalid username or password"},
             status_code=200,
         )
     if not user.is_active:

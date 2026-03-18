@@ -7,11 +7,11 @@ import pytest
 
 @pytest.mark.xfail(strict=False, reason="Admin user creation requires Plan 05 (admin routes)")
 def test_admin_creates_engineer(client, admin_user):
-    """AUTH-01: POST /admin/users with name+email creates an engineer account.
+    """AUTH-01: POST /admin/users with username creates an engineer account.
 
     Steps:
     - Log in as admin.
-    - POST /admin/users with name and email payload.
+    - POST /admin/users with username and password payload.
     - Assert 200 response and user present in DB with role=engineer.
     """
     raise NotImplementedError("Admin routes not yet implemented — Plan 05")
@@ -28,7 +28,7 @@ def test_session_persists(client, admin_user):
     # POST /login with valid credentials
     resp = client.post(
         "/login",
-        data={"email": "admin@shop.local", "password": "changeme"},
+        data={"username": "admin", "password": "changeme"},
         follow_redirects=False,
     )
     assert resp.status_code == 302, f"Expected 302 redirect after login, got {resp.status_code}"
@@ -38,7 +38,7 @@ def test_session_persists(client, admin_user):
     # GET /dashboard with the cookie in place (TestClient carries cookies automatically)
     dashboard_resp = client.get("/dashboard", follow_redirects=False)
     assert dashboard_resp.status_code == 200
-    assert "admin@shop.local" in dashboard_resp.text
+    assert "admin" in dashboard_resp.text
 
 
 def test_logout(client, admin_user):
@@ -52,7 +52,7 @@ def test_logout(client, admin_user):
     # Login first
     client.post(
         "/login",
-        data={"email": "admin@shop.local", "password": "changeme"},
+        data={"username": "admin", "password": "changeme"},
         follow_redirects=False,
     )
     assert "session_token" in client.cookies
@@ -72,11 +72,11 @@ def test_login_invalid_credentials(client, admin_user):
     """POST /login with wrong password returns 200 with error message (no redirect)."""
     resp = client.post(
         "/login",
-        data={"email": "admin@shop.local", "password": "wrongpass"},
+        data={"username": "admin", "password": "wrongpass"},
         follow_redirects=False,
     )
     assert resp.status_code == 200
-    assert "Invalid email or password" in resp.text
+    assert "Invalid username or password" in resp.text
 
 
 def test_login_inactive_user(client, db_engine):
@@ -89,7 +89,7 @@ def test_login_inactive_user(client, db_engine):
     db = Session()
     try:
         user = User(
-            email="inactive@shop.local",
+            username="inactive_user",
             hashed_password=hash_password("changeme"),
             role="engineer",
             is_active=False,
@@ -101,7 +101,7 @@ def test_login_inactive_user(client, db_engine):
 
     resp = client.post(
         "/login",
-        data={"email": "inactive@shop.local", "password": "changeme"},
+        data={"username": "inactive_user", "password": "changeme"},
         follow_redirects=False,
     )
     assert resp.status_code == 200

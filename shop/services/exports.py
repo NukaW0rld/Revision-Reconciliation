@@ -30,7 +30,7 @@ def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
         reviewer_name = ""
         if item.reviewed_by_id:
             user = db.get(User, item.reviewed_by_id)
-            reviewer_name = user.email if user else ""
+            reviewer_name = user.username if user else ""
         writer.writerow({
             "char_no": item.char_no if item.char_no is not None else "",
             "requirement_revA": item.requirement_revA or "",
@@ -63,7 +63,7 @@ def render_audit_packet_pdf(db: Session, run: Run, shop_config: ShopConfig) -> b
     signed_by_name = ""
     if run.signed_by_id:
         user = db.get(User, run.signed_by_id)
-        signed_by_name = user.email if user else ""
+        signed_by_name = user.username if user else ""
 
     html_string = templates.env.get_template("exports/audit_packet.html").render(
         run=run,

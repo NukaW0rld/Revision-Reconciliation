@@ -9,7 +9,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    username: Mapped[str] = mapped_column(String, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String)  # "admin" | "engineer"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -18,7 +18,7 @@ class User(Base):
     runs: Mapped[list["Run"]] = relationship(back_populates="reviewer", foreign_keys="Run.reviewer_id")
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} email={self.email!r} role={self.role!r}>"
+        return f"<User id={self.id} username={self.username!r} role={self.role!r}>"
 
 
 class UserSession(Base):
