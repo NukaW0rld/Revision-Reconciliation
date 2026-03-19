@@ -497,3 +497,154 @@ def test_signed_off_immutable(db_engine):
     assert run.signed_at == first_signed_at  # immutable
     assert run.status == "signed_off"
     db.close()
+
+
+# ---------------------------------------------------------------------------
+# RESET-01: Reset approved item
+# ---------------------------------------------------------------------------
+
+def test_reset_approved_item(client: TestClient, engineer_user, db_engine, tmp_path):
+    """POST reset on an approved item clears reviewer_decision and restores pending state."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    # Seed ReviewItems
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    # Approve the item
+    resp = client.post(f"/review/{run_id}/items/{char_no}/approve")
+    assert resp.status_code == 200
+
+    # Confirm approved in DB
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(
+            ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+        ).first()
+        assert item.reviewer_decision == "approved"
+    finally:
+        db.close()
+
+    # Reset the item
+    resp = client.post(f"/review/{run_id}/items/{char_no}/reset")
+    assert resp.status_code == 200, resp.text
+
+    # DB: reviewer_decision cleared
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(
+            ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+        ).first()
+        assert item.reviewer_decision is None
+        assert item.reviewed_by_id is None
+        assert item.reviewed_at is None
+    finally:
+        db.close()
+
+    # HTML: pending card shows Approve button, not the approved badge
+    assert "Approved" not in resp.text or "Change Decision" not in resp.text
+    assert 'hx-post' in resp.text
+    # The reset card is pending: data-pending="true"
+    assert 'data-pending="true"' in resp.text
+    # OOB swap present
+    assert "progress-bar" in resp.text
+    assert "hx-swap-oob" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# RESET-02: Reset overridden item
+# ---------------------------------------------------------------------------
+
+def test_reset_overridden_item(client: TestClient, engineer_user, db_engine, tmp_path):
+    """POST reset on an overridden item clears all override fields."""
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        char_no = item.char_no
+    finally:
+        db.close()
+
+    # Override the item
+    resp = client.post(
+        f"/review/{run_id}/items/{char_no}/override",
+        data={"override_classification": "changed", "override_note": "Dimension shifted"},
+    )
+    assert resp.status_code == 200
+
+    # Reset
+    resp = client.post(f"/review/{run_id}/items/{char_no}/reset")
+    assert resp.status_code == 200, resp.text
+
+    # DB: all override fields cleared
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(
+            ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+        ).first()
+        assert item.reviewer_decision is None
+        assert item.override_classification is None
+        assert item.override_note is None
+        assert item.reviewed_by_id is None
+        assert item.reviewed_at is None
+    finally:
+        db.close()
+
+    # Card is pending again
+    assert 'data-pending="true"' in resp.text
+
+
+# ---------------------------------------------------------------------------
+# RESET-03: Reset on signed-off run returns 409
+# ---------------------------------------------------------------------------
+
+def test_reset_signed_off_returns_409(client: TestClient, engineer_user, db_engine, tmp_path):
+    """POST reset on a signed-off run is rejected with 409."""
+    from unittest.mock import patch
+    from sqlalchemy.orm import sessionmaker
+    from shop.models import ReviewItem
+    from shop.services.review import attempt_sign_off
+
+    _login_engineer(client, db_engine, engineer_user)
+    run_id = _make_run_with_packet(tmp_path, db_engine, n_items=1, status="completed")
+
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        item = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).first()
+        char_no = item.char_no
+        # Approve so the queue has no pending items
+        item.reviewer_decision = "approved"
+        db.commit()
+
+        # Force run to signed_off directly (bypass PDF generation)
+        from shop.models import Run
+        run = db.query(Run).filter(Run.id == run_id).first()
+        run.status = "signed_off"
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.post(f"/review/{run_id}/items/{char_no}/reset")
+    assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
