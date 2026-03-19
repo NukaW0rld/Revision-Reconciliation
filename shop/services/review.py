@@ -1,8 +1,8 @@
 import json
-from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from shop.models import Run, ReviewItem, User
+from shop.utils import utcnow
 
 
 def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
@@ -84,7 +84,7 @@ def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
 
     try:
         # Phase 2: set signed_at/signed_by_id BEFORE generate so they're in the PDF
-        run.signed_at = datetime.utcnow()
+        run.signed_at = utcnow()
         run.signed_by_id = reviewer_id
         # Phase 4: generate and persist audit packet PDF (raises on failure → caught below)
         from shop.services.exports import generate_and_store_audit_packet

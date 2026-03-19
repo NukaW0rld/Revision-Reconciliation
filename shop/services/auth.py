@@ -1,8 +1,9 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from sqlalchemy.orm import Session
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
+from shop.utils import utcnow
 from shop.models import User, UserSession
 
 # Cost factor 12 per locked decision; bcrypt must be pinned <5.0.0 in pyproject.toml
@@ -22,7 +23,7 @@ def create_session(db: Session, user: User) -> str:
     session = UserSession(
         id=token,
         user_id=user.id,
-        expires_at=datetime.utcnow() + timedelta(hours=8),
+        expires_at=utcnow() + timedelta(hours=8),
     )
     db.add(session)
     db.commit()

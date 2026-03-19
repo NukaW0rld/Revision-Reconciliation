@@ -255,7 +255,8 @@ def cleanup_old_runs():
     signed_off, reviewing, signing_off are NEVER deleted.
     """
     import shutil
-    from datetime import datetime, timedelta
+    from datetime import timedelta
+    from shop.utils import utcnow as _utcnow
     from pathlib import Path as _Path
     from shop.database import SessionLocal as _SessionLocal
     from shop.models import Run as _Run, ShopConfig as _ShopConfig
@@ -266,7 +267,7 @@ def cleanup_old_runs():
     try:
         config = db.query(_ShopConfig).filter(_ShopConfig.id == 1).first()
         retention_days = (getattr(config, "retention_days", None) or 30)
-        cutoff = datetime.utcnow() - timedelta(days=retention_days)
+        cutoff = _utcnow() - timedelta(days=retention_days)
 
         old_runs = (
             db.query(_Run)

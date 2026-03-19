@@ -1,8 +1,9 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Generator
 from fastapi import Depends, Request, HTTPException
 from sqlalchemy.orm import Session
+from shop.utils import utcnow
 from shop.database import SessionLocal
 from shop.models import User, UserSession
 
@@ -23,12 +24,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise _redirect_to_login()
     session = db.query(UserSession).filter(
         UserSession.id == token,
-        UserSession.expires_at > datetime.utcnow()
+        UserSession.expires_at > utcnow()
     ).first()
     if not session:
         raise _redirect_to_login()
     # Sliding window: reset expiry on every authenticated request
-    session.expires_at = datetime.utcnow() + timedelta(hours=8)
+    session.expires_at = utcnow() + timedelta(hours=8)
     db.commit()
     return session.user
 

@@ -1,10 +1,10 @@
 import csv
 import io
 import json
-from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from shop.models import Run, ReviewItem, ShopConfig, User
+from shop.utils import utcnow
 
 
 def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
@@ -101,7 +101,7 @@ def generate_and_store_audit_packet(db: Session, run: Run) -> None:
         "version": version,
         "type": "original" if version == 1 else "amendment",
         "path": str(packet_path),
-        "signed_at": run.signed_at.isoformat() if run.signed_at else datetime.utcnow().isoformat(),
+        "signed_at": run.signed_at.isoformat() if run.signed_at else utcnow().isoformat(),
     }
     # Reassign list (SQLAlchemy detects JSON column mutation via assignment, not append)
     run.packet_versions = existing + [new_entry]
@@ -160,8 +160,6 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
     """Render work order to PDF bytes using WeasyPrint. Raises on failure."""
     from weasyprint import HTML
     from shop.app import templates
-    from datetime import datetime as _dt
-
     rows = _work_order_rows(db, run)
 
     class _Row:
@@ -176,7 +174,7 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
     html_string = templates.env.get_template("exports/work_order.html").render(
         run=run,
         items=template_rows,
-        generated_at=_dt.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        generated_at=utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     )
     # No images in work order — base_url irrelevant
     return HTML(string=html_string, base_url=".").write_pdf()

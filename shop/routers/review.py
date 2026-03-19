@@ -1,11 +1,11 @@
 import asyncio
 import json as _json
 from collections.abc import AsyncIterable
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy.orm import Session
+from shop.utils import utcnow
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
@@ -101,7 +101,7 @@ def approve_item(
         raise HTTPException(status_code=404)
     item.reviewer_decision = "approved"
     item.reviewed_by_id = user.id
-    item.reviewed_at = datetime.utcnow()
+    item.reviewed_at = utcnow()
     db.commit()
     db.refresh(item)
     all_items, pending, approved, overridden = _item_counts(db, run_id)
@@ -200,7 +200,7 @@ def override_item(
     item.override_classification = override_classification
     item.override_note = override_note.strip()
     item.reviewed_by_id = user.id
-    item.reviewed_at = datetime.utcnow()
+    item.reviewed_at = utcnow()
     db.commit()
     db.refresh(item)
     all_items, pending, approved, overridden = _item_counts(db, run_id)
