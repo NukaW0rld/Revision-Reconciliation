@@ -292,6 +292,19 @@
     const cards = getCards();
     if (cards.length === 0) return;
 
+    // If the swapped card is now pending, the user just reset a decision ("Change
+    // Decision"). Don't scroll anywhere — keep currentIndex on this card so
+    // keyboard shortcuts continue to work from the same position.
+    var swappedCard = document.getElementById(targetId);
+    if (swappedCard && swappedCard.dataset.pending === 'true') {
+      var resetIndex = cards.indexOf(swappedCard);
+      if (resetIndex !== -1) currentIndex = resetIndex;
+      console.log('[queue] afterSwap: reset detected, staying at index=' + currentIndex);
+      return;
+    }
+
+    // Card is now decided — auto-advance to next pending item.
+
     // Find next pending item after current index (wrapping search)
     let nextIndex = -1;
     // Search forward from currentIndex+1

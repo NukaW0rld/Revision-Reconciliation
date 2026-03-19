@@ -118,6 +118,51 @@ def approve_item(
     })
 
 
+@router.post("/{run_id}/items/{char_no}/reset", response_class=HTMLResponse)
+def reset_item(
+    run_id: int,
+    char_no: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reset a previously-decided review item back to pending (undecided) state.
+
+    Only valid before sign-off. Clears reviewer_decision, override_classification,
+    override_note, reviewed_by_id, and reviewed_at so the item can be re-reviewed.
+    Returns the updated item card HTML with OOB progress bar and signoff footer.
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+    if run.status == "signed_off":
+        raise HTTPException(status_code=409, detail="Run is already signed off")
+    item = db.query(ReviewItem).filter(
+        ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404)
+    item.reviewer_decision = None
+    item.override_classification = None
+    item.override_note = None
+    item.reviewed_by_id = None
+    item.reviewed_at = None
+    db.commit()
+    db.refresh(item)
+    all_items, pending, approved, overridden = _item_counts(db, run_id)
+    return templates.TemplateResponse(request, "review/_item_card.html", {
+        "item": item,
+        "run": run,
+        "run_id": run_id,
+        "pending": pending,
+        "approved": approved,
+        "overridden": overridden,
+        "total": len(all_items),
+        "oob_update": True,
+        "is_amendment": bool(run.parent_run_id),
+    })
+
+
 VALID_CLASSIFICATIONS = {"unchanged", "changed", "removed", "added", "uncertain"}
 
 

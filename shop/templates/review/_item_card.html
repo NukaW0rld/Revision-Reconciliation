@@ -96,6 +96,17 @@
             <p class="text-xs text-base-content/60 mt-1 font-mono">{{ item.override_note }}</p>
           </div>
         {% endif %}
+
+        {% if not read_only %}
+        <!-- CHANGE DECISION: reset to pending so item can be re-reviewed -->
+        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/reset"
+              hx-target="#review-item-{{ item.char_no }}"
+              hx-swap="outerHTML">
+          <button type="submit" class="btn btn-ghost btn-xs font-mono text-base-content/50 hover:text-base-content w-full mt-1">
+            ↩ Change Decision
+          </button>
+        </form>
+        {% endif %}
       {% endif %}
 
       {% if not item.reviewer_decision or is_amendment %}
