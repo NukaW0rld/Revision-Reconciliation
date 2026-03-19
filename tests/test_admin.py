@@ -2,7 +2,8 @@
 Admin user management tests: AUTH-01, AUTH-04 (create/deactivate engineer).
 Tests written TDD-style for Plan 04 — admin router implementation.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
+from shop.utils import utcnow
 from sqlalchemy.orm import sessionmaker
 from shop.models import User, UserSession
 from shop.services.auth import hash_password
@@ -18,7 +19,7 @@ def _make_session_cookie(db_engine, user: User) -> str:
         sess = UserSession(
             id=token,
             user_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(hours=8),
+            expires_at=utcnow() + timedelta(hours=8),
         )
         db.add(sess)
         db.commit()

@@ -4,10 +4,11 @@ Tests written TDD-style — RED first, then implementation makes them GREEN.
 Admin routes are implemented in Plan 05; tests are xfail until then.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from sqlalchemy.orm import sessionmaker
 from shop.models import User, UserSession
 from shop.services.auth import hash_password
+from shop.utils import utcnow
 
 
 def _seed_engineer(db_engine) -> User:
@@ -39,7 +40,7 @@ def _make_session_cookie(db_engine, user: User) -> str:
         sess = UserSession(
             id=token,
             user_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(hours=8),
+            expires_at=utcnow() + timedelta(hours=8),
         )
         db.add(sess)
         db.commit()

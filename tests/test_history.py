@@ -3,6 +3,7 @@ import pytest
 from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
+from shop.utils import utcnow
 
 
 def _login_engineer(client, db_engine, engineer_user):
@@ -41,7 +42,7 @@ def _run_cleanup_logic(db, retention_days):
     """Extracted cleanup logic for testability (mirrors cleanup_old_runs task body)."""
     from shop.models import Run
     DELETABLE_STATUSES = {"queued", "running", "failed", "completed"}
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = utcnow() - timedelta(days=retention_days)
     old_runs = (
         db.query(Run)
         .filter(Run.status.in_(DELETABLE_STATUSES), Run.submitted_at < cutoff)
@@ -130,9 +131,9 @@ def test_cleanup_deletes_old_runs(client: TestClient, db_engine, engineer_user):
         pytest.skip("no DB override available")
 
     # Old failed run — 60 days ago
-    old_run = _make_run(db, "failed", datetime.utcnow() - timedelta(days=60), engineer_user.id)
+    old_run = _make_run(db, "failed", utcnow() - timedelta(days=60), engineer_user.id)
     # Recent failed run — 5 days ago (should survive)
-    recent_run = _make_run(db, "failed", datetime.utcnow() - timedelta(days=5), engineer_user.id)
+    recent_run = _make_run(db, "failed", utcnow() - timedelta(days=5), engineer_user.id)
     _run_cleanup_logic(db, retention_days=30)
     db.expire_all()
     assert db.get(Run, old_run.id) is None, "old failed run should be deleted"
