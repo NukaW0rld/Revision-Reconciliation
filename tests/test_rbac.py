@@ -56,11 +56,14 @@ def test_engineer_cannot_access_admin(client, db_engine):
     """
     engineer = _seed_engineer(db_engine)
     token = _make_session_cookie(db_engine, engineer)
-
-    resp = client.get("/admin/users", cookies={"session_token": token}, follow_redirects=False)
-    # Must be a redirect (302), not 200 or 403
-    assert resp.status_code == 302
-    assert "/dashboard" in resp.headers.get("location", "")
+    client.cookies.set("session_token", token)
+    try:
+        resp = client.get("/admin/users", follow_redirects=False)
+        # Must be a redirect (302), not 200 or 403
+        assert resp.status_code == 302
+        assert "/dashboard" in resp.headers.get("location", "")
+    finally:
+        client.cookies.delete("session_token")
 
 
 def test_no_session_redirects_to_login(client):
@@ -73,5 +76,9 @@ def test_no_session_redirects_to_login(client):
 def test_admin_can_access_admin(client, admin_user, db_engine):
     """AUTH-05: Admin role can access admin-only routes."""
     token = _make_session_cookie(db_engine, admin_user)
-    resp = client.get("/admin/users", cookies={"session_token": token}, follow_redirects=False)
-    assert resp.status_code == 200
+    client.cookies.set("session_token", token)
+    try:
+        resp = client.get("/admin/users", follow_redirects=False)
+        assert resp.status_code == 200
+    finally:
+        client.cookies.delete("session_token")
