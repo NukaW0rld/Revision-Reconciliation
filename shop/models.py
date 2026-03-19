@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shop.database import Base
+from shop.utils import utcnow
 
 
 class User(Base):
@@ -13,7 +14,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String)  # "admin" | "engineer"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     runs: Mapped[list["Run"]] = relationship(back_populates="reviewer", foreign_keys="Run.reviewer_id")
 
@@ -26,7 +27,7 @@ class UserSession(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)  # secrets.token_urlsafe(32)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     user: Mapped["User"] = relationship(back_populates="sessions")
 
@@ -67,7 +68,7 @@ class Run(Base):
     form3_path: Mapped[str] = mapped_column(String)
     revA_page: Mapped[int] = mapped_column(Integer, default=0)
     revB_page: Mapped[int] = mapped_column(Integer, default=0)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     reviewer: Mapped[Optional["User"]] = relationship(back_populates="runs", foreign_keys=[reviewer_id])
     alerts: Mapped[list["RunAlert"]] = relationship(back_populates="run", cascade="all, delete-orphan")
@@ -92,7 +93,7 @@ class RunAlert(Base):
     message: Mapped[str] = mapped_column(String)
     failure_stage: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     run: Mapped["Run"] = relationship(back_populates="alerts")
     user: Mapped["User"] = relationship()
 
