@@ -6,6 +6,8 @@
 @page { size: Letter; margin: 1in; }
 body { font-family: sans-serif; font-size: 10pt; }
 h1 { font-size: 14pt; margin-bottom: 0.1in; }
+h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
+     padding-top: 0.15in; border-top: 1.5px solid #aaa; color: #222; }
 .header-table { width: 60%; border-collapse: collapse; margin-bottom: 0.3in; }
 .header-table th, .header-table td { border: 1px solid #ccc; padding: 3px 8px; font-size: 9pt; }
 .header-table th { background: #f0f0f0; text-align: left; }
@@ -13,8 +15,8 @@ h1 { font-size: 14pt; margin-bottom: 0.1in; }
 .work-table th { background: #222; color: #fff; padding: 5px 8px; text-align: left; font-size: 9pt; }
 .work-table td { border: 1px solid #ccc; padding: 4px 8px; font-size: 9pt; vertical-align: top; }
 .work-table tr:nth-child(even) td { background: #f8f8f8; }
-.priority-remeasure { font-weight: bold; }
-.priority-new { font-weight: bold; }
+.col-conf { text-align: center; width: 5em; }
+.conf-low { background: #fff3cd !important; font-weight: bold; }
 .empty-msg { margin-top: 0.5in; font-style: italic; color: #666; }
 </style>
 </head>
@@ -30,29 +32,65 @@ h1 { font-size: 14pt; margin-bottom: 0.1in; }
   <tr><th>Generated</th><td>{{ generated_at }}</td></tr>
 </table>
 
-{% if items %}
+{% if not remeasure_items and not new_items %}
+<p class="empty-msg">No changed or added characteristics — full re-inspection not required.</p>
+{% endif %}
+
+{% if remeasure_items %}
+<h2>Re-Measure — Changed Characteristics</h2>
 <table class="work-table">
   <thead>
     <tr>
       <th>Char #</th>
-      <th>Priority</th>
+      <th>Requirement (Rev A)</th>
       <th>Requirement (Rev B)</th>
       <th>Drawing Reference</th>
+      <th class="col-conf">Confidence</th>
     </tr>
   </thead>
   <tbody>
-    {% for row in items %}
+    {% for row in remeasure_items %}
     <tr>
       <td>{{ row.char_no if row.char_no is not none else "—" }}</td>
-      <td class="priority-{{ row.priority | lower | replace('-', '') }}">{{ row.priority }}</td>
+      <td>{{ row.requirement_revA or "—" }}</td>
       <td>{{ row.requirement_revB or "—" }}</td>
       <td>{{ row.drawing_reference }}</td>
+      <td class="col-conf {% if row.confidence | float < 0.70 %}conf-low{% endif %}">
+        {{ row.confidence }}
+      </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
-{% else %}
-<p class="empty-msg">No changed or added characteristics — full re-inspection not required.</p>
 {% endif %}
+
+{% if new_items %}
+<h2>New Characteristics</h2>
+<table class="work-table">
+  <thead>
+    <tr>
+      <th>Char #</th>
+      <th>Requirement (Rev A)</th>
+      <th>Requirement (Rev B)</th>
+      <th>Drawing Reference</th>
+      <th class="col-conf">Confidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in new_items %}
+    <tr>
+      <td>{{ row.char_no if row.char_no is not none else "—" }}</td>
+      <td>{{ row.requirement_revA or "—" }}</td>
+      <td>{{ row.requirement_revB or "—" }}</td>
+      <td>{{ row.drawing_reference }}</td>
+      <td class="col-conf {% if row.confidence | float < 0.70 %}conf-low{% endif %}">
+        {{ row.confidence }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
 </body>
 </html>

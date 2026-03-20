@@ -121,7 +121,12 @@ def _effective_classification(item: "ReviewItem") -> str:
 
 
 def _work_order_rows(db: Session, run: Run) -> list[dict]:
-    """Return work order data rows for changed and added characteristics."""
+    """Return work order data rows for changed and added characteristics.
+
+    Each dict contains:
+      char_no, priority, requirement_revA, requirement_revB,
+      drawing_reference, confidence, override_note
+    """
     items = (
         db.query(ReviewItem)
         .filter(ReviewItem.run_id == run.id)
@@ -135,11 +140,19 @@ def _work_order_rows(db: Session, run: Run) -> list[dict]:
             continue
         priority = "RE-MEASURE" if eff == "changed" else "NEW"
         drawing_ref = f"Balloon {item.char_no}" if item.char_no is not None else "—"
+        override_note = (
+            item.override_note
+            if item.reviewer_decision == "overridden" and item.override_note
+            else ""
+        )
         rows.append({
             "char_no": item.char_no,
             "priority": priority,
+            "requirement_revA": item.requirement_revA or "",
             "requirement_revB": item.requirement_revB or "",
             "drawing_reference": drawing_ref,
+            "confidence": f"{item.confidence:.2f}",
+            "override_note": override_note,
         })
     return rows
 
@@ -148,7 +161,11 @@ def generate_work_order_csv(db: Session, run: Run) -> io.StringIO:
     """Generate work order CSV. Returns StringIO seeked to 0."""
     rows = _work_order_rows(db, run)
     output = io.StringIO()
-    fieldnames = ["char_no", "priority", "requirement_revB", "drawing_reference"]
+    fieldnames = [
+        "char_no", "priority",
+        "requirement_revA", "requirement_revB",
+        "drawing_reference", "confidence", "override_note",
+    ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(rows)
@@ -167,13 +184,19 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
             self.__dict__.update(d)
             self.char_no = d["char_no"]
             self.priority = d["priority"]
+            self.requirement_revA = d["requirement_revA"]
             self.requirement_revB = d["requirement_revB"]
             self.drawing_reference = d["drawing_reference"]
+            self.confidence = d["confidence"]
 
-    template_rows = [_Row(r) for r in rows]
+    all_rows = [_Row(r) for r in rows]
+    remeasure_items = [r for r in all_rows if r.priority == "RE-MEASURE"]
+    new_items = [r for r in all_rows if r.priority == "NEW"]
+
     html_string = templates.env.get_template("exports/work_order.html").render(
         run=run,
-        items=template_rows,
+        remeasure_items=remeasure_items,
+        new_items=new_items,
         generated_at=utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     )
     # No images in work order — base_url irrelevant

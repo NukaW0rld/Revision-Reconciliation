@@ -168,10 +168,14 @@ def test_work_order_filters_status(client: TestClient, engineer_user):
     assert "1" in char_nos
     assert "2" in char_nos
     assert "3" not in char_nos  # unchanged excluded
+    # New columns present in header
+    assert "requirement_revA" in rows[0]
+    assert "confidence" in rows[0]
+    assert "override_note" in rows[0]
 
 
 def test_work_order_priority_labels(client: TestClient, engineer_user):
-    """WORK-03: RE-MEASURE for changed, NEW for added."""
+    """WORK-03: RE-MEASURE for changed, NEW for added; requirement_revA column present."""
     from shop.dependencies import get_db
     db_gen = client.app.dependency_overrides.get(get_db)
     db = next(db_gen()) if db_gen else None
@@ -181,9 +185,10 @@ def test_work_order_priority_labels(client: TestClient, engineer_user):
     from shop.services.exports import generate_work_order_csv
     buf = generate_work_order_csv(db, run)
     reader = csv.DictReader(buf)
-    rows = {r["char_no"]: r["priority"] for r in reader}
-    assert rows["1"] == "RE-MEASURE"
-    assert rows["2"] == "NEW"
+    rows = {r["char_no"]: r for r in reader}
+    assert rows["1"]["priority"] == "RE-MEASURE"
+    assert rows["2"]["priority"] == "NEW"
+    assert "requirement_revA" in rows["1"]
 
 
 def test_work_order_pdf_csv(client: TestClient, db_engine, engineer_user):
@@ -199,3 +204,92 @@ def test_work_order_pdf_csv(client: TestClient, db_engine, engineer_user):
         resp = client.get(f"/exports/{run.id}/work-order.{ext}")
         assert resp.status_code == 200, f"work-order.{ext} returned {resp.status_code}"
         assert "attachment" in resp.headers.get("content-disposition", "")
+
+
+def _make_run_with_override(db, engineer_id):
+    """Create signed-off run: char 1 changed+overridden with note, char 2 added (no note)."""
+    from shop.models import Run, ReviewItem
+    run = Run(
+        part_number="PN-OVR",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="OVR-001",
+        status="signed_off",
+        output_dir=None,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_id,
+        signed_at=datetime(2026, 3, 8),
+        signed_by_id=engineer_id,
+    )
+    db.add(run)
+    db.flush()
+    # char 1: pipeline says changed, reviewer overrides and adds a note
+    item1 = ReviewItem(
+        run_id=run.id,
+        char_no=1,
+        pipeline_classification="changed",
+        confidence=0.65,
+        requirement_revA="Ø 6.0 ± 0.1",
+        requirement_revB="Ø 6.0 ± 0.05",
+        reviewer_decision="overridden",
+        override_classification="changed",
+        override_note="Tolerance tightened — confirmed with design authority",
+        reviewed_by_id=engineer_id,
+        reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+    )
+    # char 2: added, no override
+    item2 = ReviewItem(
+        run_id=run.id,
+        char_no=2,
+        pipeline_classification="added",
+        confidence=0.92,
+        requirement_revA=None,
+        requirement_revB="R3.5 mm",
+        reviewer_decision="approved",
+        reviewed_by_id=engineer_id,
+        reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+    )
+    db.add_all([item1, item2])
+    db.commit()
+    return run
+
+
+def test_work_order_override_note_in_csv(client: TestClient, engineer_user):
+    """WORK-05: override_note present for overridden items, empty for others."""
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_override(db, engineer_user.id)
+    from shop.services.exports import generate_work_order_csv
+    buf = generate_work_order_csv(db, run)
+    reader = csv.DictReader(buf)
+    rows = {r["char_no"]: r for r in reader}
+    assert rows["1"]["override_note"] == "Tolerance tightened — confirmed with design authority"
+    assert rows["2"]["override_note"] == ""
+
+
+def test_work_order_confidence_in_csv(client: TestClient, engineer_user):
+    """WORK-06: confidence formatted to 2 decimal places in CSV."""
+    from shop.dependencies import get_db
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+    run = _make_run_with_override(db, engineer_user.id)
+    from shop.services.exports import generate_work_order_csv
+    buf = generate_work_order_csv(db, run)
+    reader = csv.DictReader(buf)
+    rows = {r["char_no"]: r for r in reader}
+    # char 1 confidence=0.65 → "0.65"
+    assert rows["1"]["confidence"] == "0.65"
+    # char 2 confidence=0.92 → "0.92"
+    assert rows["2"]["confidence"] == "0.92"
+    # values are 2 dp formatted strings
+    for char_no, row in rows.items():
+        parts = row["confidence"].split(".")
+        assert len(parts) == 2 and len(parts[1]) == 2, f"char {char_no}: bad confidence format {row['confidence']!r}"
