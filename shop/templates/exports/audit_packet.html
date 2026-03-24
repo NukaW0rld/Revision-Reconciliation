@@ -10,10 +10,18 @@ body { font-family: sans-serif; font-size: 10pt; }
 .item-card { page-break-after: always; }
 .item-card:last-child { page-break-after: avoid; }
 table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; font-size: 9pt; }
+th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; font-size: 9pt; vertical-align: top; }
 th { background: #f0f0f0; }
 img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: block; margin: 4px 0; }
 .label { font-size: 8pt; color: #666; }
+.semantic-chip { display: inline-block; border: 1px solid #bbb; border-radius: 999px; padding: 1px 8px; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; color: #444; }
+.semantic-block { margin-top: 10px; border: 1px solid #d8d8d8; background: #fafafa; padding: 8px 10px; }
+.semantic-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+.semantic-label { font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
+.semantic-heading { font-size: 10pt; font-weight: bold; color: #222; }
+.semantic-lines, .semantic-rationale { margin: 0; padding-left: 16px; }
+.semantic-lines li, .semantic-rationale li { margin: 2px 0; }
+.semantic-rationale-label { margin: 8px 0 3px; font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
 </style>
 </head>
 <body>
@@ -42,15 +50,40 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
         <th>Char #</th>
         <th>Pipeline Classification</th>
         <th>Reviewer Decision</th>
+        <th>Semantic Read</th>
+        <th>Semantic Rationale</th>
         <th>Override Note</th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
+      {% set semantic_contract = semantic_by_char.get(item.char_no) %}
+      {% set semantic_lines = semantic_contract | semantic_detail_lines if semantic_contract else [] %}
       <tr>
         <td>{{ item.char_no if item.char_no is not none else "—" }}</td>
         <td>{{ item.pipeline_classification }}</td>
         <td>{{ item.reviewer_decision or "—" }}</td>
+        <td>
+          {% if semantic_contract and semantic_contract.has_content %}
+            {% if semantic_contract.block_label %}
+              <strong>{{ semantic_contract.block_label }}</strong><br>
+            {% endif %}
+            {% for line in semantic_lines %}
+              {{ line }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>
+          {% if semantic_contract and semantic_contract.reason_fragments %}
+            {% for fragment in semantic_contract.reason_fragments %}
+              {{ fragment }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
         <td>{{ (item.override_note or "")[:80] }}{% if item.override_note and item.override_note|length > 80 %}…{% endif %}</td>
       </tr>
       {% endfor %}
@@ -60,6 +93,8 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
 
 <!-- Per-item detail cards -->
 {% for item in items %}
+{% set semantic_contract = semantic_by_char.get(item.char_no) %}
+{% set semantic_lines = semantic_contract | semantic_detail_lines if semantic_contract else [] %}
 <div class="item-card">
   <h3>Characteristic #{{ item.char_no if item.char_no is not none else "—" }}</h3>
   <div style="display:flex; gap:1in;">
@@ -88,6 +123,37 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
         <tr><th>Override Note</th><td>{{ item.override_note }}</td></tr>
         {% endif %}
       </table>
+
+      {% if semantic_contract and semantic_contract.has_content %}
+      <div class="semantic-block">
+        <div class="semantic-title">
+          <div>
+            <div class="semantic-label">Semantic Read</div>
+            <div class="semantic-heading">{{ semantic_contract.block_label or semantic_contract.family_label }}</div>
+          </div>
+          {% if semantic_contract.status_label %}
+          <span class="semantic-chip">{{ semantic_contract.status_label }}</span>
+          {% endif %}
+        </div>
+
+        {% if semantic_lines %}
+        <ul class="semantic-lines">
+          {% for line in semantic_lines %}
+          <li>{{ line }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if semantic_contract.reason_fragments %}
+        <p class="semantic-rationale-label">Rationale</p>
+        <ul class="semantic-rationale">
+          {% for fragment in semantic_contract.reason_fragments %}
+          <li>{{ fragment }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

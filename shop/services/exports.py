@@ -232,6 +232,12 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
             self.requirement_revB = d["requirement_revB"]
             self.drawing_reference = d["drawing_reference"]
             self.confidence = d["confidence"]
+            self.override_note = d.get("override_note", "")
+            self.semantic = d.get("semantic")
+            self.semantic_summary = d.get("semantic_summary", "")
+            self.semantic_reason_summary = d.get("semantic_reason_summary", "")
+            self.semantic_status = d.get("semantic_status", "")
+            self.semantic_family = d.get("semantic_family", "")
 
     all_rows = [_Row(r) for r in rows]
     remeasure_items = [r for r in all_rows if r.priority == "RE-MEASURE"]

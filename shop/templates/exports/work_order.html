@@ -18,6 +18,11 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
 .col-conf { text-align: center; width: 5em; }
 .conf-low { background: #fff3cd !important; font-weight: bold; }
 .empty-msg { margin-top: 0.5in; font-style: italic; color: #666; }
+.semantic-inline-label { display: inline-block; margin-bottom: 4px; font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.06em; }
+.semantic-inline-lines, .semantic-inline-rationale { margin: 0; padding-left: 16px; }
+.semantic-inline-lines li, .semantic-inline-rationale li { margin: 2px 0; }
+.semantic-inline-rationale-label { margin: 6px 0 3px; font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.06em; }
+.semantic-empty { color: #888; }
 </style>
 </head>
 <body>
@@ -36,6 +41,30 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
 <p class="empty-msg">No changed or added characteristics — full re-inspection not required.</p>
 {% endif %}
 
+{% macro semantic_cell(row) -%}
+  {% if row.semantic and row.semantic.has_content %}
+    {% set semantic_lines = row.semantic | semantic_detail_lines %}
+    <span class="semantic-inline-label">{{ row.semantic.block_label or row.semantic.family_label }}</span>
+    {% if semantic_lines %}
+      <ul class="semantic-inline-lines">
+        {% for line in semantic_lines %}
+          <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if row.semantic.reason_fragments %}
+      <p class="semantic-inline-rationale-label">Rationale</p>
+      <ul class="semantic-inline-rationale">
+        {% for fragment in row.semantic.reason_fragments %}
+          <li>{{ fragment }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% else %}
+    <span class="semantic-empty">—</span>
+  {% endif %}
+{%- endmacro %}
+
 {% if remeasure_items %}
 <h2>Re-Measure — Changed Characteristics</h2>
 <table class="work-table">
@@ -44,6 +73,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <th>Char #</th>
       <th>Requirement (Rev A)</th>
       <th>Requirement (Rev B)</th>
+      <th>Semantic Evidence</th>
       <th>Drawing Reference</th>
       <th class="col-conf">Confidence</th>
     </tr>
@@ -54,7 +84,16 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <td>{{ row.char_no if row.char_no is not none else "—" }}</td>
       <td>{{ row.requirement_revA or "—" }}</td>
       <td>{{ row.requirement_revB or "—" }}</td>
-      <td>{{ row.drawing_reference }}</td>
+      <td>{{ semantic_cell(row) }}</td>
+      <td>
+        {{ row.drawing_reference }}
+        {% if row.override_note %}
+          <div style="margin-top:4px;">
+            <span class="semantic-inline-label">Override Note</span>
+            <div>{{ row.override_note }}</div>
+          </div>
+        {% endif %}
+      </td>
       <td class="col-conf {% if row.confidence | float < 0.70 %}conf-low{% endif %}">
         {{ row.confidence }}
       </td>
@@ -72,6 +111,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <th>Char #</th>
       <th>Requirement (Rev A)</th>
       <th>Requirement (Rev B)</th>
+      <th>Semantic Evidence</th>
       <th>Drawing Reference</th>
       <th class="col-conf">Confidence</th>
     </tr>
@@ -82,7 +122,16 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <td>{{ row.char_no if row.char_no is not none else "—" }}</td>
       <td>{{ row.requirement_revA or "—" }}</td>
       <td>{{ row.requirement_revB or "—" }}</td>
-      <td>{{ row.drawing_reference }}</td>
+      <td>{{ semantic_cell(row) }}</td>
+      <td>
+        {{ row.drawing_reference }}
+        {% if row.override_note %}
+          <div style="margin-top:4px;">
+            <span class="semantic-inline-label">Override Note</span>
+            <div>{{ row.override_note }}</div>
+          </div>
+        {% endif %}
+      </td>
       <td class="col-conf {% if row.confidence | float < 0.70 %}conf-low{% endif %}">
         {{ row.confidence }}
       </td>
