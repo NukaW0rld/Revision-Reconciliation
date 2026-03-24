@@ -81,7 +81,7 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
     form3.write_bytes(b"PK")
 
     anchor = _FakeAnchor(char_no=7, requirement_raw="SURFACE FINISH 63 MICROINCH")
-    revb_semantic_span = _span("⟂ 0.05 A B", block_id=4, line_id=2, span_id=1, x0=40.0, y0=22.0)
+    revb_semantic_span = _span("⌖ ⌀0.05 M A B", block_id=4, line_id=2, span_id=1, x0=40.0, y0=22.0)
 
     classified_item = _FakeInternalDeltaItem(
         char_no=7,
@@ -134,16 +134,33 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
     assert semantic["provenance"]["authority"] == "pdf"
     assert semantic["provenance"]["source_type"] == "drawing_pdf"
     assert semantic["provenance"]["source_ref"] == "pdf:block:4/line:2/span:1"
-    assert semantic["status"]["state"] == "not_implemented"
-    assert semantic["status"]["reason_code"] == "not_implemented_in_slice"
+    assert semantic["provenance"]["notes"] == [
+        "PDF-derived spans are authoritative for semantic extraction.",
+        "Form 3 requirement text was retained as secondary advisory context.",
+        "PDF authority overrode conflicting Form 3 semantic wording.",
+    ]
+    assert semantic["status"] == {
+        "state": "parsed",
+        "parser_family": "gdt",
+        "detail": "parsed feature control frame from PDF spans",
+    }
     assert semantic["metadata"]["dispatcher"] == "semantic_dispatch"
     assert semantic["metadata"]["authority_source"] == "pdf"
     assert semantic["metadata"]["planned_families"] == "gdt,weld,surface_finish,fit"
-    assert semantic["raw_text"] == "⟂ 0.05 A B"
-    assert "gdt" in semantic
-    assert "weld" in semantic
-    assert "surface_finish" in semantic
-    assert "fit" in semantic
+    assert semantic["metadata"]["conflict_detected"] == "true"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+    assert semantic["raw_text"] == "⌖ ⌀0.05 M A B"
+    assert semantic["normalized_text"] == "⌖ ⌀0.05 M A B"
+    assert semantic["gdt"] == {
+        "frame_text": "⌖ | ⌀0.05 | M | A | B",
+        "control_type": "position",
+        "tolerance_text": "⌀0.05",
+        "datum_refs": ["A", "B"],
+        "modifiers": ["MMC"],
+    }
+    assert "weld" not in semantic
+    assert "surface_finish" not in semantic
+    assert "fit" not in semantic
 
 
 def test_run_pipeline_uses_pdf_span_inputs_for_matched_and_added_semantics(tmp_path):

@@ -534,7 +534,7 @@ def run_pipeline(
 
     packet_path = run_dir / "delta_packet.json"
     with open(packet_path, "w") as f:
-        f.write(packet.model_dump_json(indent=2))
+        f.write(packet.model_dump_json(indent=2, exclude_none=True))
 
     print(f"  Written to {packet_path}")
     print()
