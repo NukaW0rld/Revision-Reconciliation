@@ -1,10 +1,13 @@
 """Phase 4: Audit packet and work order export tests."""
 import csv
 import io
+import json
 import pytest
 from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
+
+from shop.services.exports import semantic_contracts_by_char
 
 # conftest provides: client, admin_user, engineer_user fixtures
 
@@ -58,8 +61,189 @@ def _make_signed_run(db, engineer_id):
     return run
 
 
-def test_audit_packet_pdf_bytes(client: TestClient):
-    """PACKET-01: PDF bytes generated (smoke test — verifies WeasyPrint runs)."""
+def test_exports_semantic_contract_shapes_csv_and_work_order_rows(tmp_path, client: TestClient, engineer_user):
+    """semantic_contract: export service carries parsed and fallback semantic summaries."""
+    from shop.dependencies import get_db
+    from shop.models import Run, ReviewItem
+    from shop.services.exports import generate_audit_packet_csv, _work_order_rows
+
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+
+    out_dir = tmp_path / "out" / "semantic-export-001"
+    out_dir.mkdir(parents=True)
+    packet = {
+        "run_id": "semantic-export-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 1,
+                "status": "changed",
+                "confidence": 0.87,
+                "reasons": [
+                    "semantic weld changed: size 1/8 → 3/16",
+                    "meaningful drawing requirement change",
+                ],
+                "scores": {"location": 0.8, "text": 0.78, "context": 0.76},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:1/span:6",
+                        "notes": ["pdf span selected"],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "weld",
+                        "reason_code": None,
+                        "detail": "parsed bounded weld callout from authoritative semantic text",
+                    },
+                    "raw_text": "3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD",
+                    "normalized_text": "3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD",
+                    "weld": {
+                        "process": "fillet",
+                        "size": "3/16",
+                        "contour": "flush",
+                        "side": "both_sides",
+                        "length": "1.50",
+                        "pitch": "3.00",
+                        "tail": "FIELD",
+                        "all_around": True,
+                    },
+                    "metadata": {"authority_source": "pdf"},
+                },
+            },
+            {
+                "char_no": 2,
+                "status": "added",
+                "confidence": 0.72,
+                "reasons": [
+                    "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+                    "New requirement detected in Rev B",
+                ],
+                "scores": {"location": 0.7, "text": 0.69, "context": 0.68},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:1/span:9",
+                        "notes": ["pdf span selected"],
+                    },
+                    "status": {
+                        "state": "empty",
+                        "parser_family": "surface_finish",
+                        "reason_code": "surface_finish_no_match",
+                        "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar",
+                    },
+                    "raw_text": "FLAG NOTE 12",
+                    "normalized_text": "FLAG NOTE 12",
+                    "metadata": {"authority_source": "pdf"},
+                },
+            },
+            {
+                "char_no": 3,
+                "status": "unchanged",
+                "confidence": 0.95,
+                "reasons": ["Location and text matched"],
+                "scores": {"location": 0.93, "text": 0.92, "context": 0.91},
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    }
+    (out_dir / "delta_packet.json").write_text(json.dumps(packet))
+
+    run = Run(
+        part_number="PN-SEM",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Acme",
+        job_number="JOB-SEM",
+        status="signed_off",
+        output_dir=str(out_dir),
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/form3.xlsx",
+        reviewer_id=engineer_user.id,
+        signed_at=datetime(2026, 3, 8, 12, 0, 0),
+        signed_by_id=engineer_user.id,
+    )
+    db.add(run)
+    db.flush()
+    db.add_all([
+        ReviewItem(
+            run_id=run.id,
+            char_no=1,
+            pipeline_classification="changed",
+            confidence=0.87,
+            requirement_revA="1/8 FILLET BOTH SIDES",
+            requirement_revB="3/16 FILLET BOTH SIDES",
+            reviewer_decision="approved",
+            reviewed_by_id=engineer_user.id,
+            reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+        ),
+        ReviewItem(
+            run_id=run.id,
+            char_no=2,
+            pipeline_classification="added",
+            confidence=0.72,
+            requirement_revA=None,
+            requirement_revB="FLAG NOTE 12",
+            reviewer_decision="approved",
+            reviewed_by_id=engineer_user.id,
+            reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+        ),
+        ReviewItem(
+            run_id=run.id,
+            char_no=3,
+            pipeline_classification="unchanged",
+            confidence=0.95,
+            requirement_revA="Stable requirement",
+            requirement_revB="Stable requirement",
+            reviewer_decision="approved",
+            reviewed_by_id=engineer_user.id,
+            reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+        ),
+    ])
+    db.commit()
+    db.refresh(run)
+
+    contracts = semantic_contracts_by_char(run)
+    assert contracts[1]["family_label"] == "Weld"
+    assert contracts[1]["summary"] == "fillet size 3/16 both_sides all-around length 1.50 pitch 3.00 contour flush tail FIELD"
+    assert contracts[2]["status"] == "empty"
+    assert contracts[2]["block_label"] == "Surface Finish empty"
+    assert contracts[3] is None
+
+    csv_rows = list(csv.DictReader(generate_audit_packet_csv(db, run)))
+    assert csv_rows[0]["semantic_family"] == "Weld"
+    assert csv_rows[0]["semantic_status"] == "parsed"
+    assert csv_rows[0]["semantic_summary"] == contracts[1]["summary"]
+    assert csv_rows[0]["semantic_reason_summary"] == "semantic weld changed: size 1/8 → 3/16"
+    assert csv_rows[1]["semantic_family"] == "Surface Finish"
+    assert csv_rows[1]["semantic_status"] == "empty"
+    assert csv_rows[1]["semantic_summary"] == "FLAG NOTE 12"
+    assert csv_rows[1]["semantic_reason_summary"] == (
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match"
+    )
+    assert csv_rows[2]["semantic_family"] == ""
+    assert csv_rows[2]["semantic_summary"] == ""
+
+    work_rows = _work_order_rows(db, run)
+    assert work_rows[0]["semantic_family"] == "Weld"
+    assert work_rows[0]["semantic_summary"] == contracts[1]["summary"]
+    assert work_rows[1]["semantic_status"] == "empty"
+    assert work_rows[1]["semantic_reason_summary"] == (
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match"
+    )
+
+
     from shop.dependencies import get_db
     db_gen = client.app.dependency_overrides.get(get_db)
     db = next(db_gen()) if db_gen else None

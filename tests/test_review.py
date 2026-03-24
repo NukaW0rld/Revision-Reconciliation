@@ -16,6 +16,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
+from shop.services.review import semantic_contracts_by_char
+
 
 def _login_engineer(client, db_engine, engineer_user):
     """Seed a session for the engineer user and set cookie on client."""
@@ -72,9 +74,141 @@ def _make_run_with_packet(tmp_path, db_engine, n_items=3, *, status="completed")
     return run_id
 
 
-# ---------------------------------------------------------------------------
-# REVIEW-01: Review queue loads
-# ---------------------------------------------------------------------------
+def test_review_semantic_contract_shapes_parsed_and_fallback_states(tmp_path, db_engine):
+    """semantic_contract: review service exposes parsed and fallback semantic summaries."""
+    from shop.models import Run
+
+    packet = {
+        "run_id": "semantic-review-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 10,
+                "status": "changed",
+                "confidence": 0.84,
+                "reasons": [
+                    "semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20",
+                    "meaningful drawing requirement change",
+                ],
+                "scores": {"location": 0.88, "text": 0.70, "context": 0.81},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:1/span:42",
+                        "notes": ["pdf span selected"],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "gdt",
+                        "reason_code": None,
+                        "detail": "parsed feature control frame from PDF spans",
+                    },
+                    "raw_text": "⌖ ⌀0.20 M A B C",
+                    "normalized_text": "⌖ ⌀0.20 M A B C",
+                    "gdt": {
+                        "frame_text": "⌖ | ⌀0.20 | M | A | B | C",
+                        "control_type": "position",
+                        "tolerance_text": "⌀0.20",
+                        "datum_refs": ["A", "B", "C"],
+                        "modifiers": ["MMC"],
+                    },
+                    "metadata": {"authority_source": "pdf"},
+                },
+            },
+            {
+                "char_no": 11,
+                "status": "unchanged",
+                "confidence": 0.61,
+                "reasons": [
+                    "semantic comparison fallback: left semantic state error/weld_malformed",
+                    "Primary dimension matches",
+                ],
+                "scores": {"location": 0.65, "text": 0.60, "context": 0.58},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:2/span:8",
+                        "notes": ["pdf span selected"],
+                    },
+                    "status": {
+                        "state": "error",
+                        "parser_family": "weld",
+                        "reason_code": "weld_malformed",
+                        "detail": "recognized weld callout is missing a parseable size token before the weld type",
+                    },
+                    "raw_text": "FILLET BOTH SIDES",
+                    "normalized_text": "FILLET BOTH SIDES",
+                    "metadata": {"authority_source": "pdf"},
+                },
+            },
+            {
+                "char_no": 12,
+                "status": "unchanged",
+                "confidence": 0.97,
+                "reasons": ["Location and text matched"],
+                "scores": {"location": 0.98, "text": 0.96, "context": 0.94},
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    }
+    out_dir = tmp_path / "out" / "semantic-review-001"
+    out_dir.mkdir(parents=True)
+    (out_dir / "delta_packet.json").write_text(json.dumps(packet))
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        run = Run(
+            part_number="P-SEM",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="ACME",
+            job_number="JOB-SEM",
+            status="completed",
+            output_dir=str(out_dir),
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form3.xlsx",
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+
+        contracts = semantic_contracts_by_char(run)
+        parsed = contracts[10]
+        fallback = contracts[11]
+
+        assert parsed["family"] == "gdt"
+        assert parsed["family_label"] == "GD&T"
+        assert parsed["status"] == "parsed"
+        assert parsed["summary"] == "position ⌀0.20 datums A, B, C modifiers MMC"
+        assert parsed["block_label"] == "GD&T parsed"
+        assert parsed["reason_fragments"] == ["semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20"]
+        assert parsed["is_parsed"] is True
+        assert parsed["is_fallback"] is False
+
+        assert fallback["family"] == "weld"
+        assert fallback["status"] == "error"
+        assert fallback["reason_code"] == "weld_malformed"
+        assert fallback["summary"] == "FILLET BOTH SIDES"
+        assert fallback["block_label"] == "Weld error"
+        assert fallback["reason_fragments"] == [
+            "semantic comparison fallback: left semantic state error/weld_malformed"
+        ]
+        assert fallback["is_parsed"] is False
+        assert fallback["is_fallback"] is True
+
+        assert contracts[12] is None
+    finally:
+        db.close()
+
 
 def test_review_queue_loads(client: TestClient, engineer_user, db_engine, tmp_path):
     """GET /review/{run_id} returns 200 with all ReviewItems listed."""

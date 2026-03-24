@@ -1,8 +1,34 @@
 import json
 from pathlib import Path
 from sqlalchemy.orm import Session
+from delta_preservation.types import DeltaItem
 from shop.models import Run, ReviewItem, User
+from shop.services.semantics import shape_semantic_contract
 from shop.utils import utcnow
+
+
+def _load_delta_packet(run: Run) -> dict:
+    packet_path = Path(run.output_dir) / "delta_packet.json"
+    return json.loads(packet_path.read_text())
+
+
+def semantic_contracts_by_char(run: Run) -> dict[int | None, dict]:
+    """Return template-safe semantic summaries keyed by char_no for a run."""
+    if not run.output_dir:
+        return {}
+
+    packet_data = _load_delta_packet(run)
+    shaped: dict[int | None, dict] = {}
+    for raw_item in packet_data.get("items", []):
+        char_no = raw_item.get("char_no")
+        shaped[char_no] = shape_semantic_contract(DeltaItem.model_validate(raw_item))
+    return shaped
+
+
+def semantic_contract_for_item(run: Run, item: ReviewItem) -> dict | None:
+    if item.char_no is None:
+        return semantic_contracts_by_char(run).get(None)
+    return semantic_contracts_by_char(run).get(item.char_no)
 
 
 def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
@@ -22,8 +48,7 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
         )
 
     # Load delta_packet
-    packet_path = Path(run.output_dir) / "delta_packet.json"
-    packet_data = json.loads(packet_path.read_text())
+    packet_data = _load_delta_packet(run)
 
     # Optionally load requirement text from form3_chars.json
     req_map: dict[int, str] = {}
