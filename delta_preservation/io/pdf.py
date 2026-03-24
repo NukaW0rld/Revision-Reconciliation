@@ -7,7 +7,7 @@ rendered image space.
 """
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Sequence
 from dataclasses import dataclass
 
 import fitz  # PyMuPDF
@@ -173,6 +173,13 @@ def extract_text_spans(pdf_path: Path, page_index: int) -> List[TextSpan]:
     doc.close()
     
     return spans
+
+
+def join_text_spans(spans: Sequence[TextSpan]) -> str:
+    """Join span text in a stable top-to-bottom, left-to-right order."""
+
+    ordered = sorted(spans, key=lambda span: (span.bbox_pdf[1], span.bbox_pdf[0], span.block_id, span.line_id, span.span_id))
+    return " ".join(span.text.strip() for span in ordered if span.text and span.text.strip())
 
 
 def pdf_to_img_coords(
