@@ -221,20 +221,40 @@ def test_review_semantic_contract_shapes_parsed_and_fallback_states(tmp_path, db
         assert parsed["family"] == "gdt"
         assert parsed["family_label"] == "GD&T"
         assert parsed["status"] == "parsed"
+        assert parsed["status_label"] == "parsed"
         assert parsed["summary"] == "position ⌀0.20 datums A, B, C modifiers MMC"
+        assert parsed["normalized_text"] == "⌖ ⌀0.20 M A B C"
+        assert parsed["detail"] == "parsed feature control frame from PDF spans"
         assert parsed["block_label"] == "GD&T parsed"
         assert parsed["reason_fragments"] == ["semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20"]
+        assert parsed["reason_summary"] == "semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20"
+        assert parsed["provenance"] == {
+            "authority": "pdf",
+            "source_type": "drawing_pdf",
+            "source_ref": "page:1/span:42",
+            "notes": ["pdf span selected"],
+        }
         assert parsed["is_parsed"] is True
         assert parsed["is_fallback"] is False
 
         assert fallback["family"] == "weld"
         assert fallback["status"] == "error"
+        assert fallback["status_label"] == "error"
         assert fallback["reason_code"] == "weld_malformed"
         assert fallback["summary"] == "FILLET BOTH SIDES"
+        assert fallback["normalized_text"] == "FILLET BOTH SIDES"
+        assert fallback["detail"] == "recognized weld callout is missing a parseable size token before the weld type"
         assert fallback["block_label"] == "Weld error"
         assert fallback["reason_fragments"] == [
             "semantic comparison fallback: left semantic state error/weld_malformed"
         ]
+        assert fallback["reason_summary"] == "semantic comparison fallback: left semantic state error/weld_malformed"
+        assert fallback["provenance"] == {
+            "authority": "pdf",
+            "source_type": "drawing_pdf",
+            "source_ref": "page:2/span:8",
+            "notes": ["pdf span selected"],
+        }
         assert fallback["is_parsed"] is False
         assert fallback["is_fallback"] is True
 

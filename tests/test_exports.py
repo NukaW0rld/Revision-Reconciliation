@@ -349,15 +349,32 @@ def test_exports_semantic_contract_shapes_csv_and_work_order_rows(tmp_path, clie
     contracts = semantic_contracts_by_char(run)
     assert contracts[21]["family_label"] == "GD&T"
     assert contracts[21]["summary"] == "position ⌀0.20 datums A, B, C modifiers MMC"
+    assert contracts[21]["detail"] == "parsed feature control frame from PDF spans"
+    assert contracts[21]["provenance"] == {
+        "authority": "pdf",
+        "source_type": "drawing_pdf",
+        "source_ref": "page:1/span:4",
+        "notes": [],
+    }
     assert contracts[22]["family_label"] == "Weld"
     assert contracts[22]["summary"] == "fillet size 3/8 both sides"
+    assert contracts[22]["detail"] == "parsed weld symbol from callout text"
     assert contracts[23]["family_label"] == "Surface Finish"
     assert contracts[23]["summary"] == "Ra 63"
+    assert contracts[23]["detail"] == "parsed surface finish requirement"
     assert contracts[24]["family_label"] == "Fit"
     assert contracts[24]["summary"] == "H7/g6 (hole basis)"
+    assert contracts[24]["detail"] == "parsed ISO fit notation"
     assert contracts[25] is None
     assert contracts[26]["status"] == "empty"
     assert contracts[26]["block_label"] == "Surface Finish empty"
+    assert contracts[26]["detail"] == "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+    assert contracts[26]["provenance"] == {
+        "authority": "pdf",
+        "source_type": "drawing_pdf",
+        "source_ref": "page:3/span:1",
+        "notes": ["pdf span selected"],
+    }
 
     csv_rows = {row["char_no"]: row for row in csv.DictReader(generate_audit_packet_csv(db, run))}
     assert csv_rows["21"]["semantic_family"] == "GD&T"
@@ -379,9 +396,15 @@ def test_exports_semantic_contract_shapes_csv_and_work_order_rows(tmp_path, clie
     work_rows = {str(row["char_no"]): row for row in _work_order_rows(db, run)}
     assert set(work_rows.keys()) == {"21", "22", "24", "26"}
     assert work_rows["21"]["semantic_family"] == "GD&T"
+    assert work_rows["21"]["semantic_status"] == "parsed"
+    assert work_rows["21"]["semantic_summary"] == contracts[21]["summary"]
+    assert work_rows["21"]["semantic_reason_summary"] == contracts[21]["reason_summary"]
     assert work_rows["22"]["semantic_summary"] == contracts[22]["summary"]
     assert work_rows["24"]["semantic_reason_summary"] == "semantic fit added: H7/g6 hole-basis fit"
     assert work_rows["26"]["semantic_status"] == "empty"
+    assert work_rows["26"]["semantic_family"] == "Surface Finish"
+    assert work_rows["26"]["semantic_summary"] == contracts[26]["summary"]
+    assert work_rows["26"]["semantic_reason_summary"] == contracts[26]["reason_summary"]
 
 
 def test_exports_semantic_and_omission_render_semantic_evidence_and_omit_empty_sections(
@@ -453,6 +476,8 @@ def test_semantic_parity_review_and_exports(client: TestClient, engineer_user, d
     """semantic parity: representative items expose matching semantic meaning in review and export surfaces."""
     from shop.dependencies import get_db
     from shop.services.exports import generate_audit_packet_csv, _work_order_rows
+    from shop.app import templates
+    from shop.models import ShopConfig
 
     _login_engineer(client, db_engine, engineer_user)
 
@@ -471,18 +496,54 @@ def test_semantic_parity_review_and_exports(client: TestClient, engineer_user, d
     audit_rows = {row["char_no"]: row for row in csv.DictReader(generate_audit_packet_csv(db, run))}
     work_rows = {str(row["char_no"]): row for row in _work_order_rows(db, run)}
 
+    items = (
+        db.query(__import__("shop.models", fromlist=["ReviewItem"]).ReviewItem)
+        .filter_by(run_id=run.id)
+        .order_by(__import__("shop.models", fromlist=["ReviewItem"]).ReviewItem.char_no)
+        .all()
+    )
+    audit_html = templates.env.get_template("exports/audit_packet.html").render(
+        run=run,
+        items=items,
+        semantic_by_char=contracts,
+        shop_config=ShopConfig(shop_name="Delta Shop"),
+        signed_by_name=engineer_user.username,
+    )
+
+    class _Row:
+        def __init__(self, payload):
+            self.__dict__.update(payload)
+
+    render_rows = [_Row(r) for r in _work_order_rows(db, run)]
+    work_html = templates.env.get_template("exports/work_order.html").render(
+        run=run,
+        remeasure_items=[r for r in render_rows if r.priority == "RE-MEASURE"],
+        new_items=[r for r in render_rows if r.priority == "NEW"],
+        generated_at="2026-03-08 12:00 UTC",
+    )
+
     review_text = review_resp.text.replace("&amp;", "&")
+    audit_text = audit_html.replace("&amp;", "&")
+    work_text = work_html.replace("&amp;", "&")
 
     for char_no in (21, 22, 23, 24, 26):
         contract = contracts[char_no]
         assert contract is not None
         assert contract["summary"] in review_text
+        assert contract["detail"] in review_text
         if contract["reason_fragments"]:
             for fragment in contract["reason_fragments"]:
                 assert fragment in review_text
+                assert fragment in audit_text
+                if str(char_no) in work_rows:
+                    assert fragment in work_text
+        assert contract["block_label"] in audit_text
+        assert contract["detail"] in audit_text
         assert audit_rows[str(char_no)]["semantic_summary"] == contract["summary"]
         assert audit_rows[str(char_no)]["semantic_reason_summary"] == (contract["reason_summary"] or "")
         if str(char_no) in work_rows:
+            assert contract["block_label"] in work_text
+            assert contract["detail"] in work_text
             assert work_rows[str(char_no)]["semantic_summary"] == contract["summary"]
             assert work_rows[str(char_no)]["semantic_reason_summary"] == (contract["reason_summary"] or "")
 
