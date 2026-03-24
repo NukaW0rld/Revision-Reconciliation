@@ -30,6 +30,39 @@ def _login_engineer(client, db_engine, engineer_user):
     return token
 
 
+def _make_run_with_packet_data(tmp_path, db_engine, packet, *, status="completed"):
+    """Helper: create a Run in the DB with a provided delta_packet.json payload."""
+    from shop.models import Run
+
+    run_slug = packet.get("run_id", "test-run-data")
+    out_dir = tmp_path / "out" / run_slug
+    out_dir.mkdir(parents=True)
+    (out_dir / "delta_packet.json").write_text(json.dumps(packet))
+
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        run = Run(
+            part_number="P-001",
+            rev_a_label="A",
+            rev_b_label="B",
+            customer="ACME",
+            job_number="JOB-001",
+            status=status,
+            output_dir=str(out_dir),
+            revA_path="/tmp/a.pdf",
+            revB_path="/tmp/b.pdf",
+            form3_path="/tmp/form3.xlsx",
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        run_id = run.id
+    finally:
+        db.close()
+    return run_id
+
+
 def _make_run_with_packet(tmp_path, db_engine, n_items=3, *, status="completed"):
     """Helper: create a Run in the DB with a delta_packet.json in tmp_path."""
     from shop.models import Run
@@ -210,7 +243,256 @@ def test_review_semantic_contract_shapes_parsed_and_fallback_states(tmp_path, db
         db.close()
 
 
-def test_review_queue_loads(client: TestClient, engineer_user, db_engine, tmp_path):
+def test_review_queue_renders_semantic_blocks_for_representative_families(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """semantic: review HTML shows parsed summaries and rationale for major semantic families."""
+    _login_engineer(client, db_engine, engineer_user)
+
+    packet = {
+        "run_id": "semantic-review-render-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 21,
+                "status": "changed",
+                "confidence": 0.83,
+                "reasons": ["semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20"],
+                "scores": {"location": 0.88, "text": 0.71, "context": 0.84},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:1/span:4",
+                        "notes": [],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "gdt",
+                        "reason_code": None,
+                        "detail": "parsed feature control frame from PDF spans",
+                    },
+                    "raw_text": "⌖ ⌀0.20 M A B C",
+                    "normalized_text": "⌖ ⌀0.20 M A B C",
+                    "gdt": {
+                        "frame_text": "⌖ | ⌀0.20 | M | A | B | C",
+                        "control_type": "position",
+                        "tolerance_text": "⌀0.20",
+                        "datum_refs": ["A", "B", "C"],
+                        "modifiers": ["MMC"],
+                    },
+                    "metadata": {},
+                },
+            },
+            {
+                "char_no": 22,
+                "status": "changed",
+                "confidence": 0.79,
+                "reasons": ["semantic weld changed: fillet size 1/4 → 3/8"],
+                "scores": {"location": 0.82, "text": 0.76, "context": 0.74},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:1/span:7",
+                        "notes": [],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "weld",
+                        "reason_code": None,
+                        "detail": "parsed weld symbol from callout text",
+                    },
+                    "raw_text": "FILLET 3/8 BOTH SIDES",
+                    "normalized_text": "FILLET 3/8 BOTH SIDES",
+                    "weld": {
+                        "process": "fillet",
+                        "size": "3/8",
+                        "side": "both sides",
+                        "all_around": False,
+                        "length": None,
+                        "pitch": None,
+                        "contour": None,
+                        "tail": None,
+                    },
+                    "metadata": {},
+                },
+            },
+            {
+                "char_no": 23,
+                "status": "unchanged",
+                "confidence": 0.91,
+                "reasons": ["semantic surface finish matched: Ra 63"],
+                "scores": {"location": 0.89, "text": 0.87, "context": 0.9},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:2/span:2",
+                        "notes": [],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "surface_finish",
+                        "reason_code": None,
+                        "detail": "parsed surface finish requirement",
+                    },
+                    "raw_text": "⌯ Ra 63",
+                    "normalized_text": "⌯ Ra 63",
+                    "surface_finish": {
+                        "canonical_text": "Ra 63",
+                        "parameter": "Ra",
+                        "value": "63",
+                        "units": None,
+                    },
+                    "metadata": {},
+                },
+            },
+            {
+                "char_no": 24,
+                "status": "added",
+                "confidence": 0.77,
+                "reasons": ["semantic fit added: H7/g6 hole-basis fit"],
+                "scores": {"location": 0.8, "text": 0.73, "context": 0.75},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:2/span:6",
+                        "notes": [],
+                    },
+                    "status": {
+                        "state": "parsed",
+                        "parser_family": "fit",
+                        "reason_code": None,
+                        "detail": "parsed ISO fit notation",
+                    },
+                    "raw_text": "H7/g6",
+                    "normalized_text": "H7/g6",
+                    "fit": {
+                        "canonical_text": "H7/g6",
+                        "fit_class": "H7/g6",
+                        "basis": "hole basis",
+                    },
+                    "metadata": {},
+                },
+            },
+            {
+                "char_no": 25,
+                "status": "unchanged",
+                "confidence": 0.98,
+                "reasons": ["Location and text matched"],
+                "scores": {"location": 0.98, "text": 0.98, "context": 0.97},
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    }
+
+    run_id = _make_run_with_packet_data(tmp_path, db_engine, packet)
+    resp = client.get(f"/review/{run_id}", follow_redirects=False)
+    assert resp.status_code == 200, resp.text
+
+    html = resp.text
+    assert "Semantic Read" in html
+    assert "GD&amp;T parsed" in html
+    assert "position ⌀0.20 datums A, B, C modifiers MMC" in html
+    assert "semantic GD&amp;T changed: tolerance ⌀0.10 → ⌀0.20" in html
+
+    assert "Weld parsed" in html
+    assert "fillet size 3/8 both sides" in html
+    assert "semantic weld changed: fillet size 1/4 → 3/8" in html
+
+    assert "Surface Finish parsed" in html
+    assert "Ra 63" in html
+    assert "semantic surface finish matched: Ra 63" in html
+
+    assert "Fit parsed" in html
+    assert "H7/g6 (hole basis)" in html
+    assert "semantic fit added: H7/g6 hole-basis fit" in html
+
+    no_semantic_card = html.split('id="review-item-25"', 1)[1].split('id="review-item-', 1)[0]
+    assert "Semantic Read" not in no_semantic_card
+    assert "semantic_callout" not in html
+
+
+
+def test_review_queue_surfaces_fallback_reason_without_empty_semantic_scaffolding(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """semantic fallback: non-parsed states stay visible and no-semantic cards stay quiet."""
+    _login_engineer(client, db_engine, engineer_user)
+
+    packet = {
+        "run_id": "semantic-review-fallback-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 31,
+                "status": "unchanged",
+                "confidence": 0.62,
+                "reasons": [
+                    "semantic comparison fallback: left semantic state error/weld_malformed",
+                    "Location and text matched",
+                ],
+                "scores": {"location": 0.65, "text": 0.61, "context": 0.59},
+                "revA": None,
+                "revB": None,
+                "semantic_callout": {
+                    "provenance": {
+                        "authority": "pdf",
+                        "source_type": "drawing_pdf",
+                        "source_ref": "page:3/span:5",
+                        "notes": [],
+                    },
+                    "status": {
+                        "state": "error",
+                        "parser_family": "weld",
+                        "reason_code": "weld_malformed",
+                        "detail": "recognized weld callout is missing a parseable size token before the weld type",
+                    },
+                    "raw_text": "FILLET BOTH SIDES",
+                    "normalized_text": "FILLET BOTH SIDES",
+                    "metadata": {},
+                },
+            },
+            {
+                "char_no": 32,
+                "status": "unchanged",
+                "confidence": 0.99,
+                "reasons": ["Location and text matched"],
+                "scores": {"location": 0.99, "text": 0.98, "context": 0.99},
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    }
+
+    run_id = _make_run_with_packet_data(tmp_path, db_engine, packet)
+    resp = client.get(f"/review/{run_id}", follow_redirects=False)
+    assert resp.status_code == 200, resp.text
+
+    html = resp.text
+    fallback_card = html.split('id="review-item-31"', 1)[1].split('id="review-item-32"', 1)[0]
+    quiet_card = html.split('id="review-item-32"', 1)[1]
+
+    assert "Weld error" in fallback_card
+    assert "FILLET BOTH SIDES" in fallback_card
+    assert "recognized weld callout is missing a parseable size token before the weld type" in fallback_card
+    assert "semantic comparison fallback: left semantic state error/weld_malformed" in fallback_card
+
+    assert "Semantic Read" not in quiet_card
+    assert "Rationale" not in quiet_card
+
+
     """GET /review/{run_id} returns 200 with all ReviewItems listed."""
     _login_engineer(client, db_engine, engineer_user)
     run_id = _make_run_with_packet(tmp_path, db_engine, n_items=3, status="completed")

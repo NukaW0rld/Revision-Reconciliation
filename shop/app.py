@@ -23,7 +23,39 @@ def _status_badge_class(status: str) -> str:
     }.get(status, "ghost")
 
 
+def _semantic_state_tone(state: str | None) -> str:
+    return {
+        "parsed": "success",
+        "error": "warning",
+        "empty": "ghost",
+        "skipped": "ghost",
+        "not_implemented": "ghost",
+        "not_requested": "ghost",
+    }.get(state or "", "ghost")
+
+
+def _semantic_detail_lines(contract: dict | None) -> list[str]:
+    if not contract:
+        return []
+
+    lines: list[str] = []
+    summary = contract.get("summary")
+    normalized_text = contract.get("normalized_text")
+    detail = contract.get("detail")
+
+    if summary:
+        lines.append(summary)
+    if normalized_text and normalized_text != summary:
+        lines.append(f"Normalized: {normalized_text}")
+    if detail:
+        lines.append(detail)
+
+    return lines
+
+
 templates.env.filters["status_badge_class"] = _status_badge_class
+templates.env.filters["semantic_state_tone"] = _semantic_state_tone
+templates.env.filters["semantic_detail_lines"] = _semantic_detail_lines
 
 import os as _os
 templates.env.filters["basename"] = lambda p: _os.path.basename(p) if p else ""

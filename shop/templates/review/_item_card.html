@@ -1,5 +1,6 @@
 {% set read_only = read_only if read_only is defined else false %}
 {% set is_amendment = is_amendment if is_amendment is defined else false %}
+{% set semantic_details = semantic_contract | semantic_detail_lines if semantic_contract else [] %}
 <div id="review-item-{{ item.char_no }}"
      class="item-card border border-base-300 bg-base-200 border-l-4 p-5 {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
 
@@ -81,6 +82,41 @@
         <div>
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev B Requirement</p>
           <p class="text-sm font-mono bg-base-300/40 border border-base-300 px-3 py-2 rounded">{{ item.requirement_revB }}</p>
+        </div>
+      {% endif %}
+
+      {% if semantic_contract and semantic_contract.has_content %}
+        <div class="border border-base-300 bg-base-300/25 rounded-lg px-3 py-3 space-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p class="text-xs font-mono text-base-content/50 uppercase tracking-[0.2em]">Semantic Read</p>
+              {% if semantic_contract.block_label %}
+                <p class="text-sm font-mono font-semibold text-base-content">{{ semantic_contract.block_label }}</p>
+              {% elif semantic_contract.family_label %}
+                <p class="text-sm font-mono font-semibold text-base-content">{{ semantic_contract.family_label }}</p>
+              {% endif %}
+            </div>
+            {% if semantic_contract.status_label %}
+              <span class="badge badge-outline badge-{{ semantic_contract.status | semantic_state_tone }} font-mono uppercase">{{ semantic_contract.status_label }}</span>
+            {% endif %}
+          </div>
+
+          {% if semantic_details %}
+            <div class="space-y-1">
+              {% for line in semantic_details %}
+                <p class="text-sm font-mono leading-5 text-base-content/85">{{ line }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% if semantic_contract.reason_fragments %}
+            <div class="space-y-1">
+              <p class="text-xs font-mono text-base-content/50 uppercase tracking-[0.2em]">Rationale</p>
+              {% for fragment in semantic_contract.reason_fragments %}
+                <p class="text-sm font-mono leading-5 text-base-content/75">{{ fragment }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
         </div>
       {% endif %}
 

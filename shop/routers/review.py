@@ -9,7 +9,11 @@ from shop.utils import utcnow
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
-from shop.services.review import open_review_queue, attempt_sign_off
+from shop.services.review import (
+    open_review_queue,
+    attempt_sign_off,
+    semantic_contracts_by_char,
+)
 from shop.routers.runs import _get_nav_context
 
 router = APIRouter(redirect_slashes=False)
@@ -32,6 +36,7 @@ def review_queue(
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
     all_items = open_review_queue(db, run)
+    semantic_contracts = semantic_contracts_by_char(run)
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
     pending = sum(1 for i in all_items if i.reviewer_decision is None)
@@ -59,6 +64,7 @@ def review_queue(
         "run": run,
         "run_id": run.id,
         "items": visible_items,
+        "semantic_contracts": semantic_contracts,
         "user": user,
         "pending": pending,
         "approved": approved,
@@ -102,6 +108,7 @@ def approve_item(
     item.reviewer_decision = "approved"
     item.reviewed_by_id = user.id
     item.reviewed_at = utcnow()
+    semantic_contract = semantic_contracts_by_char(run).get(item.char_no)
     db.commit()
     db.refresh(item)
     all_items, pending, approved, overridden = _item_counts(db, run_id)
@@ -109,6 +116,7 @@ def approve_item(
         "item": item,
         "run": run,
         "run_id": run_id,
+        "semantic_contract": semantic_contract,
         "pending": pending,
         "approved": approved,
         "overridden": overridden,
@@ -147,6 +155,7 @@ def reset_item(
     item.override_note = None
     item.reviewed_by_id = None
     item.reviewed_at = None
+    semantic_contract = semantic_contracts_by_char(run).get(item.char_no)
     db.commit()
     db.refresh(item)
     all_items, pending, approved, overridden = _item_counts(db, run_id)
@@ -154,6 +163,7 @@ def reset_item(
         "item": item,
         "run": run,
         "run_id": run_id,
+        "semantic_contract": semantic_contract,
         "pending": pending,
         "approved": approved,
         "overridden": overridden,
@@ -184,14 +194,21 @@ def override_item(
     item = db.query(ReviewItem).filter(
         ReviewItem.run_id == run_id, ReviewItem.char_no == char_no
     ).first()
+    semantic_contract = semantic_contracts_by_char(run).get(char_no)
     if item is None:
         raise HTTPException(status_code=404)
     if not override_note or not override_note.strip():
         return templates.TemplateResponse(
             request,
             "review/_item_card.html",
-            {"item": item, "run_id": run_id, "error": "Override note is required.",
-             "is_amendment": bool(run.parent_run_id)},
+            {
+                "item": item,
+                "run": run,
+                "run_id": run_id,
+                "semantic_contract": semantic_contract,
+                "error": "Override note is required.",
+                "is_amendment": bool(run.parent_run_id),
+            },
             status_code=422,
         )
     if override_classification not in VALID_CLASSIFICATIONS:
@@ -208,6 +225,7 @@ def override_item(
         "item": item,
         "run": run,
         "run_id": run_id,
+        "semantic_contract": semantic_contract,
         "pending": pending,
         "approved": approved,
         "overridden": overridden,

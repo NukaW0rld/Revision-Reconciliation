@@ -117,6 +117,7 @@
   {# ── MIDDLE ZONE: Focused item list (one visible at a time) ── #}
   <div class="flex-1 overflow-y-auto" id="item-list">
     {% for item in items %}
+      {% set semantic_contract = semantic_contracts.get(item.char_no) if semantic_contracts is defined else none %}
       {% include "review/_item_card.html" %}
     {% else %}
     <div class="flex items-center justify-center h-full text-base-content/40 font-mono text-sm">
