@@ -7,7 +7,6 @@ from delta_preservation.types import (
     SemanticParserStatus,
     SemanticProvenance,
     GdtSemanticPayload,
-    SurfaceFinishSemanticPayload,
 )
 
 
@@ -35,7 +34,7 @@ def test_delta_packet_serialization_omits_semantic_callout_when_absent():
     assert reparsed.items[0].reasons == ["Location and text matched"]
 
 
-def test_delta_packet_serialization_preserves_populated_semantic_callout():
+def test_delta_packet_serialization_preserves_parsed_gdt_semantic_callout():
     item = DeltaItem(
         char_no=12,
         status="changed",
@@ -53,21 +52,18 @@ def test_delta_packet_serialization_preserves_populated_semantic_callout():
                 state="parsed",
                 parser_family="gdt",
                 reason_code=None,
-                detail="feature control frame normalized",
+                detail="parsed feature control frame from PDF spans",
             ),
-            raw_text="⟂ | 0.05 | A | B",
-            normalized_text="perpendicularity 0.05 A B",
+            raw_text="⌖ ⌀0.10 M A B C",
+            normalized_text="⌖ ⌀0.10 M A B C",
             gdt=GdtSemanticPayload(
-                frame_text="⟂ | 0.05 | A | B",
-                control_type="perpendicularity",
-                datum_refs=["A", "B"],
-                modifiers=["none"],
+                frame_text="⌖ | ⌀0.10 | M | A | B | C",
+                control_type="position",
+                tolerance_text="⌀0.10",
+                datum_refs=["A", "B", "C"],
+                modifiers=["MMC"],
             ),
-            surface_finish=SurfaceFinishSemanticPayload(
-                roughness_value="63",
-                units="microinch",
-            ),
-            metadata={"extraction_version": "v1"},
+            metadata={"extraction_version": "v2", "authority_source": "pdf"},
         ),
     )
 
@@ -78,58 +74,62 @@ def test_delta_packet_serialization_preserves_populated_semantic_callout():
     assert semantic["provenance"]["authority"] == "pdf"
     assert semantic["status"]["state"] == "parsed"
     assert semantic["status"]["parser_family"] == "gdt"
-    assert semantic["gdt"]["control_type"] == "perpendicularity"
-    assert semantic["surface_finish"]["units"] == "microinch"
-    assert semantic["metadata"] == {"extraction_version": "v1"}
+    assert semantic["gdt"]["control_type"] == "position"
+    assert semantic["gdt"]["tolerance_text"] == "⌀0.10"
+    assert semantic["gdt"]["datum_refs"] == ["A", "B", "C"]
+    assert semantic["metadata"] == {"extraction_version": "v2", "authority_source": "pdf"}
+    assert "weld" not in semantic
+    assert "surface_finish" not in semantic
+    assert "fit" not in semantic
 
     round_trip = DeltaPacket.model_validate_json(packet.model_dump_json(exclude_none=True))
     assert round_trip.items[0].semantic_callout is not None
     assert round_trip.items[0].semantic_callout.provenance.source_ref == "page:1/span:42"
-    assert round_trip.items[0].semantic_callout.gdt.datum_refs == ["A", "B"]
-    assert round_trip.items[0].semantic_callout.surface_finish.roughness_value == "63"
+    assert round_trip.items[0].semantic_callout.gdt.datum_refs == ["A", "B", "C"]
+    assert round_trip.items[0].semantic_callout.gdt.tolerance_text == "⌀0.10"
     assert round_trip.items[0].scores == {"location": 0.88, "text": 0.7, "context": 0.81}
 
 
-def test_semantic_callout_empty_status_is_explicit_and_json_stable():
+def test_semantic_callout_empty_gdt_status_is_explicit_and_json_stable():
     item = DeltaItem(
         char_no=18,
         status="uncertain",
         confidence=0.42,
-        reasons=["Semantic parser deferred for this callout family"],
+        reasons=["Semantic parser found no bounded GD&T frame in the authoritative text"],
         scores={"location": 0.5, "text": 0.2, "context": 0.4},
         semantic_callout=SemanticCallout(
             provenance=SemanticProvenance(
-                authority="none",
-                source_type="none",
-                source_ref="form3:char:18",
-                notes=["No authoritative drawing semantic span matched"],
+                authority="pdf",
+                source_type="drawing_pdf",
+                source_ref="pdf:block:8/line:1/span:0",
+                notes=["PDF text inspected but no bounded GD&T frame matched"],
             ),
             status=SemanticParserStatus(
-                state="not_implemented",
-                parser_family="fit",
-                reason_code="not_implemented_in_slice",
-                detail="Fit parsing is deferred to a later slice",
+                state="empty",
+                parser_family="gdt",
+                reason_code="gdt_no_match",
+                detail="text did not match the bounded GD&T feature control frame grammar",
             ),
-            raw_text="FN1",
-            normalized_text=None,
-            metadata={"inspection_surface": "delta_packet.json"},
+            raw_text="FLAG NOTE 12",
+            normalized_text="FLAG NOTE 12",
+            metadata={"inspection_surface": "delta_packet.json", "authority_source": "pdf"},
         ),
     )
 
     payload_json = item.model_dump_json(exclude_none=True)
     payload = json.loads(payload_json)
 
-    assert payload["semantic_callout"]["status"]["reason_code"] == "not_implemented_in_slice"
-    assert payload["semantic_callout"]["status"]["parser_family"] == "fit"
+    assert payload["semantic_callout"]["status"]["reason_code"] == "gdt_no_match"
+    assert payload["semantic_callout"]["status"]["parser_family"] == "gdt"
     assert payload["semantic_callout"]["provenance"]["notes"] == [
-        "No authoritative drawing semantic span matched"
+        "PDF text inspected but no bounded GD&T frame matched"
     ]
     assert "gdt" not in payload["semantic_callout"]
     assert "weld" not in payload["semantic_callout"]
-    assert payload["reasons"] == ["Semantic parser deferred for this callout family"]
+    assert payload["reasons"] == ["Semantic parser found no bounded GD&T frame in the authoritative text"]
 
     reparsed = DeltaItem.model_validate_json(payload_json)
     assert reparsed.semantic_callout is not None
-    assert reparsed.semantic_callout.status.state == "not_implemented"
-    assert reparsed.semantic_callout.status.reason_code == "not_implemented_in_slice"
+    assert reparsed.semantic_callout.status.state == "empty"
+    assert reparsed.semantic_callout.status.reason_code == "gdt_no_match"
     assert reparsed.semantic_callout.metadata["inspection_surface"] == "delta_packet.json"

@@ -82,6 +82,7 @@ class GdtSemanticPayload(BaseModel):
 
     frame_text: Optional[str] = Field(None, description="Normalized feature control frame text")
     control_type: Optional[str] = Field(None, description="Primary GD&T control type")
+    tolerance_text: Optional[str] = Field(None, description="Tolerance segment text captured from the frame")
     datum_refs: List[str] = Field(default_factory=list, description="Referenced datums in order")
     modifiers: List[str] = Field(default_factory=list, description="Applied GD&T modifiers")
 

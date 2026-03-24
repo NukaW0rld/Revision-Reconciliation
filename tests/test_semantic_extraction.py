@@ -13,13 +13,15 @@ def _span(text: str, *, block_id: int = 0, line_id: int = 0, span_id: int = 0, x
     )
 
 
-def test_extract_semantic_callout_prefers_pdf_spans_over_conflicting_form3_text():
+def test_extract_semantic_callout_parses_position_gdt_from_pdf_spans_and_ignores_conflicting_form3_text():
     semantic = extract_semantic_callout(
         pdf_spans=[
-            _span("⟂", span_id=0, x0=10.0),
-            _span("0.05", span_id=1, x0=20.0),
-            _span("A", span_id=2, x0=30.0),
-            _span("B", span_id=3, x0=40.0),
+            _span("⌖", span_id=0, x0=10.0),
+            _span("⌀0.10", span_id=1, x0=20.0),
+            _span("M", span_id=2, x0=30.0),
+            _span("A", span_id=3, x0=40.0),
+            _span("B", span_id=4, x0=50.0),
+            _span("C", span_id=5, x0=60.0),
         ],
         form3_requirement="SURFACE FINISH 63 MICROINCH",
     )
@@ -27,34 +29,98 @@ def test_extract_semantic_callout_prefers_pdf_spans_over_conflicting_form3_text(
     assert semantic.provenance.authority == "pdf"
     assert semantic.provenance.source_type == "drawing_pdf"
     assert semantic.provenance.source_ref == "pdf:block:0/line:0/span:0"
-    assert semantic.raw_text == "⟂ 0.05 A B"
-    assert semantic.normalized_text == "⟂ 0.05 A B"
-    assert semantic.status.state == "not_implemented"
-    assert semantic.status.parser_family == "semantic_dispatch"
-    assert semantic.status.reason_code == "not_implemented_in_slice"
+    assert semantic.raw_text == "⌖ ⌀0.10 M A B C"
+    assert semantic.normalized_text == "⌖ ⌀0.10 M A B C"
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "gdt"
+    assert semantic.status.reason_code is None
+    assert semantic.status.detail == "parsed feature control frame from PDF spans"
     assert semantic.metadata["authority_source"] == "pdf"
     assert semantic.metadata["form3_context_supplied"] == "true"
     assert semantic.metadata["conflict_detected"] == "true"
     assert any("secondary advisory context" in note for note in semantic.provenance.notes)
     assert any("overrode conflicting Form 3" in note for note in semantic.provenance.notes)
 
+    assert semantic.gdt is not None
+    assert semantic.gdt.frame_text == "⌖ | ⌀0.10 | M | A | B | C"
+    assert semantic.gdt.control_type == "position"
+    assert semantic.gdt.tolerance_text == "⌀0.10"
+    assert semantic.gdt.datum_refs == ["A", "B", "C"]
+    assert semantic.gdt.modifiers == ["MMC"]
+    assert semantic.weld is None
+    assert semantic.surface_finish is None
+    assert semantic.fit is None
 
 
-def test_extract_semantic_callout_returns_stub_payloads_for_planned_families():
+def test_extract_semantic_callout_parses_profile_gdt_without_datums_when_frame_has_no_references():
     semantic = extract_semantic_callout(
-        pdf_spans=[_span("H7/g6", span_id=5, x0=15.0)],
-        form3_requirement="FIT CLASS RC3",
+        pdf_spans=[
+            _span("⌒", span_id=0, x0=10.0),
+            _span("0.20", span_id=1, x0=20.0),
+        ],
+        form3_requirement="PROFILE PER NOTE",
     )
 
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "⌒ 0.20"
+    assert semantic.normalized_text == "⌒ 0.20"
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "gdt"
+    assert semantic.status.reason_code is None
+    assert semantic.status.detail == "parsed feature control frame from PDF spans"
+
     assert semantic.gdt is not None
-    assert semantic.weld is not None
-    assert semantic.surface_finish is not None
-    assert semantic.fit is not None
-    assert semantic.status.state == "not_implemented"
-    assert semantic.status.reason_code == "not_implemented_in_slice"
-    assert semantic.metadata["planned_families"] == "gdt,weld,surface_finish,fit"
+    assert semantic.gdt.control_type == "profile_of_a_line"
+    assert semantic.gdt.frame_text == "⌒ | 0.20"
+    assert semantic.gdt.tolerance_text == "0.20"
+    assert semantic.gdt.modifiers == []
+    assert semantic.gdt.datum_refs == []
+    assert semantic.metadata["authority_source"] == "pdf"
+
+
+def test_extract_semantic_callout_returns_empty_gdt_status_for_unrecognized_semantic_text():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("FLAG NOTE 12", span_id=7, x0=12.0)],
+        form3_requirement="FLAG NOTE 12",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "FLAG NOTE 12"
+    assert semantic.normalized_text == "FLAG NOTE 12"
+    assert semantic.status.state == "empty"
+    assert semantic.status.parser_family == "gdt"
+    assert semantic.status.reason_code == "gdt_no_match"
+    assert semantic.status.detail == "text did not match the bounded GD&T feature control frame grammar"
+    assert semantic.gdt is None
+    assert semantic.weld is None
+    assert semantic.surface_finish is None
+    assert semantic.fit is None
+    assert semantic.metadata["authority_source"] == "pdf"
     assert semantic.metadata["dispatcher"] == "semantic_dispatch"
 
+
+def test_extract_semantic_callout_returns_error_status_for_malformed_gdt_frame():
+    semantic = extract_semantic_callout(
+        pdf_spans=[
+            _span("⌖", span_id=0, x0=10.0),
+            _span("A", span_id=1, x0=20.0),
+        ],
+        form3_requirement="POSITION TO DATUM A",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "⌖ A"
+    assert semantic.normalized_text == "⌖ A"
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "gdt"
+    assert semantic.status.reason_code == "gdt_malformed_frame"
+    assert semantic.status.detail == "recognized GD&T control symbol but missing tolerance segment"
+    assert semantic.gdt is None
+    assert semantic.weld is None
+    assert semantic.surface_finish is None
+    assert semantic.fit is None
+    assert semantic.metadata["authority_source"] == "pdf"
+    assert semantic.metadata["dispatcher"] == "semantic_dispatch"
 
 
 def test_extract_semantic_callout_falls_back_to_form3_only_when_pdf_spans_missing():
