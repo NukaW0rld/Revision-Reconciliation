@@ -63,7 +63,9 @@ class _PipelineTestCase:
         expected_reasons,
         expected_semantic_family: str,
         expected_detail: str,
-        expected_family_payload: dict,
+        expected_family_payload: dict | None,
+        expected_status_state: str = "parsed",
+        expected_reason_code: str | None = None,
     ):
         self.char_no = char_no
         self.form3_requirement = form3_requirement
@@ -73,6 +75,8 @@ class _PipelineTestCase:
         self.expected_semantic_family = expected_semantic_family
         self.expected_detail = expected_detail
         self.expected_family_payload = expected_family_payload
+        self.expected_status_state = expected_status_state
+        self.expected_reason_code = expected_reason_code
 
 
 class _FakeTransform:
@@ -236,6 +240,7 @@ def test_run_pipeline_packet_surfaces_semantic_equivalence_status_and_reason(tmp
     assert item["reasons"] == case.expected_reasons
     assert item["reasons"][0].startswith("semantic GD&T match")
     assert "formatting-only" in item["reasons"][1]
+    assert semantic["status"]["state"] == case.expected_status_state
     assert semantic["status"]["parser_family"] == case.expected_semantic_family
     assert semantic["status"]["detail"] == case.expected_detail
     assert semantic["gdt"] == case.expected_family_payload
@@ -273,11 +278,124 @@ def test_run_pipeline_packet_surfaces_semantic_delta_status_and_reason(tmp_path)
     assert item["reasons"] == case.expected_reasons
     assert item["reasons"][0] == "semantic weld changed: size 1/8 → 3/16"
     assert "meaningful drawing requirement change" in item["reasons"][1]
+    assert semantic["status"]["state"] == case.expected_status_state
     assert semantic["status"]["parser_family"] == case.expected_semantic_family
     assert semantic["status"]["detail"] == case.expected_detail
     assert semantic["weld"] == case.expected_family_payload
     assert semantic["provenance"]["authority"] == "pdf"
     assert semantic["metadata"]["form3_context_supplied"] == "true"
+
+
+def test_run_pipeline_packet_surfaces_surface_finish_equivalence_status_and_payload(tmp_path):
+    case = _PipelineTestCase(
+        char_no=23,
+        form3_requirement="Ra 3.2 um",
+        revb_text="3.2 Ra",
+        expected_status="unchanged",
+        expected_reasons=[
+            "semantic surface finish match: Ra 3.2 um",
+            "Semantic family agreement overrides formatting-only numeric/text variation",
+        ],
+        expected_semantic_family="surface_finish",
+        expected_detail="parsed bounded surface finish callout from authoritative semantic text",
+        expected_family_payload={
+            "canonical_text": "Ra 3.2 um",
+            "roughness_value": "3.2",
+            "units": "um",
+            "value_micrometers": "3.2",
+            "indicator": "Ra",
+        },
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
+
+    assert item["status"] == "unchanged"
+    assert item["reasons"] == case.expected_reasons
+    assert semantic["status"]["state"] == case.expected_status_state
+    assert semantic["status"]["parser_family"] == case.expected_semantic_family
+    assert semantic["status"]["detail"] == case.expected_detail
+    assert semantic["surface_finish"] == case.expected_family_payload
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+    assert semantic["raw_text"] == "3.2 Ra"
+    assert semantic["normalized_text"] == "3.2 Ra"
+    assert semantic["surface_finish"]["canonical_text"] == "Ra 3.2 um"
+    assert semantic["status"].get("reason_code") is None
+
+
+def test_run_pipeline_packet_surfaces_fit_delta_status_and_payload(tmp_path):
+    case = _PipelineTestCase(
+        char_no=24,
+        form3_requirement="H7/p6",
+        revb_text="H7/g6",
+        expected_status="changed",
+        expected_reasons=[
+            "semantic fit changed: fit class H7/p6 → H7/g6",
+            "Semantic family delta indicates a meaningful drawing requirement change",
+        ],
+        expected_semantic_family="fit",
+        expected_detail="parsed bounded fit callout from authoritative semantic text",
+        expected_family_payload={
+            "canonical_text": "H7/g6",
+            "fit_class": "H7/g6",
+            "hole_class": "H7",
+            "shaft_class": "g6",
+            "basis": "hole_basis",
+            "standard_hint": "iso_limits_and_fits",
+        },
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
+
+    assert item["status"] == "changed"
+    assert item["reasons"] == case.expected_reasons
+    assert semantic["status"]["state"] == case.expected_status_state
+    assert semantic["status"]["parser_family"] == case.expected_semantic_family
+    assert semantic["status"]["detail"] == case.expected_detail
+    assert semantic["fit"] == case.expected_family_payload
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+    assert semantic["status"].get("reason_code") is None
+
+
+def test_run_pipeline_packet_surfaces_fallback_semantic_status_and_reason_code(tmp_path):
+    case = _PipelineTestCase(
+        char_no=25,
+        form3_requirement="12.0 ± 0.1",
+        revb_text="12.0",
+        expected_status="unchanged",
+        expected_reasons=[
+            "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+            "semantic comparison fallback: right semantic state empty/surface_finish_no_match",
+            "Primary dimension matches: 12.0",
+            "Numeric values match (50% overlap)",
+            "High location agreement after global alignment",
+        ],
+        expected_semantic_family="surface_finish",
+        expected_detail="text did not match the bounded GD&T, weld, surface finish, or fit grammar",
+        expected_family_payload=None,
+        expected_status_state="empty",
+        expected_reason_code="surface_finish_no_match",
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
+
+    assert item["status"] == "unchanged"
+    assert item["reasons"] == case.expected_reasons
+    assert item["reasons"][0].startswith("semantic comparison fallback")
+    assert item["reasons"][1].startswith("semantic comparison fallback")
+    assert any("Primary dimension matches" in reason for reason in item["reasons"])
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["status"]["state"] == case.expected_status_state
+    assert semantic["status"]["parser_family"] == case.expected_semantic_family
+    assert semantic["status"]["reason_code"] == case.expected_reason_code
+    assert semantic["status"]["detail"] == case.expected_detail
+    assert semantic["raw_text"] == "12.0"
+    assert semantic["normalized_text"] == "12.0"
+    assert "gdt" not in semantic
+    assert "weld" not in semantic
+    assert "surface_finish" not in semantic
+    assert "fit" not in semantic
 
 
 def test_run_pipeline_uses_pdf_span_inputs_for_matched_and_added_semantics(tmp_path):

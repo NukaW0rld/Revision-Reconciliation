@@ -42,14 +42,10 @@ def _span_key(span: TextSpan):
     return (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
 
 
-def test_reconcile_semantic_integration_keeps_equivalent_gdt_callout_unchanged():
-    anchor = _anchor("⌖ ⌀0.10 M A B C")
-    candidate_span = _span("⌖    ⌀0.10   M   A  B C", block_id=4, line_id=2, span_id=1, x0=12.0, y0=11.0)
-
+def _classify(anchor: Anchor, candidate_span: TextSpan):
     anchor_semantic = extract_semantic_callout(pdf_spans=[_span(anchor.requirement_raw)], form3_requirement=anchor.requirement_raw)
-    revb_semantic_by_span = {
-        _span_key(candidate_span): extract_semantic_callout(pdf_spans=[candidate_span])
-    }
+    matched_semantic = extract_semantic_callout(pdf_spans=[candidate_span])
+    revb_semantic_by_span = {_span_key(candidate_span): matched_semantic}
 
     candidates = generate_candidates(
         anchor,
@@ -60,16 +56,25 @@ def test_reconcile_semantic_integration_keeps_equivalent_gdt_callout_unchanged()
     )
 
     assert candidates
-    assert any("semantic GD&T match" in reason for reason in candidates[0].reasons)
-
-    match = Match(char_no=1, candidate=candidates[0])
+    match = Match(char_no=anchor.char_no, candidate=candidates[0])
     delta = classify_delta(
         anchor,
         match,
         anchor_semantic_callout=anchor_semantic,
-        matched_semantic_callout=revb_semantic_by_span[_span_key(candidate_span)],
+        matched_semantic_callout=matched_semantic,
     )
+    return candidates[0], delta, anchor_semantic, matched_semantic
 
+
+def test_reconcile_semantic_integration_keeps_equivalent_gdt_callout_unchanged():
+    anchor = _anchor("⌖ ⌀0.10 M A B C")
+    candidate_span = _span("⌖    ⌀0.10   M   A  B C", block_id=4, line_id=2, span_id=1, x0=12.0, y0=11.0)
+
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
+
+    assert anchor_semantic.status.parser_family == "gdt"
+    assert matched_semantic.status.parser_family == "gdt"
+    assert any("semantic GD&T match" in reason for reason in candidate.reasons)
     assert delta.status == "unchanged"
     assert any("semantic GD&T match" in reason for reason in delta.reasons)
     assert any("Semantic family agreement" in reason for reason in delta.reasons)
@@ -79,31 +84,47 @@ def test_reconcile_semantic_integration_marks_changed_weld_semantic_delta():
     anchor = _anchor("1/8 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD")
     candidate_span = _span("3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD", block_id=5, line_id=1, span_id=0, x0=11.0, y0=10.5)
 
-    anchor_semantic = extract_semantic_callout(pdf_spans=[_span(anchor.requirement_raw)], form3_requirement=anchor.requirement_raw)
-    matched_semantic = extract_semantic_callout(pdf_spans=[candidate_span])
-    revb_semantic_by_span = {_span_key(candidate_span): matched_semantic}
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
 
-    candidates = generate_candidates(
-        anchor,
-        [candidate_span],
-        _Transform(),
-        anchor_semantic_callout=anchor_semantic,
-        revB_semantic_callouts_by_span_key=revb_semantic_by_span,
-    )
-
-    assert candidates
-    assert any("semantic weld changed: size 1/8 → 3/16" in reason for reason in candidates[0].reasons)
-
-    match = Match(char_no=1, candidate=candidates[0])
-    delta = classify_delta(
-        anchor,
-        match,
-        anchor_semantic_callout=anchor_semantic,
-        matched_semantic_callout=matched_semantic,
-    )
-
+    assert anchor_semantic.status.parser_family == "weld"
+    assert matched_semantic.status.parser_family == "weld"
+    assert any("semantic weld changed: size 1/8 → 3/16" in reason for reason in candidate.reasons)
     assert delta.status == "changed"
     assert any("semantic weld changed: size 1/8 → 3/16" in reason for reason in delta.reasons)
+    assert any("meaningful drawing requirement change" in reason for reason in delta.reasons)
+
+
+def test_reconcile_semantic_integration_keeps_equivalent_surface_finish_callout_unchanged():
+    anchor = _anchor("Ra 3.2 um")
+    candidate_span = _span("3.2 Ra", block_id=6, line_id=1, span_id=2, x0=12.0, y0=11.5)
+
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
+
+    assert anchor_semantic.status.parser_family == "surface_finish"
+    assert matched_semantic.status.parser_family == "surface_finish"
+    assert anchor_semantic.surface_finish is not None
+    assert matched_semantic.surface_finish is not None
+    assert anchor_semantic.surface_finish.canonical_text == "Ra 3.2 um"
+    assert matched_semantic.surface_finish.canonical_text == "Ra 3.2 um"
+    assert any("semantic surface finish match: Ra 3.2 um" in reason for reason in candidate.reasons)
+    assert delta.status == "unchanged"
+    assert any("semantic surface finish match: Ra 3.2 um" in reason for reason in delta.reasons)
+    assert any("Semantic family agreement" in reason for reason in delta.reasons)
+
+
+def test_reconcile_semantic_integration_marks_changed_fit_semantic_delta():
+    anchor = _anchor("H7/p6")
+    candidate_span = _span("H7/g6", block_id=8, line_id=0, span_id=3, x0=14.0, y0=10.5)
+
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
+
+    assert anchor_semantic.status.parser_family == "fit"
+    assert matched_semantic.status.parser_family == "fit"
+    assert anchor_semantic.fit is not None
+    assert matched_semantic.fit is not None
+    assert any("semantic fit changed: fit class H7/p6 → H7/g6" in reason for reason in candidate.reasons)
+    assert delta.status == "changed"
+    assert any("semantic fit changed: fit class H7/p6 → H7/g6" in reason for reason in delta.reasons)
     assert any("meaningful drawing requirement change" in reason for reason in delta.reasons)
 
 
@@ -111,29 +132,13 @@ def test_reconcile_semantic_integration_fallback_to_numeric_reasoning_when_seman
     anchor = _anchor("12.0 ± 0.1")
     candidate_span = _span("12.0", block_id=2, line_id=0, span_id=0, x0=11.0, y0=10.5)
 
-    anchor_semantic = extract_semantic_callout(pdf_spans=[_span(anchor.requirement_raw)], form3_requirement=anchor.requirement_raw)
-    matched_semantic = extract_semantic_callout(pdf_spans=[candidate_span])
-    revb_semantic_by_span = {_span_key(candidate_span): matched_semantic}
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
 
-    candidates = generate_candidates(
-        anchor,
-        [candidate_span],
-        _Transform(),
-        anchor_semantic_callout=anchor_semantic,
-        revB_semantic_callouts_by_span_key=revb_semantic_by_span,
-    )
-
-    assert candidates
-    assert any("semantic comparison fallback" in reason for reason in candidates[0].reasons)
-
-    match = Match(char_no=1, candidate=candidates[0])
-    delta = classify_delta(
-        anchor,
-        match,
-        anchor_semantic_callout=anchor_semantic,
-        matched_semantic_callout=matched_semantic,
-    )
-
+    assert anchor_semantic.status.state == "empty"
+    assert anchor_semantic.status.reason_code == "surface_finish_no_match"
+    assert matched_semantic.status.state == "empty"
+    assert matched_semantic.status.reason_code == "surface_finish_no_match"
+    assert any("semantic comparison fallback" in reason for reason in candidate.reasons)
     assert delta.status == "unchanged"
     assert any("semantic comparison fallback" in reason for reason in delta.reasons)
     assert any("Primary dimension matches" in reason for reason in delta.reasons)
