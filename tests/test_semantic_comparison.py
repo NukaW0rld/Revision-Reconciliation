@@ -47,8 +47,9 @@ def _semantic_callout(
     )
 
 
+# GD&T comparison matrix
 
-def test_compare_semantic_callouts_gdt_treats_formatting_only_variant_as_equal():
+def test_compare_semantic_callouts_gdt_unchanged_formatting_only_variant_reports_semantic_match():
     left = _semantic_callout(
         family="gdt",
         raw_text="⌖ ⌀0.10 M A B C",
@@ -83,8 +84,7 @@ def test_compare_semantic_callouts_gdt_treats_formatting_only_variant_as_equal()
     assert result.reason_fragments == ["semantic GD&T match: position ⌀0.10 datums A,B,C modifiers MMC"]
 
 
-
-def test_compare_semantic_callouts_gdt_reports_meaningful_change_reason():
+def test_compare_semantic_callouts_gdt_changed_tolerance_reports_meaningful_delta_reason():
     left = _semantic_callout(
         family="gdt",
         normalized_text="⌖ ⌀0.10 M A B C",
@@ -115,8 +115,9 @@ def test_compare_semantic_callouts_gdt_reports_meaningful_change_reason():
     assert result.reason_fragments == ["semantic GD&T changed: tolerance ⌀0.10 → ⌀0.20"]
 
 
+# Weld comparison matrix
 
-def test_compare_semantic_callouts_weld_treats_text_order_variant_as_equal():
+def test_compare_semantic_callouts_weld_unchanged_text_order_variant_reports_semantic_match():
     left = _semantic_callout(
         family="weld",
         raw_text="1/8 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD",
@@ -158,8 +159,7 @@ def test_compare_semantic_callouts_weld_treats_text_order_variant_as_equal():
     ]
 
 
-
-def test_compare_semantic_callouts_weld_reports_meaningful_change_reason():
+def test_compare_semantic_callouts_weld_changed_size_reports_meaningful_delta_reason():
     left = _semantic_callout(
         family="weld",
         weld=WeldSemanticPayload(
@@ -194,8 +194,38 @@ def test_compare_semantic_callouts_weld_reports_meaningful_change_reason():
     assert result.reason_fragments == ["semantic weld changed: size 1/8 → 3/16"]
 
 
+def test_compare_semantic_callouts_weld_error_parser_state_reports_fallback_reason_fragment():
+    left = _semantic_callout(
+        family="weld",
+        status_state="error",
+        reason_code="weld_malformed",
+        detail="recognized weld callout is missing a parseable size token before the weld type",
+    )
+    right = _semantic_callout(
+        family="weld",
+        weld=WeldSemanticPayload(
+            process="fillet",
+            size="1/8",
+            contour=None,
+            side=None,
+            length=None,
+            pitch=None,
+            tail=None,
+            all_around=None,
+        ),
+    )
 
-def test_compare_semantic_callouts_surface_finish_treats_formatting_only_variant_as_equal():
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is False
+    assert result.equal is None
+    assert result.mode == "fallback"
+    assert result.reason_fragments == ["semantic comparison fallback: left semantic state error/weld_malformed"]
+
+
+# Surface finish comparison matrix
+
+def test_compare_semantic_callouts_surface_finish_unchanged_formatting_only_variant_reports_semantic_match():
     left = _semantic_callout(
         family="surface_finish",
         raw_text="Ra 3.2 um",
@@ -229,8 +259,7 @@ def test_compare_semantic_callouts_surface_finish_treats_formatting_only_variant
     assert result.reason_fragments == ["semantic surface finish match: Ra 3.2 um"]
 
 
-
-def test_compare_semantic_callouts_surface_finish_reports_meaningful_change_reason():
+def test_compare_semantic_callouts_surface_finish_changed_roughness_reports_meaningful_delta_reason():
     left = _semantic_callout(
         family="surface_finish",
         surface_finish=SurfaceFinishSemanticPayload(
@@ -259,8 +288,39 @@ def test_compare_semantic_callouts_surface_finish_reports_meaningful_change_reas
     assert result.reason_fragments == ["semantic surface finish changed: roughness Ra 3.2 um → Ra 1.6 um"]
 
 
+def test_compare_semantic_callouts_surface_finish_empty_parser_state_reports_fallback_reason_fragment():
+    left = _semantic_callout(
+        family="surface_finish",
+        status_state="empty",
+        reason_code="surface_finish_no_match",
+        detail="text did not match the bounded GD&T, weld, surface finish, or fit grammar",
+        raw_text="FLAG NOTE 12",
+        normalized_text="FLAG NOTE 12",
+    )
+    right = _semantic_callout(
+        family="surface_finish",
+        surface_finish=SurfaceFinishSemanticPayload(
+            canonical_text="Ra 3.2 um",
+            roughness_value="3.2",
+            units="um",
+            value_micrometers="3.2",
+            indicator="Ra",
+        ),
+    )
 
-def test_compare_semantic_callouts_fit_treats_spacing_variant_as_equal():
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is False
+    assert result.equal is None
+    assert result.mode == "fallback"
+    assert result.reason_fragments == [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match"
+    ]
+
+
+# Fit comparison matrix
+
+def test_compare_semantic_callouts_fit_unchanged_spacing_variant_reports_semantic_match():
     left = _semantic_callout(
         family="fit",
         raw_text="H7/p6",
@@ -296,8 +356,7 @@ def test_compare_semantic_callouts_fit_treats_spacing_variant_as_equal():
     assert result.reason_fragments == ["semantic fit match: H7/p6 (hole_basis)"]
 
 
-
-def test_compare_semantic_callouts_fit_reports_meaningful_change_reason():
+def test_compare_semantic_callouts_fit_changed_class_reports_meaningful_delta_reason():
     left = _semantic_callout(
         family="fit",
         fit=FitSemanticPayload(
@@ -328,8 +387,9 @@ def test_compare_semantic_callouts_fit_reports_meaningful_change_reason():
     assert result.reason_fragments == ["semantic fit changed: fit class H7/p6 → H7/g6"]
 
 
+# Cross-family and missing/fallback coverage
 
-def test_compare_semantic_callouts_explicitly_reports_missing_semantics_as_fallback():
+def test_compare_semantic_callouts_missing_both_semantics_reports_fallback():
     result = compare_semantic_callouts(None, None)
 
     assert result.comparable is False
@@ -339,69 +399,28 @@ def test_compare_semantic_callouts_explicitly_reports_missing_semantics_as_fallb
     assert result.reason_fragments == ["semantic comparison unavailable: both semantic callouts missing; fall back to numeric/text comparison"]
 
 
-
-def test_compare_semantic_callouts_explicitly_reports_empty_parser_state_as_fallback():
-    left = _semantic_callout(
-        family="surface_finish",
-        status_state="empty",
-        reason_code="surface_finish_no_match",
-        detail="text did not match the bounded GD&T, weld, surface finish, or fit grammar",
-        raw_text="FLAG NOTE 12",
-        normalized_text="FLAG NOTE 12",
-    )
+def test_compare_semantic_callouts_missing_one_semantic_callout_reports_fallback():
     right = _semantic_callout(
-        family="surface_finish",
-        surface_finish=SurfaceFinishSemanticPayload(
-            canonical_text="Ra 3.2 um",
-            roughness_value="3.2",
-            units="um",
-            value_micrometers="3.2",
-            indicator="Ra",
+        family="fit",
+        fit=FitSemanticPayload(
+            canonical_text="H7/p6",
+            fit_class="H7/p6",
+            hole_class="H7",
+            shaft_class="p6",
+            basis="hole_basis",
+            standard_hint="iso_limits_and_fits",
         ),
     )
 
-    result = compare_semantic_callouts(left, right)
+    result = compare_semantic_callouts(None, right)
 
     assert result.comparable is False
     assert result.equal is None
     assert result.mode == "fallback"
-    assert result.reason_fragments == [
-        "semantic comparison fallback: left semantic state empty/surface_finish_no_match"
-    ]
+    assert result.reason_fragments == ["semantic comparison fallback: left semantic callout missing"]
 
 
-
-def test_compare_semantic_callouts_explicitly_reports_error_parser_state_as_fallback():
-    left = _semantic_callout(
-        family="weld",
-        status_state="error",
-        reason_code="weld_malformed",
-        detail="recognized weld callout is missing a parseable size token before the weld type",
-    )
-    right = _semantic_callout(
-        family="weld",
-        weld=WeldSemanticPayload(
-            process="fillet",
-            size="1/8",
-            contour=None,
-            side=None,
-            length=None,
-            pitch=None,
-            tail=None,
-            all_around=None,
-        ),
-    )
-
-    result = compare_semantic_callouts(left, right)
-
-    assert result.comparable is False
-    assert result.equal is None
-    assert result.mode == "fallback"
-    assert result.reason_fragments == ["semantic comparison fallback: left semantic state error/weld_malformed"]
-
-
-
-def test_compare_semantic_callouts_reports_mixed_family_incompatibility_without_exception():
+def test_compare_semantic_callouts_mixed_family_reports_incompatible_reason_without_exception():
     left = _semantic_callout(
         family="gdt",
         gdt=GdtSemanticPayload(
