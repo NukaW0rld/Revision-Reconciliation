@@ -52,6 +52,29 @@ class _FakeInternalDeltaItem:
         self.added_span = added_span
 
 
+class _PipelineTestCase:
+    def __init__(
+        self,
+        *,
+        char_no: int,
+        form3_requirement: str,
+        revb_text: str,
+        expected_status: str,
+        expected_reasons,
+        expected_semantic_family: str,
+        expected_detail: str,
+        expected_family_payload: dict,
+    ):
+        self.char_no = char_no
+        self.form3_requirement = form3_requirement
+        self.revb_text = revb_text
+        self.expected_status = expected_status
+        self.expected_reasons = expected_reasons
+        self.expected_semantic_family = expected_semantic_family
+        self.expected_detail = expected_detail
+        self.expected_family_payload = expected_family_payload
+
+
 class _FakeTransform:
     def __init__(self):
         self.inliers = 12
@@ -70,7 +93,7 @@ def _span(text: str, *, block_id: int, line_id: int, span_id: int, x0: float, y0
     )
 
 
-def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
+def _run_pipeline_semantic_case(tmp_path, case: _PipelineTestCase):
     from delta_preservation.cli import run_pipeline
 
     revA = tmp_path / "revA.pdf"
@@ -80,14 +103,14 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
     revB.write_bytes(b"%PDF-1.4")
     form3.write_bytes(b"PK")
 
-    anchor = _FakeAnchor(char_no=7, requirement_raw="SURFACE FINISH 63 MICROINCH")
-    revb_semantic_span = _span("⌖ ⌀0.05 M A B", block_id=4, line_id=2, span_id=1, x0=40.0, y0=22.0)
+    anchor = _FakeAnchor(char_no=case.char_no, requirement_raw=case.form3_requirement)
+    revb_semantic_span = _span(case.revb_text, block_id=4, line_id=2, span_id=1, x0=40.0, y0=22.0)
 
     classified_item = _FakeInternalDeltaItem(
-        char_no=7,
-        status="changed",
+        char_no=case.char_no,
+        status=case.expected_status,
         confidence=0.88,
-        reasons=["Matched span text changed"],
+        reasons=list(case.expected_reasons),
         component_scores={"location": 0.91, "text": 0.87, "context": 0.83},
         match=_FakeMatch(revb_semantic_span),
     )
@@ -100,15 +123,15 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
             return [_span("FORM3 ANCHOR", block_id=0, line_id=0, span_id=0, x0=12.0, y0=12.0)]
         return [revb_semantic_span]
 
-    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=7, requirement="SURFACE FINISH 63 MICROINCH")]), \
-         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 7}]), \
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=case.char_no, requirement=case.form3_requirement)]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": case.char_no}]), \
          patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
          patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
          patch("delta_preservation.cli.render_page", return_value=render_stub), \
          patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
          patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
          patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(revb_semantic_span)]), \
-         patch("delta_preservation.cli.assign_matches", return_value={7: _FakeMatch(revb_semantic_span)}), \
+         patch("delta_preservation.cli.assign_matches", return_value={case.char_no: _FakeMatch(revb_semantic_span)}), \
          patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
          patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
          patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
@@ -122,15 +145,38 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
             revB_pdf=str(revB),
             form3_xlsx=str(form3),
             out_dir=str(tmp_path / "out"),
-            part_name="semantic-packet",
+            part_name=f"semantic-packet-{case.char_no}",
         )
 
     packet = json.loads((run_dir / "delta_packet.json").read_text())
     item = packet["items"][0]
     semantic = item["semantic_callout"]
+    return item, semantic
+
+
+def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
+    case = _PipelineTestCase(
+        char_no=7,
+        form3_requirement="SURFACE FINISH 63 MICROINCH",
+        revb_text="⌖ ⌀0.05 M A B",
+        expected_status="changed",
+        expected_reasons=["semantic GD&T changed: tolerance None → ⌀0.05"],
+        expected_semantic_family="gdt",
+        expected_detail="parsed feature control frame from PDF spans",
+        expected_family_payload={
+            "frame_text": "⌖ | ⌀0.05 | M | A | B",
+            "control_type": "position",
+            "tolerance_text": "⌀0.05",
+            "datum_refs": ["A", "B"],
+            "modifiers": ["MMC"],
+        },
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
 
     assert item["char_no"] == 7
     assert item["status"] == "changed"
+    assert item["reasons"] == ["semantic GD&T changed: tolerance None → ⌀0.05"]
     assert semantic["provenance"]["authority"] == "pdf"
     assert semantic["provenance"]["source_type"] == "drawing_pdf"
     assert semantic["provenance"]["source_ref"] == "pdf:block:4/line:2/span:1"
@@ -161,6 +207,77 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
     assert "weld" not in semantic
     assert "surface_finish" not in semantic
     assert "fit" not in semantic
+
+
+def test_run_pipeline_packet_surfaces_semantic_equivalence_status_and_reason(tmp_path):
+    case = _PipelineTestCase(
+        char_no=21,
+        form3_requirement="⌖ ⌀0.10 M A B C",
+        revb_text="⌖    ⌀0.10   M   A  B C",
+        expected_status="unchanged",
+        expected_reasons=[
+            "semantic GD&T match: control type position, tolerance ⌀0.10, datums A/B/C, modifiers MMC",
+            "Semantic family agreement overrides formatting-only numeric/text variation",
+        ],
+        expected_semantic_family="gdt",
+        expected_detail="parsed feature control frame from PDF spans",
+        expected_family_payload={
+            "frame_text": "⌖ | ⌀0.10 | M | A | B | C",
+            "control_type": "position",
+            "tolerance_text": "⌀0.10",
+            "datum_refs": ["A", "B", "C"],
+            "modifiers": ["MMC"],
+        },
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
+
+    assert item["status"] == "unchanged"
+    assert item["reasons"] == case.expected_reasons
+    assert item["reasons"][0].startswith("semantic GD&T match")
+    assert "formatting-only" in item["reasons"][1]
+    assert semantic["status"]["parser_family"] == case.expected_semantic_family
+    assert semantic["status"]["detail"] == case.expected_detail
+    assert semantic["gdt"] == case.expected_family_payload
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+
+
+def test_run_pipeline_packet_surfaces_semantic_delta_status_and_reason(tmp_path):
+    case = _PipelineTestCase(
+        char_no=22,
+        form3_requirement="1/8 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD",
+        revb_text="3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD",
+        expected_status="changed",
+        expected_reasons=[
+            "semantic weld changed: size 1/8 → 3/16",
+            "Semantic family delta indicates a meaningful drawing requirement change",
+        ],
+        expected_semantic_family="weld",
+        expected_detail="parsed bounded weld callout from authoritative semantic text",
+        expected_family_payload={
+            "process": "fillet",
+            "size": "3/16",
+            "contour": "flush",
+            "side": "both_sides",
+            "length": "1.50",
+            "pitch": "3.00",
+            "tail": "FIELD",
+            "all_around": True,
+        },
+    )
+
+    item, semantic = _run_pipeline_semantic_case(tmp_path, case)
+
+    assert item["status"] == "changed"
+    assert item["reasons"] == case.expected_reasons
+    assert item["reasons"][0] == "semantic weld changed: size 1/8 → 3/16"
+    assert "meaningful drawing requirement change" in item["reasons"][1]
+    assert semantic["status"]["parser_family"] == case.expected_semantic_family
+    assert semantic["status"]["detail"] == case.expected_detail
+    assert semantic["weld"] == case.expected_family_payload
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
 
 
 def test_run_pipeline_uses_pdf_span_inputs_for_matched_and_added_semantics(tmp_path):

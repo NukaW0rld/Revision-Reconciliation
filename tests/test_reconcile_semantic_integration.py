@@ -107,7 +107,7 @@ def test_reconcile_semantic_integration_marks_changed_weld_semantic_delta():
     assert any("meaningful drawing requirement change" in reason for reason in delta.reasons)
 
 
-def test_reconcile_semantic_integration_falls_back_to_numeric_reasoning_when_semantics_unparsed():
+def test_reconcile_semantic_integration_fallback_to_numeric_reasoning_when_semantics_unparsed():
     anchor = _anchor("12.0 ± 0.1")
     candidate_span = _span("12.0", block_id=2, line_id=0, span_id=0, x0=11.0, y0=10.5)
 
