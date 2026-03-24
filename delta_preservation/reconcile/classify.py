@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
 from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.io.pdf import TextSpan
+from delta_preservation.types import SemanticCallout
 
 if TYPE_CHECKING:
     from delta_preservation.reconcile.tolerance_pdf import ToleranceComparison
@@ -40,6 +42,8 @@ def classify_delta(
     match_or_none: Optional[Match],
     location_search_coverage: float = 1.0,
     tolerance_comparison: Optional[ToleranceComparison] = None,
+    anchor_semantic_callout: Optional[SemanticCallout] = None,
+    matched_semantic_callout: Optional[SemanticCallout] = None,
 ) -> DeltaItem:
     """Classify delta status for a single Rev A anchor.
     
@@ -88,6 +92,42 @@ def classify_delta(
     # Parse fingerprints from both anchor requirement and matched span
     anchor_fp = parse_requirement(anchor.requirement_raw)
     matched_fp = parse_requirement(candidate.span.text)
+
+    semantic_result = None
+    if anchor_semantic_callout is not None or matched_semantic_callout is not None:
+        semantic_result = compare_semantic_callouts(anchor_semantic_callout, matched_semantic_callout)
+
+    if semantic_result is not None and semantic_result.mode == "semantic":
+        semantic_reasons = list(semantic_result.reason_fragments)
+        if semantic_result.equal:
+            return DeltaItem(
+                char_no=anchor.char_no,
+                status="unchanged",
+                confidence=max(0.85, 0.45 * location_score + 0.4 * text_score + 0.15 * context_score),
+                reasons=semantic_reasons + ["Semantic family agreement overrides formatting-only numeric/text variation"],
+                component_scores={
+                    "location": location_score,
+                    "text": text_score,
+                    "context": context_score,
+                },
+                match=match_or_none,
+            )
+
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="changed",
+            confidence=max(0.8, 0.35 * location_score + 0.45 * text_score + 0.2 * context_score),
+            reasons=semantic_reasons + ["Semantic family delta indicates a meaningful drawing requirement change"],
+            component_scores={
+                "location": location_score,
+                "text": text_score,
+                "context": context_score,
+            },
+            match=match_or_none,
+        )
+
+    if semantic_result is not None and semantic_result.mode in {"fallback", "incompatible"}:
+        reasons.extend(semantic_result.reason_fragments)
     
     # Check if this is a notes-type characteristic
     # Notes blocks should be compared by text pattern, not numeric values

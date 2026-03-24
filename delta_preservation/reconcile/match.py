@@ -19,6 +19,8 @@ import cv2
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
+from delta_preservation.types import SemanticCallout
 from delta_preservation.vision.alignment import Transform
 
 
@@ -80,7 +82,9 @@ def generate_candidates(
     anchor: Anchor,
     revB_spans: List[TextSpan],
     transform: Transform,
-    top_k: int = 5
+    top_k: int = 5,
+    anchor_semantic_callout: Optional[SemanticCallout] = None,
+    revB_semantic_callouts_by_span_key: Optional[dict[tuple, SemanticCallout]] = None,
 ) -> List[Candidate]:
     """
     Generate and rank candidate matches for a Rev A anchor in Rev B coordinate space.
@@ -176,7 +180,13 @@ def generate_candidates(
     for span, dist, cx, cy in candidate_pool:
         candidate = score_candidate(
             anchor, span, dist, SEARCH_RADIUS,
-            revB_spans, cx, cy
+            revB_spans, cx, cy,
+            anchor_semantic_callout=anchor_semantic_callout,
+            span_semantic_callout=(
+                revB_semantic_callouts_by_span_key.get((span.block_id, span.line_id, span.span_id, span.bbox_pdf))
+                if revB_semantic_callouts_by_span_key is not None
+                else None
+            ),
         )
         candidates.append(candidate)
     
@@ -193,7 +203,9 @@ def score_candidate(
     radius: float,
     all_spans: List[TextSpan],
     span_cx: float,
-    span_cy: float
+    span_cy: float,
+    anchor_semantic_callout: Optional[SemanticCallout] = None,
+    span_semantic_callout: Optional[SemanticCallout] = None,
 ) -> Candidate:
     """
     Compute multi-component similarity score for a candidate Rev B span.
@@ -240,6 +252,16 @@ def score_candidate(
     # Parse both texts to extract symbols, numbers, patterns for structured comparison
     anchor_fp = parse_requirement(anchor.requirement_raw)
     span_fp = parse_requirement(span.text)
+
+    semantic_score = 0.0
+    semantic_result = None
+    if anchor_semantic_callout is not None or span_semantic_callout is not None:
+        semantic_result = compare_semantic_callouts(anchor_semantic_callout, span_semantic_callout)
+        reasons.extend(semantic_result.reason_fragments)
+        if semantic_result.mode == "semantic":
+            semantic_score = 1.0 if semantic_result.equal else 0.0
+        elif semantic_result.mode == "incompatible":
+            semantic_score = 0.0
     
     # Compare engineering symbols (e.g., Ø for diameter, R for radius, ± for tolerance)
     anchor_symbols = set(anchor_fp.symbol_tokens)
@@ -319,13 +341,15 @@ def score_candidate(
     class_match = 1.0 if anchor_fp.pattern_class == span_fp.pattern_class else 0.0
     
     # Weighted combination for text score
-    # Numeric matching is now the dominant factor
+    # Numeric matching remains dominant for non-semantic items, while semantic equality
+    # can strongly reinforce supported parsed families without suppressing fallback paths.
     text_score = (
         0.15 * symbol_match +
-        0.15 * (1.0 if has_count_pattern else 0.0) +
-        0.50 * numeric_overlap +  # Heavily weight numeric match
+        0.10 * (1.0 if has_count_pattern else 0.0) +
+        0.35 * numeric_overlap +
         0.10 * class_match +
-        0.10 * (1.0 if primary_value_match else 0.0)  # Bonus for exact primary match
+        0.10 * (1.0 if primary_value_match else 0.0) +
+        0.20 * semantic_score
     )
     
     matched_parts = []
@@ -337,6 +361,16 @@ def score_candidate(
         matched_parts.append(f"numerics: {int(numeric_overlap*100)}%")
     if primary_value_match:
         matched_parts.append(f"primary={anchor_primary}")
+    if semantic_result is not None:
+        if semantic_result.mode == "semantic" and semantic_result.equal:
+            matched_parts.append(f"semantic {semantic_result.family}: equal")
+        elif semantic_result.mode == "semantic" and semantic_result.equal is False:
+            matched_parts.append(f"semantic {semantic_result.family}: changed")
+        elif semantic_result.mode == "fallback":
+            matched_parts.append("semantic: fallback")
+        elif semantic_result.mode == "incompatible":
+            matched_parts.append("semantic: incompatible")
+
     if matched_parts:
         reasons.append(f"matched: {', '.join(matched_parts)}")
     

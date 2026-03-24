@@ -44,7 +44,7 @@ from delta_preservation.reconcile.match import generate_candidates, assign_match
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
-from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
+from delta_preservation.types import DeltaPacket, DeltaItem, Evidence, SemanticCallout
 
 
 def run_pipeline(
@@ -186,9 +186,38 @@ def run_pipeline(
     if stage_callback:
         stage_callback(5, "Candidate matching")
     print("[6/8] Generating candidates and assigning matches...")
+
+    anchor_semantic_callouts: Dict[int, SemanticCallout] = {}
+    for anchor in anchors:
+        anchor_spans = []
+        if anchor.req_bbox is not None:
+            anchor_spans = [
+                span for span in revA_text_spans
+                if span.block_id == anchor.page and span.bbox_pdf == anchor.req_bbox
+            ]
+        anchor_semantic_callouts[anchor.char_no] = extract_semantic_callout(
+            pdf_spans=anchor_spans,
+            form3_requirement=anchor.requirement_raw,
+        )
+
+    revB_semantic_callouts_by_span_key: Dict[tuple, SemanticCallout] = {}
+    for span in revB_text_spans:
+        span_key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+        revB_semantic_callouts_by_span_key[span_key] = extract_semantic_callout(
+            pdf_spans=[span],
+            form3_requirement=None,
+        )
+
     candidates_by_anchor = {}
     for anchor in anchors:
-        candidates = generate_candidates(anchor, revB_text_spans, transform, top_k=5)
+        candidates = generate_candidates(
+            anchor,
+            revB_text_spans,
+            transform,
+            top_k=5,
+            anchor_semantic_callout=anchor_semantic_callouts.get(anchor.char_no),
+            revB_semantic_callouts_by_span_key=revB_semantic_callouts_by_span_key,
+        )
         candidates_by_anchor[anchor.char_no] = candidates
 
     matches = assign_matches(anchors, candidates_by_anchor)
@@ -209,7 +238,24 @@ def run_pipeline(
     for anchor in anchors:
         match_or_none = matches.get(anchor.char_no)
         tol_cmp = tolerance_comparisons.get(anchor.char_no)
-        delta_item_internal = classify_delta(anchor, match_or_none, location_search_coverage=1.0, tolerance_comparison=tol_cmp)
+        matched_semantic_callout = None
+        if match_or_none is not None:
+            matched_span = match_or_none.candidate.span
+            matched_semantic_callout = extract_semantic_callout(
+                pdf_spans=[matched_span],
+                form3_requirement=anchor.requirement_raw,
+            )
+            revB_semantic_callouts_by_span_key[
+                (matched_span.block_id, matched_span.line_id, matched_span.span_id, matched_span.bbox_pdf)
+            ] = matched_semantic_callout
+        delta_item_internal = classify_delta(
+            anchor,
+            match_or_none,
+            location_search_coverage=1.0,
+            tolerance_comparison=tol_cmp,
+            anchor_semantic_callout=anchor_semantic_callouts.get(anchor.char_no),
+            matched_semantic_callout=matched_semantic_callout,
+        )
         delta_items_internal.append(delta_item_internal)
 
     # Open PDF documents for coordinate conversion and page dimensions
@@ -484,18 +530,37 @@ def run_pipeline(
                     image_path=None
                 )
 
-        semantic_pdf_spans = []
-        form3_requirement = anchor.requirement_raw if anchor is not None else None
-
+        semantic_callout = None
         if delta_internal.match is not None:
-            semantic_pdf_spans = [delta_internal.match.candidate.span]
+            matched_span = delta_internal.match.candidate.span
+            semantic_callout = revB_semantic_callouts_by_span_key.get(
+                (matched_span.block_id, matched_span.line_id, matched_span.span_id, matched_span.bbox_pdf)
+            )
         elif delta_internal.added_span is not None:
-            semantic_pdf_spans = [delta_internal.added_span]
+            semantic_callout = revB_semantic_callouts_by_span_key.get(
+                (
+                    delta_internal.added_span.block_id,
+                    delta_internal.added_span.line_id,
+                    delta_internal.added_span.span_id,
+                    delta_internal.added_span.bbox_pdf,
+                )
+            )
+        elif anchor is not None:
+            semantic_callout = anchor_semantic_callouts.get(anchor.char_no)
 
-        semantic_callout = extract_semantic_callout(
-            pdf_spans=semantic_pdf_spans,
-            form3_requirement=form3_requirement,
-        )
+        if semantic_callout is None:
+            semantic_pdf_spans = []
+            form3_requirement = anchor.requirement_raw if anchor is not None else None
+
+            if delta_internal.match is not None:
+                semantic_pdf_spans = [delta_internal.match.candidate.span]
+            elif delta_internal.added_span is not None:
+                semantic_pdf_spans = [delta_internal.added_span]
+
+            semantic_callout = extract_semantic_callout(
+                pdf_spans=semantic_pdf_spans,
+                form3_requirement=form3_requirement,
+            )
 
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
