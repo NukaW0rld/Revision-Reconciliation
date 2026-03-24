@@ -18,6 +18,7 @@ from .anchors import build_revA_anchors, Anchor
 from .match import generate_candidates, assign_matches, Candidate, Match
 from .classify import classify_delta, detect_added_characteristics, DeltaItem
 from .normalize import parse_requirement
+from .semantic_compare import compare_semantic_callouts, SemanticCompareResult
 
 __all__ = [
     "build_revA_anchors",
@@ -29,5 +30,7 @@ __all__ = [
     "classify_delta", 
     "detect_added_characteristics",
     "DeltaItem",
-    "parse_requirement"
+    "parse_requirement",
+    "compare_semantic_callouts",
+    "SemanticCompareResult",
 ]
