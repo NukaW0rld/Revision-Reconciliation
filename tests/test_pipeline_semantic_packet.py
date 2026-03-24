@@ -233,10 +233,197 @@ def test_run_pipeline_uses_pdf_span_inputs_for_matched_and_added_semantics(tmp_p
     assert packet["items"][1]["semantic_callout"]["provenance"]["authority"] == "pdf"
     assert packet["items"][0]["semantic_callout"]["raw_text"] == "12.0"
     assert packet["items"][1]["semantic_callout"]["raw_text"] == "NEW DIM"
-    assert packet["items"][0]["semantic_callout"]["status"]["parser_family"] == "weld"
-    assert packet["items"][0]["semantic_callout"]["status"]["reason_code"] == "weld_no_match"
-    assert packet["items"][1]["semantic_callout"]["status"]["parser_family"] == "weld"
-    assert packet["items"][1]["semantic_callout"]["status"]["reason_code"] == "weld_no_match"
+    assert packet["items"][0]["semantic_callout"]["status"]["parser_family"] == "surface_finish"
+    assert packet["items"][0]["semantic_callout"]["status"]["reason_code"] == "surface_finish_no_match"
+    assert packet["items"][1]["semantic_callout"]["status"]["parser_family"] == "surface_finish"
+    assert packet["items"][1]["semantic_callout"]["status"]["reason_code"] == "surface_finish_no_match"
+
+
+def test_run_pipeline_persists_surface_finish_semantic_callouts_in_delta_packet(tmp_path):
+    from delta_preservation.cli import run_pipeline
+
+    revA = tmp_path / "revA.pdf"
+    revB = tmp_path / "revB.pdf"
+    form3 = tmp_path / "form3.xlsx"
+    revA.write_bytes(b"%PDF-1.4")
+    revB.write_bytes(b"%PDF-1.4")
+    form3.write_bytes(b"PK")
+
+    anchor = _FakeAnchor(char_no=13, requirement_raw="FIT H7/p6")
+    surface_span = _span("Ra 3.2 um", block_id=6, line_id=1, span_id=2, x0=42.0, y0=24.0)
+
+    classified_item = _FakeInternalDeltaItem(
+        char_no=13,
+        status="changed",
+        confidence=0.87,
+        reasons=["Matched surface finish callout changed"],
+        component_scores={"location": 0.9, "text": 0.86, "context": 0.84},
+        match=_FakeMatch(surface_span),
+    )
+
+    render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+
+    def fake_extract_text_spans(pdf_path, page_index=0):
+        name = Path(pdf_path).name
+        if name == "revA.pdf":
+            return [_span("FORM3 ANCHOR", block_id=0, line_id=0, span_id=0, x0=12.0, y0=12.0)]
+        return [surface_span]
+
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=13, requirement="FIT H7/p6")]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 13}]), \
+         patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
+         patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
+         patch("delta_preservation.cli.render_page", return_value=render_stub), \
+         patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
+         patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
+         patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(surface_span)]), \
+         patch("delta_preservation.cli.assign_matches", return_value={13: _FakeMatch(surface_span)}), \
+         patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
+         patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
+         patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
+         patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
+         patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
+         patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
+        run_dir = run_pipeline(
+            revA_pdf=str(revA),
+            revB_pdf=str(revB),
+            form3_xlsx=str(form3),
+            out_dir=str(tmp_path / "out"),
+            part_name="semantic-packet-surface-finish",
+        )
+
+    packet = json.loads((run_dir / "delta_packet.json").read_text())
+    item = packet["items"][0]
+    semantic = item["semantic_callout"]
+
+    assert item["char_no"] == 13
+    assert item["status"] == "changed"
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["provenance"]["source_type"] == "drawing_pdf"
+    assert semantic["provenance"]["source_ref"] == "pdf:block:6/line:1/span:2"
+    assert semantic["provenance"]["notes"] == [
+        "PDF-derived spans are authoritative for semantic extraction.",
+        "Form 3 requirement text was retained as secondary advisory context.",
+        "PDF authority overrode conflicting Form 3 semantic wording.",
+    ]
+    assert semantic["status"] == {
+        "state": "parsed",
+        "parser_family": "surface_finish",
+        "detail": "parsed bounded surface finish callout from authoritative semantic text",
+    }
+    assert semantic["metadata"]["dispatcher"] == "semantic_dispatch"
+    assert semantic["metadata"]["authority_source"] == "pdf"
+    assert semantic["metadata"]["planned_families"] == "gdt,weld,surface_finish,fit"
+    assert semantic["metadata"]["conflict_detected"] == "true"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+    assert semantic["raw_text"] == "Ra 3.2 um"
+    assert semantic["normalized_text"] == "Ra 3.2 um"
+    assert semantic["surface_finish"] == {
+        "canonical_text": "Ra 3.2 um",
+        "roughness_value": "3.2",
+        "units": "um",
+        "value_micrometers": "3.2",
+        "indicator": "Ra",
+    }
+    assert "gdt" not in semantic
+    assert "weld" not in semantic
+    assert "fit" not in semantic
+
+
+def test_run_pipeline_persists_fit_semantic_callouts_in_delta_packet(tmp_path):
+    from delta_preservation.cli import run_pipeline
+
+    revA = tmp_path / "revA.pdf"
+    revB = tmp_path / "revB.pdf"
+    form3 = tmp_path / "form3.xlsx"
+    revA.write_bytes(b"%PDF-1.4")
+    revB.write_bytes(b"%PDF-1.4")
+    form3.write_bytes(b"PK")
+
+    anchor = _FakeAnchor(char_no=17, requirement_raw="Ra 3.2 um")
+    fit_span = _span("H7/p6", block_id=8, line_id=0, span_id=3, x0=46.0, y0=26.0)
+
+    classified_item = _FakeInternalDeltaItem(
+        char_no=17,
+        status="changed",
+        confidence=0.85,
+        reasons=["Matched fit callout changed"],
+        component_scores={"location": 0.89, "text": 0.84, "context": 0.82},
+        match=_FakeMatch(fit_span),
+    )
+
+    render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+
+    def fake_extract_text_spans(pdf_path, page_index=0):
+        name = Path(pdf_path).name
+        if name == "revA.pdf":
+            return [_span("FORM3 ANCHOR", block_id=0, line_id=0, span_id=0, x0=12.0, y0=12.0)]
+        return [fit_span]
+
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=17, requirement="Ra 3.2 um")]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 17}]), \
+         patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
+         patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
+         patch("delta_preservation.cli.render_page", return_value=render_stub), \
+         patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
+         patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
+         patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(fit_span)]), \
+         patch("delta_preservation.cli.assign_matches", return_value={17: _FakeMatch(fit_span)}), \
+         patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
+         patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
+         patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
+         patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
+         patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
+         patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
+        run_dir = run_pipeline(
+            revA_pdf=str(revA),
+            revB_pdf=str(revB),
+            form3_xlsx=str(form3),
+            out_dir=str(tmp_path / "out"),
+            part_name="semantic-packet-fit",
+        )
+
+    packet = json.loads((run_dir / "delta_packet.json").read_text())
+    item = packet["items"][0]
+    semantic = item["semantic_callout"]
+
+    assert item["char_no"] == 17
+    assert item["status"] == "changed"
+    assert semantic["provenance"]["authority"] == "pdf"
+    assert semantic["provenance"]["source_type"] == "drawing_pdf"
+    assert semantic["provenance"]["source_ref"] == "pdf:block:8/line:0/span:3"
+    assert semantic["provenance"]["notes"] == [
+        "PDF-derived spans are authoritative for semantic extraction.",
+        "Form 3 requirement text was retained as secondary advisory context.",
+        "PDF authority overrode conflicting Form 3 semantic wording.",
+    ]
+    assert semantic["status"] == {
+        "state": "parsed",
+        "parser_family": "fit",
+        "detail": "parsed bounded fit callout from authoritative semantic text",
+    }
+    assert semantic["metadata"]["dispatcher"] == "semantic_dispatch"
+    assert semantic["metadata"]["authority_source"] == "pdf"
+    assert semantic["metadata"]["planned_families"] == "gdt,weld,surface_finish,fit"
+    assert semantic["metadata"]["conflict_detected"] == "true"
+    assert semantic["metadata"]["form3_context_supplied"] == "true"
+    assert semantic["raw_text"] == "H7/p6"
+    assert semantic["normalized_text"] == "H7/p6"
+    assert semantic["fit"] == {
+        "canonical_text": "H7/p6",
+        "fit_class": "H7/p6",
+        "hole_class": "H7",
+        "shaft_class": "p6",
+        "basis": "hole_basis",
+        "standard_hint": "iso_limits_and_fits",
+    }
+    assert "gdt" not in semantic
+    assert "weld" not in semantic
+    assert "surface_finish" not in semantic
 
 
 def test_run_pipeline_persists_weld_semantic_callouts_in_delta_packet(tmp_path):
