@@ -43,6 +43,7 @@ from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import generate_candidates, assign_matches
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
+from delta_preservation.reconcile.normalize import extract_semantic_callout
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence
 
 
@@ -483,6 +484,19 @@ def run_pipeline(
                     image_path=None
                 )
 
+        semantic_pdf_spans = []
+        form3_requirement = anchor.requirement_raw if anchor is not None else None
+
+        if delta_internal.match is not None:
+            semantic_pdf_spans = [delta_internal.match.candidate.span]
+        elif delta_internal.added_span is not None:
+            semantic_pdf_spans = [delta_internal.added_span]
+
+        semantic_callout = extract_semantic_callout(
+            pdf_spans=semantic_pdf_spans,
+            form3_requirement=form3_requirement,
+        )
+
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
             char_no=delta_internal.char_no,
@@ -491,7 +505,8 @@ def run_pipeline(
             reasons=delta_internal.reasons,
             scores=delta_internal.component_scores,
             revA=revA_evidence,
-            revB=revB_evidence
+            revB=revB_evidence,
+            semantic_callout=semantic_callout,
         )
         delta_items_pydantic.append(delta_pydantic)
 
