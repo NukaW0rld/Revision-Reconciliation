@@ -35,6 +35,18 @@ class ParsedGdtFrame:
     modifiers: List[str]
 
 
+@dataclass
+class ParsedWeldCallout:
+    process: str
+    size: Optional[str]
+    contour: Optional[str]
+    side: Optional[str]
+    length: Optional[str]
+    pitch: Optional[str]
+    tail: Optional[str]
+    all_around: Optional[bool]
+
+
 def parse_requirement(requirement: str) -> MatchFingerprint:
     """
     Parse a requirement string into a deterministic match fingerprint.
@@ -142,8 +154,40 @@ _GDT_MODIFIER_MAP = {
 _GDT_TOLERANCE_RE = re.compile(r"^(?:⌀)?(?:\d+(?:\.\d+)?|\.\d+)$")
 _GDT_DATUM_RE = re.compile(r"^[A-Z](?:-[A-Z])?$")
 
+_WELD_PROCESS_PATTERNS = (
+    (re.compile(r"\bFILLET\b"), "fillet"),
+    (re.compile(r"\bGROOVE\b"), "groove"),
+    (re.compile(r"\bPLUG\b"), "plug"),
+    (re.compile(r"\bSLOT\b"), "slot"),
+    (re.compile(r"\bSPOT\b"), "spot"),
+    (re.compile(r"\bSEAM\b"), "seam"),
+    (re.compile(r"\bSURFACING\b"), "surfacing"),
+    (re.compile(r"\bBACK(?:ING| WELD)?\b"), "back"),
+)
 
-_SEMANTIC_REASON = "not_implemented_in_slice"
+_WELD_SIDE_PATTERNS = (
+    (re.compile(r"\bBOTH\s+SIDES\b"), "both_sides"),
+    (re.compile(r"\bARROW\s+SIDE\b"), "arrow_side"),
+    (re.compile(r"\bOTHER\s+SIDE\b"), "other_side"),
+)
+
+_WELD_CONTOUR_PATTERNS = (
+    (re.compile(r"\bFLUSH\b"), "flush"),
+    (re.compile(r"\bCONVEX\b"), "convex"),
+    (re.compile(r"\bCONCAVE\b"), "concave"),
+)
+
+_WELD_SIZE_RE = re.compile(r"(?<![A-Z0-9])((?:\d+(?:\.\d+)?|\.\d+)(?:/\d+(?:\.\d+)?)?)(?=\s*(?:FILLET|GROOVE|PLUG|SLOT|SPOT|SEAM|SURFACING|BACK(?:ING| WELD)?))")
+_WELD_DIMENSION_TOKEN_RE = r"(?:\d+\.\d+|\d+|\.\d+)"
+_WELD_LENGTH_PITCH_RE = re.compile(rf"\b(?:LENGTH\s*)?({_WELD_DIMENSION_TOKEN_RE})\s*-\s*({_WELD_DIMENSION_TOKEN_RE})\b")
+_WELD_LENGTH_ONLY_RE = re.compile(rf"\bLENGTH\s+({_WELD_DIMENSION_TOKEN_RE})\b")
+_WELD_TAIL_RE = re.compile(r"\b(?:TAIL|NOTE|DETAIL)\s*[:\-]?\s*(.+)$")
+_WELD_ALLOWED_CONNECTORS = {"ALL", "AROUND", "BOTH", "SIDES", "ARROW", "SIDE", "OTHER", "LENGTH", "TAIL", "NOTE", "DETAIL", "TYP", "WELD"}
+
+
+WELD_ERROR_MALFORMED = "weld_malformed"
+WELD_ERROR_UNSUPPORTED = "weld_unsupported"
+WELD_EMPTY_NO_MATCH = "weld_no_match"
 
 
 def extract_semantic_callout(
@@ -154,8 +198,9 @@ def extract_semantic_callout(
 
     PDF spans are always authoritative when present. Form 3 requirement text is only
     used as advisory context and never becomes the source of truth when drawing spans
-    exist. The dispatcher remains bounded: GD&T feature control frames get a narrow
-    parser, while other semantic families still return explicit not-implemented states.
+    exist. The dispatcher remains bounded: GD&T feature control frames and a practical
+    first-pass weld subset parse into typed payloads, while other semantic families
+    still return explicit inspectable empty states.
     """
 
     pdf_text = join_text_spans(pdf_spans)
@@ -204,7 +249,7 @@ def extract_semantic_callout(
     metadata["form3_context_supplied"] = "true" if normalized_form3 else "false"
     metadata["planned_families"] = "gdt,weld,surface_finish,fit"
 
-    status, gdt_payload = _extract_gdt_status(normalized_text)
+    status, gdt_payload, weld_payload = _extract_semantic_payload(normalized_text)
 
     return SemanticCallout(
         provenance=SemanticProvenance(
@@ -217,9 +262,9 @@ def extract_semantic_callout(
         raw_text=raw_text,
         normalized_text=normalized_text,
         gdt=gdt_payload,
-        weld=_stub_weld_payload() if status.parser_family != "gdt" else None,
-        surface_finish=_stub_surface_finish_payload() if status.parser_family != "gdt" else None,
-        fit=_stub_fit_payload() if status.parser_family != "gdt" else None,
+        weld=weld_payload,
+        surface_finish=None,
+        fit=None,
         metadata=metadata,
     )
 
@@ -239,58 +284,94 @@ def _semantic_source_ref(pdf_spans: Sequence[TextSpan]) -> Optional[str]:
     return f"pdf:block:{first.block_id}/line:{first.line_id}/span:{first.span_id}"
 
 
-def _extract_gdt_status(normalized_text: Optional[str]) -> Tuple[SemanticParserStatus, Optional[GdtSemanticPayload]]:
+def _extract_semantic_payload(
+    normalized_text: Optional[str],
+) -> Tuple[SemanticParserStatus, Optional[GdtSemanticPayload], Optional[WeldSemanticPayload]]:
     if not normalized_text:
         return (
             SemanticParserStatus(
-                state="not_implemented",
-                parser_family="semantic_dispatch",
-                reason_code=_SEMANTIC_REASON,
-                detail=(
-                    "Semantic dispatcher established; family-specific parsers for GD&T, weld, "
-                    "surface finish, and fit are deferred to later slices."
-                ),
-            ),
-            _stub_gdt_payload(),
-        )
-
-    parse_result = _parse_gdt_frame(normalized_text)
-    if parse_result is None:
-        return (
-            SemanticParserStatus(
                 state="empty",
-                parser_family="gdt",
-                reason_code="gdt_no_match",
-                detail="text did not match the bounded GD&T feature control frame grammar",
+                parser_family="weld",
+                reason_code=WELD_EMPTY_NO_MATCH,
+                detail="no semantic source text was available for bounded weld or GD&T parsing",
             ),
+            None,
             None,
         )
 
-    if isinstance(parse_result, str):
+    gdt_result = _parse_gdt_frame(normalized_text)
+    if isinstance(gdt_result, ParsedGdtFrame):
+        return (
+            SemanticParserStatus(
+                state="parsed",
+                parser_family="gdt",
+                reason_code=None,
+                detail="parsed feature control frame from PDF spans",
+            ),
+            GdtSemanticPayload(
+                frame_text=gdt_result.frame_text,
+                control_type=gdt_result.control_type,
+                tolerance_text=gdt_result.tolerance_text,
+                datum_refs=gdt_result.datum_refs,
+                modifiers=gdt_result.modifiers,
+            ),
+            None,
+        )
+    if isinstance(gdt_result, str):
         return (
             SemanticParserStatus(
                 state="error",
                 parser_family="gdt",
                 reason_code="gdt_malformed_frame",
-                detail=parse_result,
+                detail=gdt_result,
             ),
+            None,
+            None,
+        )
+
+    weld_result = _parse_weld_callout(normalized_text)
+    if isinstance(weld_result, ParsedWeldCallout):
+        return (
+            SemanticParserStatus(
+                state="parsed",
+                parser_family="weld",
+                reason_code=None,
+                detail="parsed bounded weld callout from authoritative semantic text",
+            ),
+            None,
+            WeldSemanticPayload(
+                process=weld_result.process,
+                size=weld_result.size,
+                contour=weld_result.contour,
+                side=weld_result.side,
+                length=weld_result.length,
+                pitch=weld_result.pitch,
+                tail=weld_result.tail,
+                all_around=weld_result.all_around,
+            ),
+        )
+    if isinstance(weld_result, tuple):
+        reason_code, detail = weld_result
+        return (
+            SemanticParserStatus(
+                state="error",
+                parser_family="weld",
+                reason_code=reason_code,
+                detail=detail,
+            ),
+            None,
             None,
         )
 
     return (
         SemanticParserStatus(
-            state="parsed",
-            parser_family="gdt",
-            reason_code=None,
-            detail="parsed feature control frame from PDF spans",
+            state="empty",
+            parser_family="weld",
+            reason_code=WELD_EMPTY_NO_MATCH,
+            detail="text did not match the bounded weld subset or GD&T frame grammar",
         ),
-        GdtSemanticPayload(
-            frame_text=parse_result.frame_text,
-            control_type=parse_result.control_type,
-            tolerance_text=parse_result.tolerance_text,
-            datum_refs=parse_result.datum_refs,
-            modifiers=parse_result.modifiers,
-        ),
+        None,
+        None,
     )
 
 
@@ -333,21 +414,99 @@ def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
     )
 
 
+def _parse_weld_callout(normalized_text: str) -> Optional[ParsedWeldCallout | Tuple[str, str]]:
+    uppercase_text = normalized_text.upper()
+
+    process = None
+    for pattern, process_name in _WELD_PROCESS_PATTERNS:
+        if pattern.search(uppercase_text):
+            process = process_name
+            break
+
+    if process is None:
+        return None
+
+    if process == "fillet" and not _WELD_SIZE_RE.search(uppercase_text):
+        return (
+            WELD_ERROR_MALFORMED,
+            "recognized weld callout is missing a parseable size token before the weld type",
+        )
+
+    unknown_tokens = _find_unsupported_weld_tokens(uppercase_text)
+    if unknown_tokens:
+        joined = ", ".join(unknown_tokens)
+        return (
+            WELD_ERROR_UNSUPPORTED,
+            f"recognized weld callout contains unsupported segment(s): {joined}",
+        )
+
+    size_match = _WELD_SIZE_RE.search(uppercase_text)
+    size = size_match.group(1) if size_match else None
+
+    length = None
+    pitch = None
+    length_pitch_match = _WELD_LENGTH_PITCH_RE.search(uppercase_text)
+    if length_pitch_match:
+        length = length_pitch_match.group(1)
+        pitch = length_pitch_match.group(2)
+    else:
+        length_only_match = _WELD_LENGTH_ONLY_RE.search(uppercase_text)
+        if length_only_match:
+            length = length_only_match.group(1)
+
+    side = None
+    for pattern, side_value in _WELD_SIDE_PATTERNS:
+        if pattern.search(uppercase_text):
+            side = side_value
+            break
+
+    contour = None
+    for pattern, contour_value in _WELD_CONTOUR_PATTERNS:
+        if pattern.search(uppercase_text):
+            contour = contour_value
+            break
+
+    tail_match = _WELD_TAIL_RE.search(uppercase_text)
+    tail = tail_match.group(1).strip() if tail_match else None
+
+    return ParsedWeldCallout(
+        process=process,
+        size=size,
+        contour=contour,
+        side=side,
+        length=length,
+        pitch=pitch,
+        tail=tail,
+        all_around=True if "ALL AROUND" in uppercase_text else None,
+    )
+
+
+def _find_unsupported_weld_tokens(uppercase_text: str) -> List[str]:
+    cleaned = uppercase_text
+    cleaned = _WELD_TAIL_RE.sub(" ", cleaned)
+    cleaned = _WELD_LENGTH_PITCH_RE.sub(" ", cleaned)
+    cleaned = _WELD_LENGTH_ONLY_RE.sub(" ", cleaned)
+    cleaned = _WELD_SIZE_RE.sub(" ", cleaned)
+
+    for pattern, _ in _WELD_PROCESS_PATTERNS:
+        cleaned = pattern.sub(" ", cleaned)
+    for pattern, _ in _WELD_SIDE_PATTERNS:
+        cleaned = pattern.sub(" ", cleaned)
+    for pattern, _ in _WELD_CONTOUR_PATTERNS:
+        cleaned = pattern.sub(" ", cleaned)
+
+    cleaned = cleaned.replace("ALL AROUND", " ")
+    cleaned = re.sub(r"[^A-Z0-9./\-]+", " ", cleaned)
+
+    leftovers = []
+    for token in cleaned.split():
+        if token in _WELD_ALLOWED_CONNECTORS:
+            continue
+        if re.fullmatch(r"(?:\d+(?:\.\d+)?|\.\d+)(?:/\d+(?:\.\d+)?)?", token):
+            continue
+        leftovers.append(token)
+    return leftovers
+
+
 def _is_gdt_tolerance_token(token: str) -> bool:
     return bool(_GDT_TOLERANCE_RE.fullmatch(token))
-
-
-def _stub_gdt_payload() -> GdtSemanticPayload:
-    return GdtSemanticPayload()
-
-
-def _stub_weld_payload() -> WeldSemanticPayload:
-    return WeldSemanticPayload()
-
-
-def _stub_surface_finish_payload() -> SurfaceFinishSemanticPayload:
-    return SurfaceFinishSemanticPayload()
-
-
-def _stub_fit_payload() -> FitSemanticPayload:
-    return FitSemanticPayload()

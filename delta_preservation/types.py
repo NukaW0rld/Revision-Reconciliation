@@ -88,12 +88,16 @@ class GdtSemanticPayload(BaseModel):
 
 
 class WeldSemanticPayload(BaseModel):
-    """Weld-callout semantic payload slot for future parser output."""
+    """Weld-callout semantic payload slot for bounded first-pass parser output."""
 
     process: Optional[str] = Field(None, description="Normalized weld process or symbol family")
     size: Optional[str] = Field(None, description="Weld size or leg specification")
     contour: Optional[str] = Field(None, description="Contour or finish instruction")
     side: Optional[str] = Field(None, description="Arrow side / other side / both sides")
+    length: Optional[str] = Field(None, description="Weld length token when explicitly present")
+    pitch: Optional[str] = Field(None, description="Weld pitch token when explicitly present")
+    tail: Optional[str] = Field(None, description="Tail or supplemental detail text")
+    all_around: Optional[bool] = Field(None, description="Whether the callout explicitly indicates all-around weld")
 
 
 class SurfaceFinishSemanticPayload(BaseModel):

@@ -78,7 +78,7 @@ def test_extract_semantic_callout_parses_profile_gdt_without_datums_when_frame_h
     assert semantic.metadata["authority_source"] == "pdf"
 
 
-def test_extract_semantic_callout_returns_empty_gdt_status_for_unrecognized_semantic_text():
+def test_extract_semantic_callout_returns_empty_weld_status_for_unrecognized_semantic_text():
     semantic = extract_semantic_callout(
         pdf_spans=[_span("FLAG NOTE 12", span_id=7, x0=12.0)],
         form3_requirement="FLAG NOTE 12",
@@ -88,15 +88,16 @@ def test_extract_semantic_callout_returns_empty_gdt_status_for_unrecognized_sema
     assert semantic.raw_text == "FLAG NOTE 12"
     assert semantic.normalized_text == "FLAG NOTE 12"
     assert semantic.status.state == "empty"
-    assert semantic.status.parser_family == "gdt"
-    assert semantic.status.reason_code == "gdt_no_match"
-    assert semantic.status.detail == "text did not match the bounded GD&T feature control frame grammar"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.status.reason_code == "weld_no_match"
+    assert semantic.status.detail == "text did not match the bounded weld subset or GD&T frame grammar"
     assert semantic.gdt is None
     assert semantic.weld is None
     assert semantic.surface_finish is None
     assert semantic.fit is None
     assert semantic.metadata["authority_source"] == "pdf"
     assert semantic.metadata["dispatcher"] == "semantic_dispatch"
+
 
 
 def test_extract_semantic_callout_returns_error_status_for_malformed_gdt_frame():
@@ -123,6 +124,80 @@ def test_extract_semantic_callout_returns_error_status_for_malformed_gdt_frame()
     assert semantic.metadata["dispatcher"] == "semantic_dispatch"
 
 
+
+def test_extract_semantic_callout_parses_bounded_weld_subset_from_fragmented_pdf_spans():
+    semantic = extract_semantic_callout(
+        pdf_spans=[
+            _span("1/8", span_id=0, x0=10.0),
+            _span("FILLET", span_id=1, x0=20.0),
+            _span("BOTH", span_id=2, x0=30.0),
+            _span("SIDES", span_id=3, x0=40.0),
+            _span("ALL", span_id=4, x0=50.0),
+            _span("AROUND", span_id=5, x0=60.0),
+            _span("1.50-3.00", span_id=6, x0=70.0),
+            _span("FLUSH", span_id=7, x0=80.0),
+            _span("TAIL:", span_id=8, x0=90.0),
+            _span("FIELD", span_id=9, x0=100.0),
+        ],
+        form3_requirement="GROOVE WELD PER FORM 3",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "1/8 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD"
+    assert semantic.normalized_text == semantic.raw_text
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.status.reason_code is None
+    assert semantic.status.detail == "parsed bounded weld callout from authoritative semantic text"
+    assert semantic.metadata["conflict_detected"] == "true"
+    assert semantic.gdt is None
+    assert semantic.weld is not None
+    assert semantic.weld.process == "fillet"
+    assert semantic.weld.size == "1/8"
+    assert semantic.weld.side == "both_sides"
+    assert semantic.weld.all_around is True
+    assert semantic.weld.length == "1.50"
+    assert semantic.weld.pitch == "3.00"
+    assert semantic.weld.contour == "flush"
+    assert semantic.weld.tail == "FIELD"
+    assert semantic.surface_finish is None
+    assert semantic.fit is None
+    assert any("overrode conflicting Form 3" in note for note in semantic.provenance.notes)
+
+
+
+def test_extract_semantic_callout_returns_error_for_malformed_weld_missing_size():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("FILLET", span_id=0, x0=10.0)],
+        form3_requirement="1/8 FILLET",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.status.reason_code == "weld_malformed"
+    assert semantic.status.detail == "recognized weld callout is missing a parseable size token before the weld type"
+    assert semantic.weld is None
+    assert semantic.gdt is None
+
+
+
+def test_extract_semantic_callout_returns_error_for_unsupported_weld_segment():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("1/8 FILLET STAGGERED", span_id=0, x0=10.0)],
+        form3_requirement="1/8 FILLET",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.status.reason_code == "weld_unsupported"
+    assert "STAGGERED" in semantic.status.detail
+    assert semantic.weld is None
+    assert semantic.gdt is None
+
+
+
 def test_extract_semantic_callout_falls_back_to_form3_only_when_pdf_spans_missing():
     semantic = extract_semantic_callout(
         pdf_spans=[],
@@ -137,3 +212,9 @@ def test_extract_semantic_callout_falls_back_to_form3_only_when_pdf_spans_missin
     assert semantic.metadata["authority_source"] == "form3"
     assert semantic.metadata["context_alignment"] == "form3_only"
     assert any("fallback source" in note for note in semantic.provenance.notes)
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.weld is not None
+    assert semantic.weld.process == "fillet"
+    assert semantic.weld.size == "1/8"
+    assert semantic.weld.all_around is True
