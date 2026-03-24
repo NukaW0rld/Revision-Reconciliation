@@ -47,6 +47,25 @@ class ParsedWeldCallout:
     all_around: Optional[bool]
 
 
+@dataclass
+class ParsedSurfaceFinishCallout:
+    canonical_text: str
+    roughness_value: str
+    units: str
+    value_micrometers: Optional[str]
+    indicator: str
+
+
+@dataclass
+class ParsedFitCallout:
+    canonical_text: str
+    fit_class: str
+    hole_class: str
+    shaft_class: str
+    basis: str
+    standard_hint: str
+
+
 def parse_requirement(requirement: str) -> MatchFingerprint:
     """
     Parse a requirement string into a deterministic match fingerprint.
@@ -184,6 +203,29 @@ _WELD_LENGTH_ONLY_RE = re.compile(rf"\bLENGTH\s+({_WELD_DIMENSION_TOKEN_RE})\b")
 _WELD_TAIL_RE = re.compile(r"\b(?:TAIL|NOTE|DETAIL)\s*[:\-]?\s*(.+)$")
 _WELD_ALLOWED_CONNECTORS = {"ALL", "AROUND", "BOTH", "SIDES", "ARROW", "SIDE", "OTHER", "LENGTH", "TAIL", "NOTE", "DETAIL", "TYP", "WELD"}
 
+_SURFACE_FINISH_ERROR_MALFORMED = "surface_finish_malformed"
+_SURFACE_FINISH_ERROR_UNSUPPORTED = "surface_finish_unsupported"
+_SURFACE_FINISH_EMPTY_NO_MATCH = "surface_finish_no_match"
+
+_FIT_ERROR_MALFORMED = "fit_malformed"
+_FIT_ERROR_UNSUPPORTED = "fit_unsupported"
+_FIT_EMPTY_NO_MATCH = "fit_no_match"
+
+_SURFACE_FINISH_INDICATOR_RE = re.compile(r"\bRA\b|(?<![A-Z])RA(?=[0-9.])", re.IGNORECASE)
+_SURFACE_FINISH_VALUE_TOKEN_RE = r"(?:\d+(?:\.\d+)?|\.\d+)"
+_SURFACE_FINISH_FORWARD_RE = re.compile(
+    rf"\bRA\s*({_SURFACE_FINISH_VALUE_TOKEN_RE})\s*(?:([µUM]{1,2}|MICROMETER(?:S)?|MICRON(?:S)?)\b)?",
+    re.IGNORECASE,
+)
+_SURFACE_FINISH_REVERSED_RE = re.compile(
+    rf"\b({_SURFACE_FINISH_VALUE_TOKEN_RE})\s*(?:([µUM]{1,2}|MICROMETER(?:S)?|MICRON(?:S)?)\s*)?RA\b",
+    re.IGNORECASE,
+)
+_SURFACE_FINISH_UNSUPPORTED_RE = re.compile(r"\bRZ\b|\bRMS\b|\bCLA\b", re.IGNORECASE)
+
+_FIT_TOKEN_RE = re.compile(r"([A-Z]\d+)\s*/\s*([a-z]\d+)")
+_FIT_NEAR_MISS_RE = re.compile(r"\b([A-Z]\d+)\s*/?\s*([A-Za-z])\b")
+
 
 WELD_ERROR_MALFORMED = "weld_malformed"
 WELD_ERROR_UNSUPPORTED = "weld_unsupported"
@@ -249,7 +291,7 @@ def extract_semantic_callout(
     metadata["form3_context_supplied"] = "true" if normalized_form3 else "false"
     metadata["planned_families"] = "gdt,weld,surface_finish,fit"
 
-    status, gdt_payload, weld_payload = _extract_semantic_payload(normalized_text)
+    status, gdt_payload, weld_payload, surface_finish_payload, fit_payload = _extract_semantic_payload(normalized_text)
 
     return SemanticCallout(
         provenance=SemanticProvenance(
@@ -263,8 +305,8 @@ def extract_semantic_callout(
         normalized_text=normalized_text,
         gdt=gdt_payload,
         weld=weld_payload,
-        surface_finish=None,
-        fit=None,
+        surface_finish=surface_finish_payload,
+        fit=fit_payload,
         metadata=metadata,
     )
 
@@ -286,15 +328,23 @@ def _semantic_source_ref(pdf_spans: Sequence[TextSpan]) -> Optional[str]:
 
 def _extract_semantic_payload(
     normalized_text: Optional[str],
-) -> Tuple[SemanticParserStatus, Optional[GdtSemanticPayload], Optional[WeldSemanticPayload]]:
+) -> Tuple[
+    SemanticParserStatus,
+    Optional[GdtSemanticPayload],
+    Optional[WeldSemanticPayload],
+    Optional[SurfaceFinishSemanticPayload],
+    Optional[FitSemanticPayload],
+]:
     if not normalized_text:
         return (
             SemanticParserStatus(
                 state="empty",
-                parser_family="weld",
-                reason_code=WELD_EMPTY_NO_MATCH,
-                detail="no semantic source text was available for bounded weld or GD&T parsing",
+                parser_family="surface_finish",
+                reason_code=_SURFACE_FINISH_EMPTY_NO_MATCH,
+                detail="no semantic source text was available for bounded semantic parsing",
             ),
+            None,
+            None,
             None,
             None,
         )
@@ -316,6 +366,8 @@ def _extract_semantic_payload(
                 modifiers=gdt_result.modifiers,
             ),
             None,
+            None,
+            None,
         )
     if isinstance(gdt_result, str):
         return (
@@ -325,6 +377,8 @@ def _extract_semantic_payload(
                 reason_code="gdt_malformed_frame",
                 detail=gdt_result,
             ),
+            None,
+            None,
             None,
             None,
         )
@@ -349,6 +403,8 @@ def _extract_semantic_payload(
                 tail=weld_result.tail,
                 all_around=weld_result.all_around,
             ),
+            None,
+            None,
         )
     if isinstance(weld_result, tuple):
         reason_code, detail = weld_result
@@ -361,15 +417,90 @@ def _extract_semantic_payload(
             ),
             None,
             None,
+            None,
+            None,
+        )
+
+    surface_finish_result = _parse_surface_finish_callout(normalized_text)
+    if isinstance(surface_finish_result, ParsedSurfaceFinishCallout):
+        return (
+            SemanticParserStatus(
+                state="parsed",
+                parser_family="surface_finish",
+                reason_code=None,
+                detail="parsed bounded surface finish callout from authoritative semantic text",
+            ),
+            None,
+            None,
+            SurfaceFinishSemanticPayload(
+                canonical_text=surface_finish_result.canonical_text,
+                roughness_value=surface_finish_result.roughness_value,
+                units=surface_finish_result.units,
+                value_micrometers=surface_finish_result.value_micrometers,
+                indicator=surface_finish_result.indicator,
+            ),
+            None,
+        )
+    if isinstance(surface_finish_result, tuple):
+        reason_code, detail = surface_finish_result
+        return (
+            SemanticParserStatus(
+                state="error",
+                parser_family="surface_finish",
+                reason_code=reason_code,
+                detail=detail,
+            ),
+            None,
+            None,
+            None,
+            None,
+        )
+
+    fit_result = _parse_fit_callout(normalized_text)
+    if isinstance(fit_result, ParsedFitCallout):
+        return (
+            SemanticParserStatus(
+                state="parsed",
+                parser_family="fit",
+                reason_code=None,
+                detail="parsed bounded fit callout from authoritative semantic text",
+            ),
+            None,
+            None,
+            None,
+            FitSemanticPayload(
+                canonical_text=fit_result.canonical_text,
+                fit_class=fit_result.fit_class,
+                hole_class=fit_result.hole_class,
+                shaft_class=fit_result.shaft_class,
+                basis=fit_result.basis,
+                standard_hint=fit_result.standard_hint,
+            ),
+        )
+    if isinstance(fit_result, tuple):
+        reason_code, detail = fit_result
+        return (
+            SemanticParserStatus(
+                state="error",
+                parser_family="fit",
+                reason_code=reason_code,
+                detail=detail,
+            ),
+            None,
+            None,
+            None,
+            None,
         )
 
     return (
         SemanticParserStatus(
             state="empty",
-            parser_family="weld",
-            reason_code=WELD_EMPTY_NO_MATCH,
-            detail="text did not match the bounded weld subset or GD&T frame grammar",
+            parser_family="surface_finish",
+            reason_code=_SURFACE_FINISH_EMPTY_NO_MATCH,
+            detail="text did not match the bounded GD&T, weld, surface finish, or fit grammar",
         ),
+        None,
+        None,
         None,
         None,
     )
@@ -481,6 +612,68 @@ def _parse_weld_callout(normalized_text: str) -> Optional[ParsedWeldCallout | Tu
     )
 
 
+def _parse_surface_finish_callout(normalized_text: str) -> Optional[ParsedSurfaceFinishCallout | Tuple[str, str]]:
+    uppercase_text = normalized_text.upper()
+
+    if _SURFACE_FINISH_UNSUPPORTED_RE.search(uppercase_text):
+        unsupported = _SURFACE_FINISH_UNSUPPORTED_RE.search(uppercase_text)
+        assert unsupported is not None
+        return (
+            _SURFACE_FINISH_ERROR_UNSUPPORTED,
+            f"recognized surface finish callout uses unsupported roughness family: {unsupported.group(0).upper()}",
+        )
+
+    if not _SURFACE_FINISH_INDICATOR_RE.search(uppercase_text):
+        return None
+
+    match = _SURFACE_FINISH_FORWARD_RE.search(normalized_text) or _SURFACE_FINISH_REVERSED_RE.search(normalized_text)
+    if match is None:
+        return (
+            _SURFACE_FINISH_ERROR_MALFORMED,
+            "recognized surface finish indicator but missing a bounded Ra roughness value",
+        )
+
+    value_text = _normalize_decimal_text(match.group(1))
+    units_text = _normalize_surface_finish_units(match.group(2))
+    if units_text is None:
+        units_text = "um"
+
+    return ParsedSurfaceFinishCallout(
+        canonical_text=f"Ra {value_text} {units_text}",
+        roughness_value=value_text,
+        units=units_text,
+        value_micrometers=value_text if units_text == "um" else None,
+        indicator="Ra",
+    )
+
+
+def _parse_fit_callout(normalized_text: str) -> Optional[ParsedFitCallout | Tuple[str, str]]:
+    match = _FIT_TOKEN_RE.search(normalized_text)
+    if match is None:
+        near_miss = _FIT_NEAR_MISS_RE.search(normalized_text)
+        if near_miss is not None:
+            return (
+                _FIT_ERROR_MALFORMED,
+                "recognized fit designator but missing a complete paired hole/shaft class",
+            )
+        return None
+
+    hole_class = match.group(1)
+    shaft_class = match.group(2)
+
+    canonical_text = f"{hole_class}/{shaft_class}"
+    basis = "hole_basis" if hole_class.startswith("H") else "shaft_basis" if shaft_class.startswith("h") else "unspecified_basis"
+
+    return ParsedFitCallout(
+        canonical_text=canonical_text,
+        fit_class=canonical_text,
+        hole_class=hole_class,
+        shaft_class=shaft_class,
+        basis=basis,
+        standard_hint="iso_limits_and_fits",
+    )
+
+
 def _find_unsupported_weld_tokens(uppercase_text: str) -> List[str]:
     cleaned = uppercase_text
     cleaned = _WELD_TAIL_RE.sub(" ", cleaned)
@@ -506,6 +699,24 @@ def _find_unsupported_weld_tokens(uppercase_text: str) -> List[str]:
             continue
         leftovers.append(token)
     return leftovers
+
+
+def _normalize_decimal_text(value_text: str) -> str:
+    if value_text.startswith("."):
+        value_text = f"0{value_text}"
+    if "." in value_text:
+        value_text = value_text.rstrip("0").rstrip(".")
+    return value_text
+
+
+def _normalize_surface_finish_units(units_text: Optional[str]) -> Optional[str]:
+    if units_text is None:
+        return None
+
+    token = units_text.strip().lower()
+    if token in {"u", "um", "µm", "μm", "micrometer", "micrometers", "micron", "microns"}:
+        return "um"
+    return None
 
 
 def _is_gdt_tolerance_token(token: str) -> bool:

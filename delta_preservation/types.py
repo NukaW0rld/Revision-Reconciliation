@@ -101,21 +101,24 @@ class WeldSemanticPayload(BaseModel):
 
 
 class SurfaceFinishSemanticPayload(BaseModel):
-    """Surface-finish semantic payload slot for future parser output."""
+    """Surface-finish semantic payload slot for bounded first-pass Ra parsing."""
 
-    roughness_value: Optional[str] = Field(None, description="Normalized roughness value")
-    units: Optional[str] = Field(None, description="Surface-finish units such as microinch or µm")
-    process_note: Optional[str] = Field(None, description="Supplemental process note")
-    sampling_length: Optional[str] = Field(None, description="Sampling length or related modifier")
+    canonical_text: Optional[str] = Field(None, description="Normalized surface finish text such as 'Ra 3.2 um'")
+    roughness_value: Optional[str] = Field(None, description="Normalized Ra roughness value")
+    units: Optional[str] = Field(None, description="Normalized units for the roughness value, such as 'um'")
+    value_micrometers: Optional[str] = Field(None, description="Ra value normalized to micrometers when directly supported")
+    indicator: Optional[str] = Field(None, description="Normalized roughness indicator family, currently bounded to 'Ra'")
 
 
 class FitSemanticPayload(BaseModel):
-    """Fit/class semantic payload slot for future parser output."""
+    """Fit/class semantic payload slot for bounded paired fit parsing."""
 
-    fit_class: Optional[str] = Field(None, description="Fit class such as H7/g6")
-    basis: Optional[str] = Field(None, description="Hole-basis or shaft-basis fit system")
-    allowance: Optional[str] = Field(None, description="Allowance or fit note text")
-    tolerance_note: Optional[str] = Field(None, description="Supplemental fit/tolerance note")
+    canonical_text: Optional[str] = Field(None, description="Normalized paired fit designator such as H7/p6")
+    fit_class: Optional[str] = Field(None, description="Fit class such as H7/p6")
+    hole_class: Optional[str] = Field(None, description="Hole tolerance class token such as H7")
+    shaft_class: Optional[str] = Field(None, description="Shaft tolerance class token such as p6")
+    basis: Optional[str] = Field(None, description="Derived basis classification such as hole_basis or shaft_basis")
+    standard_hint: Optional[str] = Field(None, description="Stable standards family hint without consulting tolerance tables")
 
 
 class SemanticCallout(BaseModel):

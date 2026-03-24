@@ -78,7 +78,50 @@ def test_extract_semantic_callout_parses_profile_gdt_without_datums_when_frame_h
     assert semantic.metadata["authority_source"] == "pdf"
 
 
-def test_extract_semantic_callout_returns_empty_weld_status_for_unrecognized_semantic_text():
+def test_extract_semantic_callout_parses_surface_finish_from_pdf_spans_and_ignores_conflicting_form3_text():
+    semantic = extract_semantic_callout(
+        pdf_spans=[
+            _span("Ra", span_id=0, x0=10.0),
+            _span("3.2", span_id=1, x0=20.0),
+            _span("um", span_id=2, x0=30.0),
+        ],
+        form3_requirement="FIT H7/p6",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "Ra 3.2 um"
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "surface_finish"
+    assert semantic.status.reason_code is None
+    assert semantic.status.detail == "parsed bounded surface finish callout from authoritative semantic text"
+    assert semantic.metadata["authority_source"] == "pdf"
+    assert semantic.metadata["conflict_detected"] == "true"
+    assert semantic.surface_finish is not None
+    assert semantic.surface_finish.canonical_text == "Ra 3.2 um"
+    assert semantic.surface_finish.roughness_value == "3.2"
+    assert semantic.surface_finish.units == "um"
+    assert semantic.surface_finish.value_micrometers == "3.2"
+    assert semantic.surface_finish.indicator == "Ra"
+    assert semantic.gdt is None
+    assert semantic.weld is None
+    assert semantic.fit is None
+
+
+def test_extract_semantic_callout_parses_reversed_surface_finish_order():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("3.2 Ra", span_id=0, x0=10.0)],
+        form3_requirement="SURFACE ROUGHNESS",
+    )
+
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "surface_finish"
+    assert semantic.surface_finish is not None
+    assert semantic.surface_finish.canonical_text == "Ra 3.2 um"
+    assert semantic.surface_finish.roughness_value == "3.2"
+    assert semantic.surface_finish.units == "um"
+
+
+def test_extract_semantic_callout_returns_empty_surface_finish_status_for_unrecognized_semantic_text():
     semantic = extract_semantic_callout(
         pdf_spans=[_span("FLAG NOTE 12", span_id=7, x0=12.0)],
         form3_requirement="FLAG NOTE 12",
@@ -88,9 +131,9 @@ def test_extract_semantic_callout_returns_empty_weld_status_for_unrecognized_sem
     assert semantic.raw_text == "FLAG NOTE 12"
     assert semantic.normalized_text == "FLAG NOTE 12"
     assert semantic.status.state == "empty"
-    assert semantic.status.parser_family == "weld"
-    assert semantic.status.reason_code == "weld_no_match"
-    assert semantic.status.detail == "text did not match the bounded weld subset or GD&T frame grammar"
+    assert semantic.status.parser_family == "surface_finish"
+    assert semantic.status.reason_code == "surface_finish_no_match"
+    assert semantic.status.detail == "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
     assert semantic.gdt is None
     assert semantic.weld is None
     assert semantic.surface_finish is None
@@ -166,6 +209,77 @@ def test_extract_semantic_callout_parses_bounded_weld_subset_from_fragmented_pdf
 
 
 
+def test_extract_semantic_callout_parses_fit_from_pdf_spans_and_ignores_conflicting_form3_text():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("H7/p6", span_id=0, x0=10.0)],
+        form3_requirement="Ra 3.2 um",
+    )
+
+    assert semantic.provenance.authority == "pdf"
+    assert semantic.raw_text == "H7/p6"
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "fit"
+    assert semantic.status.reason_code is None
+    assert semantic.status.detail == "parsed bounded fit callout from authoritative semantic text"
+    assert semantic.metadata["authority_source"] == "pdf"
+    assert semantic.metadata["conflict_detected"] == "true"
+    assert semantic.fit is not None
+    assert semantic.fit.canonical_text == "H7/p6"
+    assert semantic.fit.fit_class == "H7/p6"
+    assert semantic.fit.hole_class == "H7"
+    assert semantic.fit.shaft_class == "p6"
+    assert semantic.fit.basis == "hole_basis"
+    assert semantic.fit.standard_hint == "iso_limits_and_fits"
+    assert semantic.gdt is None
+    assert semantic.weld is None
+    assert semantic.surface_finish is None
+
+
+
+def test_extract_semantic_callout_parses_close_spaced_fit_variant():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("H7 / p6", span_id=0, x0=10.0)],
+        form3_requirement="FIT",
+    )
+
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "fit"
+    assert semantic.fit is not None
+    assert semantic.fit.canonical_text == "H7/p6"
+    assert semantic.fit.hole_class == "H7"
+    assert semantic.fit.shaft_class == "p6"
+
+
+
+def test_extract_semantic_callout_returns_error_for_malformed_surface_finish_missing_value():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("Ra", span_id=0, x0=10.0)],
+        form3_requirement="Ra 3.2 um",
+    )
+
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "surface_finish"
+    assert semantic.status.reason_code == "surface_finish_malformed"
+    assert semantic.status.detail == "recognized surface finish indicator but missing a bounded Ra roughness value"
+    assert semantic.surface_finish is None
+    assert semantic.fit is None
+
+
+
+def test_extract_semantic_callout_returns_error_for_unsupported_surface_finish_family():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("Rz 12.5", span_id=0, x0=10.0)],
+        form3_requirement="Ra 3.2 um",
+    )
+
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "surface_finish"
+    assert semantic.status.reason_code == "surface_finish_unsupported"
+    assert semantic.status.detail == "recognized surface finish callout uses unsupported roughness family: RZ"
+    assert semantic.surface_finish is None
+
+
+
 def test_extract_semantic_callout_returns_error_for_malformed_weld_missing_size():
     semantic = extract_semantic_callout(
         pdf_spans=[_span("FILLET", span_id=0, x0=10.0)],
@@ -195,6 +309,20 @@ def test_extract_semantic_callout_returns_error_for_unsupported_weld_segment():
     assert "STAGGERED" in semantic.status.detail
     assert semantic.weld is None
     assert semantic.gdt is None
+
+
+
+def test_extract_semantic_callout_returns_error_for_malformed_fit_designation():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("H7/p", span_id=0, x0=10.0)],
+        form3_requirement="H7/p6",
+    )
+
+    assert semantic.status.state == "error"
+    assert semantic.status.parser_family == "fit"
+    assert semantic.status.reason_code == "fit_malformed"
+    assert semantic.status.detail == "recognized fit designator but missing a complete paired hole/shaft class"
+    assert semantic.fit is None
 
 
 

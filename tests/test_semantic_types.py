@@ -6,7 +6,9 @@ from delta_preservation.types import (
     SemanticCallout,
     SemanticParserStatus,
     SemanticProvenance,
+    FitSemanticPayload,
     GdtSemanticPayload,
+    SurfaceFinishSemanticPayload,
     WeldSemanticPayload,
 )
 
@@ -157,25 +159,141 @@ def test_delta_packet_serialization_preserves_parsed_weld_semantic_callout_only(
 
 
 
-def test_semantic_callout_empty_weld_status_is_explicit_and_json_stable():
+def test_delta_packet_serialization_preserves_surface_finish_semantic_callout_only():
+    item = DeltaItem(
+        char_no=24,
+        status="changed",
+        confidence=0.82,
+        reasons=["Authoritative PDF surface finish callout changed between revisions"],
+        scores={"location": 0.86, "text": 0.76, "context": 0.81},
+        semantic_callout=SemanticCallout(
+            provenance=SemanticProvenance(
+                authority="pdf",
+                source_type="drawing_pdf",
+                source_ref="pdf:block:3/line:1/span:2",
+                notes=["PDF-derived Ra callout remained authoritative over Form 3 wording"],
+            ),
+            status=SemanticParserStatus(
+                state="parsed",
+                parser_family="surface_finish",
+                reason_code=None,
+                detail="parsed bounded surface finish callout from authoritative semantic text",
+            ),
+            raw_text="Ra 3.2 um",
+            normalized_text="Ra 3.2 um",
+            surface_finish=SurfaceFinishSemanticPayload(
+                canonical_text="Ra 3.2 um",
+                roughness_value="3.2",
+                units="um",
+                value_micrometers="3.2",
+                indicator="Ra",
+            ),
+            metadata={"inspection_surface": "delta_packet.json", "authority_source": "pdf"},
+        ),
+    )
+
+    payload = item.model_dump(exclude_none=True)
+    semantic = payload["semantic_callout"]
+
+    assert semantic["status"]["state"] == "parsed"
+    assert semantic["status"]["parser_family"] == "surface_finish"
+    assert semantic["surface_finish"] == {
+        "canonical_text": "Ra 3.2 um",
+        "roughness_value": "3.2",
+        "units": "um",
+        "value_micrometers": "3.2",
+        "indicator": "Ra",
+    }
+    assert "gdt" not in semantic
+    assert "weld" not in semantic
+    assert "fit" not in semantic
+
+    round_trip = DeltaItem.model_validate(payload)
+    assert round_trip.semantic_callout is not None
+    assert round_trip.semantic_callout.surface_finish is not None
+    assert round_trip.semantic_callout.surface_finish.canonical_text == "Ra 3.2 um"
+    assert round_trip.semantic_callout.surface_finish.value_micrometers == "3.2"
+
+
+
+def test_delta_packet_serialization_preserves_fit_semantic_callout_only():
+    item = DeltaItem(
+        char_no=27,
+        status="changed",
+        confidence=0.8,
+        reasons=["Authoritative PDF fit callout changed between revisions"],
+        scores={"location": 0.84, "text": 0.74, "context": 0.79},
+        semantic_callout=SemanticCallout(
+            provenance=SemanticProvenance(
+                authority="pdf",
+                source_type="drawing_pdf",
+                source_ref="pdf:block:5/line:0/span:1",
+                notes=["PDF-derived fit callout remained authoritative over Form 3 wording"],
+            ),
+            status=SemanticParserStatus(
+                state="parsed",
+                parser_family="fit",
+                reason_code=None,
+                detail="parsed bounded fit callout from authoritative semantic text",
+            ),
+            raw_text="H7/p6",
+            normalized_text="H7/p6",
+            fit=FitSemanticPayload(
+                canonical_text="H7/p6",
+                fit_class="H7/p6",
+                hole_class="H7",
+                shaft_class="p6",
+                basis="hole_basis",
+                standard_hint="iso_limits_and_fits",
+            ),
+            metadata={"inspection_surface": "delta_packet.json", "authority_source": "pdf"},
+        ),
+    )
+
+    payload = item.model_dump(exclude_none=True)
+    semantic = payload["semantic_callout"]
+
+    assert semantic["status"]["state"] == "parsed"
+    assert semantic["status"]["parser_family"] == "fit"
+    assert semantic["fit"] == {
+        "canonical_text": "H7/p6",
+        "fit_class": "H7/p6",
+        "hole_class": "H7",
+        "shaft_class": "p6",
+        "basis": "hole_basis",
+        "standard_hint": "iso_limits_and_fits",
+    }
+    assert "gdt" not in semantic
+    assert "weld" not in semantic
+    assert "surface_finish" not in semantic
+
+    round_trip = DeltaItem.model_validate(payload)
+    assert round_trip.semantic_callout is not None
+    assert round_trip.semantic_callout.fit is not None
+    assert round_trip.semantic_callout.fit.canonical_text == "H7/p6"
+    assert round_trip.semantic_callout.fit.basis == "hole_basis"
+
+
+
+def test_semantic_callout_empty_surface_finish_status_is_explicit_and_json_stable():
     item = DeltaItem(
         char_no=18,
         status="uncertain",
         confidence=0.42,
-        reasons=["Semantic parser found no bounded weld or GD&T frame in the authoritative text"],
+        reasons=["Semantic parser found no bounded GD&T, weld, surface finish, or fit pattern in the authoritative text"],
         scores={"location": 0.5, "text": 0.2, "context": 0.4},
         semantic_callout=SemanticCallout(
             provenance=SemanticProvenance(
                 authority="pdf",
                 source_type="drawing_pdf",
                 source_ref="pdf:block:8/line:1/span:0",
-                notes=["PDF text inspected but no bounded weld or GD&T pattern matched"],
+                notes=["PDF text inspected but no bounded semantic pattern matched"],
             ),
             status=SemanticParserStatus(
                 state="empty",
-                parser_family="weld",
-                reason_code="weld_no_match",
-                detail="text did not match the bounded weld subset or GD&T frame grammar",
+                parser_family="surface_finish",
+                reason_code="surface_finish_no_match",
+                detail="text did not match the bounded GD&T, weld, surface finish, or fit grammar",
             ),
             raw_text="FLAG NOTE 12",
             normalized_text="FLAG NOTE 12",
@@ -186,17 +304,18 @@ def test_semantic_callout_empty_weld_status_is_explicit_and_json_stable():
     payload_json = item.model_dump_json(exclude_none=True)
     payload = json.loads(payload_json)
 
-    assert payload["semantic_callout"]["status"]["reason_code"] == "weld_no_match"
-    assert payload["semantic_callout"]["status"]["parser_family"] == "weld"
+    assert payload["semantic_callout"]["status"]["reason_code"] == "surface_finish_no_match"
+    assert payload["semantic_callout"]["status"]["parser_family"] == "surface_finish"
     assert payload["semantic_callout"]["provenance"]["notes"] == [
-        "PDF text inspected but no bounded weld or GD&T pattern matched"
+        "PDF text inspected but no bounded semantic pattern matched"
     ]
     assert "gdt" not in payload["semantic_callout"]
     assert "weld" not in payload["semantic_callout"]
-    assert payload["reasons"] == ["Semantic parser found no bounded weld or GD&T frame in the authoritative text"]
+    assert "surface_finish" not in payload["semantic_callout"]
+    assert "fit" not in payload["semantic_callout"]
 
     reparsed = DeltaItem.model_validate_json(payload_json)
     assert reparsed.semantic_callout is not None
     assert reparsed.semantic_callout.status.state == "empty"
-    assert reparsed.semantic_callout.status.reason_code == "weld_no_match"
+    assert reparsed.semantic_callout.status.reason_code == "surface_finish_no_match"
     assert reparsed.semantic_callout.metadata["inspection_surface"] == "delta_packet.json"
