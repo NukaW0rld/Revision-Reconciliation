@@ -3,17 +3,22 @@
 
 @layer components {
   .mapping-select {
+    appearance: none;
+    -webkit-appearance: none;
     background-color: var(--color-base-100);
-    border: 0;
-    box-shadow: none;
+    background-image: none;
+    border: none !important;
+    box-shadow: none !important;
     outline: none;
     opacity: 1;
   }
 
   .mapping-select:focus,
-  .mapping-select:focus-visible {
-    border: 0;
-    box-shadow: none;
+  .mapping-select:focus-visible,
+  .mapping-select:hover,
+  .mapping-select:active {
+    border: none !important;
+    box-shadow: none !important;
     outline: none;
   }
 
