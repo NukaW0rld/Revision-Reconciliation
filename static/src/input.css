@@ -4,7 +4,17 @@
 @layer components {
   .mapping-select {
     background-color: var(--color-base-100);
+    border: 0;
+    box-shadow: none;
+    outline: none;
     opacity: 1;
+  }
+
+  .mapping-select:focus,
+  .mapping-select:focus-visible {
+    border: 0;
+    box-shadow: none;
+    outline: none;
   }
 
   .mapping-select option,
