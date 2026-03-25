@@ -19,7 +19,7 @@
                     {% set matched_field = detected_by_col.get(col_idx) %}
                     <th class="text-center min-w-[140px]">
                         <select name="col_{{ col_idx }}"
-                                class="select select-bordered select-sm w-full{% if not matched_field %} bg-warning/15 border-warning{% endif %}"
+                                class="select select-bordered select-sm w-full bg-base-100 text-base-content{% if not matched_field %} bg-warning/15 border-warning{% endif %}"
                                 data-col="{{ col_idx }}">
                             <option value="ignore" {% if not matched_field %}selected{% endif %}>(ignore)</option>
                             {% for field in required_fields %}
