@@ -86,6 +86,11 @@ def parse_excel_preview(
     pipeline's load_form3), so files with title/metadata rows above the headers
     are handled correctly.
 
+    Prefers a worksheet whose name contains "Form3" or "F3" so the upload
+    preview follows the same sheet-selection behavior as the pipeline parser.
+    Falls back to the workbook's active sheet only when no Form 3 sheet can be
+    identified by name.
+
     Returns: (headers, preview_rows[:5], detected_mapping)
     Raises ValueError with a descriptive message on fatal errors (empty file,
     unreadable bytes, sheet with no rows, no header row found).
@@ -100,7 +105,15 @@ def parse_excel_preview(
     except Exception as exc:
         raise ValueError(f"Cannot read file: {exc}") from exc
 
-    ws = wb.active
+    ws = None
+    for candidate in wb.worksheets:
+        title = candidate.title
+        if "Form3" in title or "F3" in title:
+            ws = candidate
+            break
+    if ws is None:
+        ws = wb.active
+
     rows = list(ws.iter_rows(values_only=True))
 
     if not rows:

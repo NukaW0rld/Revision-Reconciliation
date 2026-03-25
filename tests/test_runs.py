@@ -326,6 +326,78 @@ def test_validate_xlsx_noncontiguous_char_no(client, db_engine, engineer_user):
         assert val in resp.text, f"Expected char_no {val!r} in response"
 
 
+def test_validate_xlsx_prefers_f3_sheet_over_active_sheet(client, db_engine, engineer_user):
+    """VALIDATE-03b: upload preview selects the Form 3 sheet even when another sheet is active."""
+    from openpyxl import Workbook
+
+    _login_engineer(client, db_engine, engineer_user)
+
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = "F1 Part No. Accountabiity"
+    ws1.append(["1. Part Number", "2. Part Name"])
+    ws1.append([20, "WHEEL HUB"])
+
+    ws2 = wb.create_sheet("F2 Product Accountability")
+    ws2.append(["5. Material or Process Name", "6. Specification Number"])
+
+    ws3 = wb.create_sheet("F3 Char. Accountability")
+    ws3.append([None, None, None, None])
+    ws3.append(["AS9102 Form 3", None, None, None])
+    ws3.append(["Characteristic Accountability", None, None, None])
+    ws3.append(["5. Char. Number:", "6. Reference Location:", "7. Characteristic Designator:", "8. Requirement:"])
+    ws3.append([1, "revA pg.1, Zone B.2", "M", ".500 IN +/- .005"])
+    ws3.append([2, "revA pg.1, Zone B.1", "M", ".750 IN +/- .005"])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("form3.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    assert "Char. Number" in resp.text or "Char No" in resp.text
+    assert "Reference Location" in resp.text
+    assert ".500 IN +/- .005" in resp.text
+    assert "WHEEL HUB" not in resp.text
+
+
+def test_validate_xlsx_formats_integer_like_preview_values_without_trailing_point_zero(client, db_engine, engineer_user):
+    """VALIDATE-03c: preview displays 1.0-style integers as 1 for readability."""
+    from openpyxl import Workbook
+
+    _login_engineer(client, db_engine, engineer_user)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "F3 Char. Accountability"
+    ws.append([None, None, None, None])
+    ws.append(["AS9102 Form 3", None, None, None])
+    ws.append(["Characteristic Accountability", None, None, None])
+    ws.append(["5. Char. Number:", "6. Reference Location:", "7. Characteristic Designator:", "8. Requirement:"])
+    ws.append([1.0, "revA pg.1, Zone B.2", "M", ".500 IN +/- .005"])
+    ws.append([2.0, "revA pg.1, Zone B.1", "M", ".750 IN +/- .005"])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    resp = client.post(
+        "/runs/validate-xlsx",
+        files={"form3_xlsx": ("form3.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    compact = " ".join(resp.text.split())
+    assert "<td class=\"text-center text-xs\"> 1 </td>" in compact
+    assert "<td class=\"text-center text-xs\"> 2 </td>" in compact
+    assert "1.0" not in compact
+    assert "2.0" not in compact
+
+
 def test_validate_xlsx_requires_auth(client):
     """VALIDATE-04: POST /runs/validate-xlsx without auth cookie redirects to login."""
     resp = client.post(

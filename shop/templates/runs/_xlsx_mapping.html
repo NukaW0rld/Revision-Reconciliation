@@ -45,7 +45,13 @@
                 <tr>
                     {% for cell in row %}
                     <td class="text-center text-xs">
-                        {{ cell if cell is not none else "" }}
+                        {% if cell is none %}
+                          {{ "" }}
+                        {% elif cell is number and cell == (cell | int) %}
+                          {{ cell | int }}
+                        {% else %}
+                          {{ cell }}
+                        {% endif %}
                     </td>
                     {% endfor %}
                 </tr>

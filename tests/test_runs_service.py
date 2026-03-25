@@ -107,6 +107,32 @@ class TestValidateExcelBytes:
         result = validate_excel_bytes(excel_bytes)
         assert result is None
 
+    def test_valid_excel_uses_f3_sheet_when_not_active(self):
+        from openpyxl import Workbook
+        from shop.services.runs import validate_excel_bytes
+
+        wb = Workbook()
+        ws1 = wb.active
+        ws1.title = "F1 Part No. Accountabiity"
+        ws1.append(["1. Part Number", "2. Part Name"])
+        ws1.append([20, "WHEEL HUB"])
+
+        ws2 = wb.create_sheet("F2 Product Accountability")
+        ws2.append(["5. Material or Process Name", "6. Specification Number"])
+
+        ws3 = wb.create_sheet("F3 Char. Accountability")
+        ws3.append([None, None, None, None])
+        ws3.append(["AS9102 Form 3", None, None, None])
+        ws3.append(["Characteristic Accountability", None, None, None])
+        ws3.append(["5. Char. Number:", "6. Reference Location:", "7. Characteristic Designator:", "8. Requirement:"])
+        ws3.append([1, "revA pg.1, Zone B.2", "M", ".500 IN +/- .005"])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+
+        result = validate_excel_bytes(buf.getvalue())
+        assert result is None
+
     def test_empty_bytes_raises_value_error(self):
         from shop.services.runs import validate_excel_bytes
         with pytest.raises(ValueError):
