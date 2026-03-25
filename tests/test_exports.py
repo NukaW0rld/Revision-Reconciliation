@@ -526,14 +526,15 @@ def test_semantic_parity_review_and_exports(client: TestClient, engineer_user, d
     audit_text = audit_html.replace("&amp;", "&")
     work_text = work_html.replace("&amp;", "&")
 
+    # Review queue no longer surfaces semantic read/rationale — only exports do.
+    assert "Semantic Read" not in review_text
+    assert "Rationale" not in review_text
+
     for char_no in (21, 22, 23, 24, 26):
         contract = contracts[char_no]
         assert contract is not None
-        assert contract["summary"] in review_text
-        assert contract["detail"] in review_text
         if contract["reason_fragments"]:
             for fragment in contract["reason_fragments"]:
-                assert fragment in review_text
                 assert fragment in audit_text
                 if str(char_no) in work_rows:
                     assert fragment in work_text
@@ -547,8 +548,6 @@ def test_semantic_parity_review_and_exports(client: TestClient, engineer_user, d
             assert work_rows[str(char_no)]["semantic_summary"] == contract["summary"]
             assert work_rows[str(char_no)]["semantic_reason_summary"] == (contract["reason_summary"] or "")
 
-    quiet_card = review_html.split('id="review-item-25"', 1)[1]
-    assert "Semantic Read" not in quiet_card.split('id="review-item-26"', 1)[0]
     assert audit_rows["25"]["semantic_summary"] == ""
     assert "25" not in work_rows
 

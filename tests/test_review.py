@@ -422,26 +422,15 @@ def test_review_queue_renders_semantic_blocks_for_representative_families(
     assert resp.status_code == 200, resp.text
 
     html = resp.text
-    assert "Semantic Read" in html
-    assert "GD&amp;T parsed" in html
-    assert "position ⌀0.20 datums A, B, C modifiers MMC" in html
-    assert "semantic GD&amp;T changed: tolerance ⌀0.10 → ⌀0.20" in html
-
-    assert "Weld parsed" in html
-    assert "fillet size 3/8 both sides" in html
-    assert "semantic weld changed: fillet size 1/4 → 3/8" in html
-
-    assert "Surface Finish parsed" in html
-    assert "Ra 63" in html
-    assert "semantic surface finish matched: Ra 63" in html
-
-    assert "Fit parsed" in html
-    assert "H7/g6 (hole basis)" in html
-    assert "semantic fit added: H7/g6 hole-basis fit" in html
-
-    no_semantic_card = html.split('id="review-item-25"', 1)[1].split('id="review-item-', 1)[0]
-    assert "Semantic Read" not in no_semantic_card
+    # Semantic read / rationale have been removed from the review queue UI.
+    # Verify the data does not leak raw into the page.
+    assert "Semantic Read" not in html
+    assert "Rationale" not in html
     assert "semantic_callout" not in html
+
+    # All expected item cards are present
+    for char_no in [21, 22, 23, 24, 25]:
+        assert f'id="review-item-{char_no}"' in html
 
 
 
@@ -504,10 +493,8 @@ def test_review_queue_surfaces_fallback_reason_without_empty_semantic_scaffoldin
     fallback_card = html.split('id="review-item-31"', 1)[1].split('id="review-item-32"', 1)[0]
     quiet_card = html.split('id="review-item-32"', 1)[1]
 
-    assert "Weld error" in fallback_card
-    assert "FILLET BOTH SIDES" in fallback_card
-    assert "recognized weld callout is missing a parseable size token before the weld type" in fallback_card
-    assert "semantic comparison fallback: left semantic state error/weld_malformed" in fallback_card
+    assert "Semantic Read" not in fallback_card
+    assert "Rationale" not in fallback_card
 
     assert "Semantic Read" not in quiet_card
     assert "Rationale" not in quiet_card
