@@ -280,7 +280,7 @@ def test_validate_xlsx_autodetect(client, db_engine, engineer_user):
     )
     assert resp.status_code == 200
     assert "<select" in resp.text, "Expected select dropdowns in column mapping partial"
-    assert 'class="select select-bordered select-sm w-full bg-base-100 text-base-content' in resp.text
+    assert 'class="select select-bordered select-sm w-full mapping-select bg-base-100 text-base-content' in resp.text
 
 
 def test_validate_xlsx_empty_file(client, db_engine, engineer_user):

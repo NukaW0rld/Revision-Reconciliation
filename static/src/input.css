@@ -1,6 +1,30 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+@layer components {
+  .mapping-select {
+    background-color: var(--color-base-100);
+    opacity: 1;
+  }
+
+  .mapping-select option,
+  .mapping-select optgroup {
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  .mapping-select-warning {
+    background-color: color-mix(in oklab, var(--color-warning) 92%, black 8%);
+    color: var(--color-warning-content);
+  }
+
+  .mapping-select-warning option,
+  .mapping-select-warning optgroup {
+    background-color: color-mix(in oklab, var(--color-warning) 92%, black 8%);
+    color: var(--color-warning-content);
+  }
+}
+
 [data-theme="industrial"] {
   /* Base backgrounds — near-black, neutral-cool, no blue cast */
   --color-base-100: oklch(13% 0.005 260);
