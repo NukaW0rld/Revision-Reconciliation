@@ -53,7 +53,18 @@ def _semantic_detail_lines(contract: dict | None) -> list[str]:
     return lines
 
 
+def _classification_badge_class(classification: str) -> str:
+    return {
+        "unchanged": "bg-base-300 text-base-content/80",
+        "changed": "bg-warning/20 text-warning",
+        "removed": "bg-error/20 text-error",
+        "added": "bg-success/20 text-success",
+        "uncertain": "bg-info/20 text-info",
+    }.get(classification, "bg-base-300 text-base-content/80")
+
+
 templates.env.filters["status_badge_class"] = _status_badge_class
+templates.env.filters["classification_badge_class"] = _classification_badge_class
 templates.env.filters["semantic_state_tone"] = _semantic_state_tone
 templates.env.filters["semantic_detail_lines"] = _semantic_detail_lines
 

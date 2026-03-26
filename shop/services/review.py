@@ -75,7 +75,7 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
             pipeline_classification=delta.get("status", "uncertain"),
             confidence=delta.get("confidence", 0.0),
             requirement_revA=req_map.get(char_no) if char_no is not None else None,
-            requirement_revB=None,  # Rev B requirement text: Phase 4 concern
+            requirement_revB=delta.get("requirement_revB"),
             revA_snippet_path=revA.get("image_path"),
             revB_snippet_path=revB.get("image_path"),
             revA_bbox=revA.get("bbox"),

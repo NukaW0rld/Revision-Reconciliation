@@ -564,6 +564,13 @@ def run_pipeline(
                 form3_requirement=form3_requirement,
             )
 
+        # Extract Rev B annotation text from matched or added span
+        requirement_revB = None
+        if delta_internal.match is not None:
+            requirement_revB = delta_internal.match.candidate.span.text
+        elif delta_internal.added_span is not None:
+            requirement_revB = delta_internal.added_span.text
+
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
             char_no=delta_internal.char_no,
@@ -573,6 +580,7 @@ def run_pipeline(
             scores=delta_internal.component_scores,
             revA=revA_evidence,
             revB=revB_evidence,
+            requirement_revB=requirement_revB,
             semantic_callout=semantic_callout,
         )
         delta_items_pydantic.append(delta_pydantic)

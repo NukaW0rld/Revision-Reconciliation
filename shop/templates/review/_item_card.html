@@ -63,11 +63,10 @@
     <!-- RIGHT PANEL: metadata + actions -->
     <div class="flex flex-col gap-4 w-80 flex-shrink-0">
 
-      <!-- Char number + classification + confidence -->
+      <!-- Char number + classification -->
       <div class="flex flex-wrap items-baseline gap-3">
         <span class="text-3xl font-bold font-mono">#{{ item.char_no }}</span>
-        <span class="font-mono text-sm bg-base-300 px-2 py-0.5 rounded text-base-content/80">{{ item.pipeline_classification }}</span>
-        <span class="font-mono text-xs text-base-content/50">{{ "%.0f"|format(item.confidence * 100) }}% conf</span>
+        <span class="font-mono text-sm px-2 py-0.5 rounded {{ item.pipeline_classification | classification_badge_class }}">{{ item.pipeline_classification }}</span>
       </div>
 
       <!-- Requirements -->

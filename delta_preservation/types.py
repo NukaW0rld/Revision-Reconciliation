@@ -174,6 +174,7 @@ class DeltaItem(BaseModel):
     scores: Dict[str, float] = Field(..., description="Component scores (location, text, context)")
     revA: Optional[Evidence] = Field(None, description="Rev A visual evidence")
     revB: Optional[Evidence] = Field(None, description="Rev B visual evidence")
+    requirement_revB: Optional[str] = Field(None, description="Raw text of the matched Rev B annotation span")
     semantic_callout: Optional[SemanticCallout] = Field(
         None,
         description="Optional typed semantic callout envelope sourced from drawing/Form 3 text",
