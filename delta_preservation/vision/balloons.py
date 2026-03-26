@@ -167,7 +167,7 @@ def _detect_balloons_from_text(
                 sub_width = width
             
             # Check bbox is small and square-ish (balloon-like)
-            if sub_width < 5 or height < 5 or sub_width > 50 or height > 50:
+            if sub_width < 3 or height < 5 or sub_width > 50 or height > 50:
                 continue
             
             # Relax aspect ratio for single digits (which can be narrow, ~0.4)

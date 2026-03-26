@@ -495,10 +495,11 @@ def assign_matches(
     matches = {}
 
     # Minimum total score threshold to accept a match.
-    # Scores at or near 0.0 indicate no meaningful candidate was found
-    # (only location component contributed, text/context both 0, penalty applied).
+    # A score of 0.12 requires non-trivial text or context agreement beyond location
+    # alone, preventing low-quality matches where a nearby unrelated span (e.g., a
+    # reference dimension or section label) wins only on predicted-position proximity.
     # Unmatched anchors will be classified as "removed".
-    MIN_MATCH_SCORE = 0.02
+    MIN_MATCH_SCORE = 0.12
 
     for total_score, char_no, span_key, candidate in edges:
         # Skip implausibly low-scoring matches — they indicate no real candidate

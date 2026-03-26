@@ -107,6 +107,18 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     # Extract numeric tokens with tolerances
     numeric_tokens = []
 
+    # Build set of count-prefix values to exclude from numeric tokens.
+    # e.g., "3X" → exclude 3.0 so the count multiplier doesn't become the
+    # "primary" dimension value and cause false mismatch penalties.
+    count_prefix_values: set[float] = set()
+    for ct in count_tokens:
+        m = re.match(r'^(\d+)X$', ct)
+        if m:
+            try:
+                count_prefix_values.add(float(m.group(1)))
+            except ValueError:
+                pass
+
     # General numeric values (without word boundary to catch Ø8, R2.5, etc.)
     # Pattern matches:
     #   \d+\.?\d*   — standard decimal numbers (e.g., "0.750", "1.25", "120")
@@ -117,7 +129,10 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
     numeric_raw = re.findall(r'\d+\.?\d*|\.\d+', norm_text)
     for match in numeric_raw:
         try:
-            numeric_tokens.append((float(match), match))
+            val = float(match)
+            # Skip count-prefix values (e.g., the "3" in "3X Ø.157")
+            if val not in count_prefix_values:
+                numeric_tokens.append((val, match))
         except ValueError:
             pass
 

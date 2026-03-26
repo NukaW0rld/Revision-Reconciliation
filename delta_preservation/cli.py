@@ -255,6 +255,7 @@ def run_pipeline(
             tolerance_comparison=tol_cmp,
             anchor_semantic_callout=anchor_semantic_callouts.get(anchor.char_no),
             matched_semantic_callout=matched_semantic_callout,
+            revB_text_spans=revB_text_spans,
         )
         delta_items_internal.append(delta_item_internal)
 
@@ -269,7 +270,8 @@ def run_pipeline(
     max_char_no = max(a.char_no for a in anchors) if anchors else 0
     added_items = detect_added_characteristics(
         revB_text_spans, matches, next_char_no=max_char_no + 1,
-        page_width=page_width_b, page_height=page_height_b
+        page_width=page_width_b, page_height=page_height_b,
+        revA_spans=revA_text_spans,
     )
     delta_items_internal.extend(added_items)
     print(f"  Found {len(added_items)} added characteristics in Rev B")

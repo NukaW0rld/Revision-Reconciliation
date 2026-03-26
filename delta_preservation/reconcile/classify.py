@@ -44,6 +44,7 @@ def classify_delta(
     tolerance_comparison: Optional[ToleranceComparison] = None,
     anchor_semantic_callout: Optional[SemanticCallout] = None,
     matched_semantic_callout: Optional[SemanticCallout] = None,
+    revB_text_spans: Optional[List["TextSpan"]] = None,
 ) -> DeltaItem:
     """Classify delta status for a single Rev A anchor.
     
@@ -135,8 +136,47 @@ def classify_delta(
     
     if is_notes_type:
         # For notes blocks, check if the matched span contains "NOTES" header
-        # The full notes text comparison is done by text matching, not numerics
         if "NOTES" in matched_fp.norm_text or "NOTE" in matched_fp.norm_text:
+            # If we have Rev B spans, do a content comparison to detect note changes
+            # (e.g., QTY change, different material, different finish requirement)
+            if revB_text_spans is not None:
+                matched_cx = (candidate.span.bbox_pdf[0] + candidate.span.bbox_pdf[2]) / 2
+                matched_cy = (candidate.span.bbox_pdf[1] + candidate.span.bbox_pdf[3]) / 2
+                nearby_texts = []
+                for nearby_span in revB_text_spans:
+                    nx0, ny0, nx1, ny1 = nearby_span.bbox_pdf
+                    ncx = (nx0 + nx1) / 2
+                    ncy = (ny0 + ny1) / 2
+                    dist = math.sqrt((ncx - matched_cx) ** 2 + (ncy - matched_cy) ** 2)
+                    if dist <= 200.0 and abs(ncx - matched_cx) <= 200.0:
+                        nearby_texts.append(nearby_span.text)
+
+                if nearby_texts:
+                    revB_notes_text = " ".join(nearby_texts)
+                    revB_notes_fp = parse_requirement(revB_notes_text)
+                    revB_tokens = set(revB_notes_fp.norm_text.split())
+                    anchor_tokens = set(anchor_fp.norm_text.split())
+                    if anchor_tokens and revB_tokens:
+                        union_size = len(anchor_tokens | revB_tokens)
+                        inter_size = len(anchor_tokens & revB_tokens)
+                        notes_similarity = inter_size / union_size if union_size > 0 else 1.0
+                        if notes_similarity < 0.65:
+                            return DeltaItem(
+                                char_no=anchor.char_no,
+                                status="changed",
+                                confidence=max(0.70, 0.4 * location_score + 0.4 * notes_similarity + 0.2),
+                                reasons=[
+                                    "Notes block content changed",
+                                    f"Token similarity {notes_similarity:.2f} below threshold 0.65",
+                                ],
+                                component_scores={
+                                    "location": location_score,
+                                    "text": notes_similarity,
+                                    "context": context_score,
+                                },
+                                match=match_or_none,
+                            )
+
             return DeltaItem(
                 char_no=anchor.char_no,
                 status="unchanged",
@@ -342,7 +382,8 @@ def detect_added_characteristics(
     matches: Dict[int, Match],
     next_char_no: int,
     page_width: float = 612.0,
-    page_height: float = 792.0
+    page_height: float = 792.0,
+    revA_spans: Optional[List[TextSpan]] = None,
 ) -> List[DeltaItem]:
     """Detect new characteristics in Rev B that don't exist in Rev A.
 
@@ -372,6 +413,32 @@ def detect_added_characteristics(
         span = match.candidate.span
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         matched_span_keys.add(key)
+
+    # Build a lookup of Rev A span content for cross-referencing.
+    # Rev B spans whose text appears at the same position in Rev A are pre-existing
+    # annotations (not new characteristics) and should not be flagged as "added".
+    revA_span_signatures: Set[Tuple[str, int, int]] = set()
+    if revA_spans is not None:
+        for s in revA_spans:
+            sx0, sy0, sx1, sy1 = s.bbox_pdf
+            scx = round((sx0 + sx1) / 2)
+            scy = round((sy0 + sy1) / 2)
+            revA_span_signatures.add((s.text.strip(), scx, scy))
+
+    def is_in_revA(span: TextSpan, position_tolerance: float = 15.0) -> bool:
+        """Return True if this span exists in Rev A at the same position."""
+        if not revA_span_signatures:
+            return False
+        x0, y0, x1, y1 = span.bbox_pdf
+        cx = (x0 + x1) / 2
+        cy = (y0 + y1) / 2
+        text = span.text.strip()
+        tol = int(position_tolerance)
+        for dx in range(-tol, tol + 1, 5):
+            for dy in range(-tol, tol + 1, 5):
+                if (text, round(cx) + dx, round(cy) + dy) in revA_span_signatures:
+                    return True
+        return False
 
     # Define exclusion zones (revision table, title block)
     # Revision table: typically top-right corner (x > 80% width, y < 15% height)
@@ -537,6 +604,11 @@ def detect_added_characteristics(
         if key in stacked_pair_keys:
             continue
 
+        # Skip spans that appear verbatim in Rev A at the same position —
+        # these are pre-existing annotations not tracked by Form 3, not new features.
+        if is_in_revA(span):
+            continue
+
         text = span.text.strip()
 
         # Parse the span to check if it looks like a dimension requirement
@@ -557,28 +629,36 @@ def detect_added_characteristics(
             and len(fp.numeric_tokens) == 1
         )
 
+        # Surface finish callouts: "Ra <value>" or "<value> Ra" (e.g., "1000 Ra",
+        # "FINISH TURN 1000 Ra").  The "Ra" indicator alone with a numeric value is
+        # sufficient to identify a surface finish annotation.
+        has_surface_finish = bool(
+            re.search(r'\bRa\b', text, re.IGNORECASE) and fp.numeric_tokens
+        )
+
         # Filter for spans that look like dimension requirements:
         # - Must have numeric tokens (dimension values)
         # - Must have symbols (Ø, R) OR count patterns (2X, 4X) OR angle-style callouts
         #   OR be a pure leading-decimal single value (engineering notation for length)
+        #   OR be a surface finish annotation (Ra indicator)
         if not fp.numeric_tokens:
             continue
 
-        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single):
+        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single or has_surface_finish):
             continue
 
         # Skip spans that look like revision notes (contain "ADDED", "NEW", etc.)
         if any(word in fp.norm_text for word in ["ADDED", "NEW", "REVISED", "DELETED"]):
             continue
 
-        # Skip non-leading-decimal single numeric values (likely dimension labels)
-        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single:
+        # Skip non-leading-decimal, non-surface-finish single numeric values
+        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single and not has_surface_finish:
             continue
 
-        # For leading-decimal single values, suppress spans that sit close to an already-
-        # matched span — they are likely companion tolerance limits (e.g., the ".140" lower
-        # limit that pairs with a matched ".160" upper limit), not new characteristics.
-        if is_leading_decimal_single and is_near_matched_span(span.bbox_pdf):
+        # Suppress spans that sit close to an already-matched span — they are likely
+        # companion parts of an existing annotation (e.g., "Ø.531 X 82.0°" adjacent to
+        # a matched "Ø.266 THRU" countersink callout, or tolerance limit companions).
+        if is_near_matched_span(span.bbox_pdf):
             continue
 
         # This looks like a new characteristic
@@ -590,6 +670,8 @@ def detect_added_characteristics(
             reasons.append("Angle-style callout detected")
         if is_leading_decimal_single:
             reasons.append("Leading-decimal dimension annotation detected")
+        if has_surface_finish:
+            reasons.append("Surface finish annotation detected (Ra indicator)")
 
         # Calculate confidence based on how "dimension-like" the span is
         confidence = 0.6
@@ -599,6 +681,8 @@ def detect_added_characteristics(
             confidence += 0.15
         if fp.pattern_class in ["hole", "dimension", "fillet"]:
             confidence += 0.1
+        if has_surface_finish:
+            confidence += 0.10
         if is_leading_decimal_single:
             confidence = 0.55  # Slightly lower confidence for bare decimal values
         confidence = min(confidence, 0.95)
