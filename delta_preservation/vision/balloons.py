@@ -207,25 +207,25 @@ def _validate_circle_around_span(
     span: TextSpan,
     dpi: int
 ) -> bool:
-    """Validate circle presence around text span using edge detection."""
+    """Validate circle or hexagon presence around text span using edge detection."""
     # Convert span bbox to image coordinates with padding
     x0_pdf, y0_pdf, x1_pdf, y1_pdf = span.bbox_pdf
     pad = max(x1_pdf - x0_pdf, y1_pdf - y0_pdf) * 0.5
     padded_bbox = (x0_pdf - pad, y0_pdf - pad, x1_pdf + pad, y1_pdf + pad)
-    
+
     x0, y0, x1, y1 = pdf_to_img_coords(padded_bbox, page, dpi)
-    
+
     # Clamp to image bounds
     h, w = img.shape[:2]
     x0, y0 = max(0, x0), max(0, y0)
     x1, y1 = min(w, x1), min(h, y1)
-    
+
     if x1 <= x0 or y1 <= y0:
         return False
-    
+
     crop = img[y0:y1, x0:x1]
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-    
+
     # Detect circles
     circles = cv2.HoughCircles(
         gray,
@@ -237,8 +237,49 @@ def _validate_circle_around_span(
         minRadius=int(min(crop.shape[:2]) * 0.3),
         maxRadius=int(max(crop.shape[:2]) * 0.6)
     )
-    
-    return circles is not None and len(circles[0]) > 0
+
+    if circles is not None and len(circles[0]) > 0:
+        return True
+
+    # Also check for hexagonal shape
+    return _has_hexagon_in_crop(gray)
+
+
+def _has_hexagon_in_crop(gray: np.ndarray) -> bool:
+    """Detect a hexagonal balloon outline in a cropped grayscale image.
+
+    Hexagon outlines in PDF renderings are often split by Canny into multiple
+    partial arc contours (top-half / bottom-half), so we filter by perimeter
+    length rather than enclosed area and do not require strict convexity.
+    """
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    edges = cv2.Canny(blurred, 30, 100)
+
+    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        return False
+
+    h, w = gray.shape
+    # A hexagon-sized contour must have perimeter at least 2× the smaller crop
+    # dimension; this filters out small digit outlines
+    min_perimeter = min(w, h) * 2.0
+
+    for contour in contours:
+        perimeter = cv2.arcLength(contour, True)
+        if perimeter < min_perimeter:
+            continue
+
+        # 4% epsilon works well for both tight and loose hexagon renderings
+        epsilon = 0.04 * perimeter
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        num_vertices = len(approx)
+
+        # Hexagon approximates to 5–8 vertices depending on rendering quality
+        if 5 <= num_vertices <= 8:
+            return True
+
+    return False
 
 
 def _detect_balloons_cv(
