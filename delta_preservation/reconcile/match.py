@@ -127,13 +127,18 @@ def generate_candidates(
     #    mismatch penalty — false matches from far-away wrong spans get suppressed.
     SEARCH_RADIUS = 288.0
     
-    # Determine the Rev A coordinate to transform (prefer requirement text over balloon)
-    # Requirement text location is more precise than balloon center for matching
+    # Determine the Rev A coordinate to transform (prefer requirement text over balloon,
+    # and use zone bbox center as a last resort when both are unavailable).
     if anchor.req_bbox is not None:
         x0, y0, x1, y1 = anchor.req_bbox
         center_a = np.array([[(x0 + x1) / 2, (y0 + y1) / 2]], dtype=np.float32)
+    elif anchor.zone_bbox is not None:
+        # Zone center provides a grid-level prediction for the characteristic
+        # location when the exact annotation bbox could not be found.
+        zx0, zy0, zx1, zy1 = anchor.zone_bbox
+        center_a = np.array([[(zx0 + zx1) / 2, (zy0 + zy1) / 2]], dtype=np.float32)
     else:
-        # Fall back to balloon center when requirement text location is unknown
+        # Fall back to balloon center when neither annotation nor zone is known
         center_a = np.array([[(anchor.balloon_bbox[0] + anchor.balloon_bbox[2]) / 2,
                              (anchor.balloon_bbox[1] + anchor.balloon_bbox[3]) / 2]], dtype=np.float32)
 

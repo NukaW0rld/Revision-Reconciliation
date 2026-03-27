@@ -23,6 +23,7 @@ import cv2
 from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords
 import fitz
 from delta_preservation.io.xlsx import load_form3
+from delta_preservation.vision.grid import infer_grid, parse_zone_from_reference_location
 from delta_preservation.vision.balloons import detect_balloons
 from delta_preservation.vision.alignment import (
     estimate_transform,
@@ -119,6 +120,29 @@ def run_pipeline(
     form3_chars = {char.char_no: char.requirement for char in form3_chars_list}
     print(f"  Loaded {len(form3_chars)} characteristics")
 
+    # Infer drawing grid from Rev A border labels and build per-characteristic
+    # zone bboxes from Form 3 Field 6 reference locations.  Falls back to None
+    # (no zone info) when the grid cannot be detected or when a characteristic's
+    # reference location does not contain a zone coordinate.
+    drawing_grid = infer_grid(revA_path, page_index=0)
+    if drawing_grid is not None:
+        col_desc = " ".join(f"{lbl}" for lbl, _ in reversed(drawing_grid.col_labels))
+        row_desc = " ".join(f"{lbl}" for lbl, _ in drawing_grid.row_labels)
+        print(f"  Drawing grid: columns [{col_desc}] rows [{row_desc}]")
+    else:
+        print("  Drawing grid: not detected (zone-based search disabled)")
+
+    zone_bboxes: Dict[int, tuple] = {}
+    if drawing_grid is not None:
+        for char in form3_chars_list:
+            zone_str = parse_zone_from_reference_location(char.reference_location)
+            if zone_str is not None:
+                bbox = drawing_grid.zone_to_bbox(zone_str)
+                if bbox is not None:
+                    zone_bboxes[char.char_no] = bbox
+    if zone_bboxes:
+        print(f"  Zone bboxes resolved for {len(zone_bboxes)}/{len(form3_chars)} characteristics")
+
     # Stage 2: Detect balloons in Rev A
     if stage_callback:
         stage_callback(1, "Balloon detection")
@@ -137,7 +161,7 @@ def run_pipeline(
     if stage_callback:
         stage_callback(3, "Anchor building")
     print("[4/8] Building Rev A anchors...")
-    anchors = build_revA_anchors(form3_chars, balloons, revA_text_spans)
+    anchors = build_revA_anchors(form3_chars, balloons, revA_text_spans, zone_bboxes=zone_bboxes)
     print(f"  Built {len(anchors)} anchors")
 
     # Stage 5: Extract text from Rev B and estimate alignment

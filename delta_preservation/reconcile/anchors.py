@@ -23,11 +23,11 @@ from delta_preservation.reconcile.normalize import parse_requirement
 class Anchor:
     """
     Stable spatial-semantic anchor linking Form 3 requirements to Rev A PDF locations.
-    
+
     An Anchor represents the authoritative association between an inspection characteristic
-    from the AS9102 Form 3 and its physical manifestation in the Rev A drawing. This 
+    from the AS9102 Form 3 and its physical manifestation in the Rev A drawing. This
     includes both the balloon marker and the requirement text annotation.
-    
+
     Attributes:
         char_no: Characteristic number from Form 3 (e.g., 1, 2, 17)
         page: Zero-based page index in Rev A PDF where characteristic is found
@@ -36,7 +36,11 @@ class Anchor:
         requirement_raw: Original requirement text from Form 3
         requirement_norm: Normalized/parsed version of requirement text for matching
         local_context: Nearby text spans that provide spatial context for matching
-        
+        zone_bbox: Optional bounding box of the drawing grid zone from Form 3 Field 6
+                   (e.g. "Zone B.2"). Used to constrain Rev A text search and as a
+                   fallback anchor point when req_bbox is None. None when no zone is
+                   specified or the grid could not be inferred.
+
     Notes:
         - Balloon bbox is always available (from balloon detection)
         - Req bbox may be None if text matching fails
@@ -50,41 +54,49 @@ class Anchor:
     requirement_raw: str
     requirement_norm: str
     local_context: List[TextSpan]
+    zone_bbox: Optional[tuple[float, float, float, float]] = None
 
 
 def build_revA_anchors(
     form3_chars: Dict[int, str],
     balloons: Dict[int, Balloon],
-    revA_text_spans: List[TextSpan]
+    revA_text_spans: List[TextSpan],
+    zone_bboxes: Optional[Dict[int, tuple[float, float, float, float]]] = None,
 ) -> List[Anchor]:
     """
     Build spatial-semantic anchors linking Form 3 requirements to Rev A PDF locations.
-    
+
     This function creates the foundation for characteristic identity preservation by
     establishing robust connections between inspection requirements and their physical
     manifestations in the drawing. Each anchor combines:
-    1. Balloon marker location (from computer vision detection)  
+    1. Balloon marker location (from computer vision detection)
     2. Requirement text location (from intelligent text matching)
     3. Local spatial context (nearby spans for disambiguation)
-    
+
     The anchoring process handles various challenges:
     - Requirements may not have exact text matches in the PDF
     - Multiple similar annotations may exist near balloons
     - Title blocks and revision tables must be avoided
     - Text spans may be fragmented or incomplete
-    
+
     Args:
         form3_chars: Dictionary mapping characteristic numbers to requirement text strings
                     from AS9102 Form 3 (e.g., {1: "Ø6.0 +0.1/-0.0", 2: "R3.5 ± 0.2"})
         balloons: Dictionary mapping characteristic numbers to detected Balloon objects
                  containing spatial locations and confidence metrics
-        revA_text_spans: Complete list of text spans extracted from Rev A PDF with 
+        revA_text_spans: Complete list of text spans extracted from Rev A PDF with
                         bounding boxes and content
-    
+        zone_bboxes: Optional dict mapping char_no to a grid zone bounding box
+                    ``(x0, y0, x1, y1)`` in PDF points derived from Form 3 Field 6
+                    reference locations and the drawing grid. When provided for a
+                    characteristic, the requirement-text candidate search is restricted
+                    to spans within that zone, and the zone bbox is stored on the
+                    resulting Anchor for use in Rev B candidate generation.
+
     Returns:
         List of Anchor objects representing successfully linked characteristics.
         Only characteristics with both Form 3 entries and detected balloons are included.
-        
+
     Notes:
         - Uses weighted scoring combining token overlap, distance, and size heuristics
         - Excludes title block regions (bottom 15%, right 20% of page)
@@ -92,46 +104,62 @@ def build_revA_anchors(
         - Builds local context within 150 PDF points for spatial disambiguation
         - Falls back gracefully when requirement text cannot be precisely located
     """
+    if zone_bboxes is None:
+        zone_bboxes = {}
+
     anchors = []
-    
+
     for char_no, requirement in form3_chars.items():
         if char_no not in balloons:
             continue
-        
+
         balloon = balloons[char_no]
         page = balloon.page_index
         balloon_bbox = balloon.bbox_pdf
         balloon_cx, balloon_cy = balloon.center_pdf
-        
+
+        zone_bbox = zone_bboxes.get(char_no)
+
         # Filter text spans to the same page as the balloon
         # Note: block_id in TextSpan corresponds to page index from PDF extraction
         page_spans = [s for s in revA_text_spans if s.block_id == page]
-        
+
         # Estimate page dimensions from text span extents for exclusion zones
         # This approximation helps identify title blocks and revision tables
         page_height = max(s.bbox_pdf[3] for s in page_spans) if page_spans else 1000
         page_width = max(s.bbox_pdf[2] for s in page_spans) if page_spans else 1000
-        
-        # Filter candidate spans for requirement text matching
-        # Apply heuristics to reduce false matches from title blocks, headers, etc.
+
+        # Filter candidate spans for requirement text matching.
+        # When a zone bbox is available, restrict candidates to spans within that
+        # zone — this narrows the search to the correct region of the drawing and
+        # avoids false matches from similar annotations elsewhere on the page.
         candidates = []
         for span in page_spans:
             x0, y0, x1, y1 = span.bbox_pdf
-            
+
             # Skip title block regions (bottom 15% and right 20% of page)
             # These areas typically contain part numbers, revision history, etc.
             if y0 > page_height * 0.85 or x0 > page_width * 0.80:
                 continue
-            
+
             # Skip very long spans (likely headers, notes, or revision text)
             # Requirement annotations are typically concise (e.g., "Ø6.0 ±0.1")
             if len(span.text) > 100:
                 continue
-            
+
             # Skip empty or whitespace-only spans
             if not span.text.strip():
                 continue
-            
+
+            # Zone-based pre-filter: when a zone bbox is known, only consider
+            # spans whose center falls within that zone.
+            if zone_bbox is not None:
+                zx0, zy0, zx1, zy1 = zone_bbox
+                span_cx = (x0 + x1) / 2
+                span_cy = (y0 + y1) / 2
+                if not (zx0 <= span_cx <= zx1 and zy0 <= span_cy <= zy1):
+                    continue
+
             candidates.append(span)
         
         # Parse and normalize the Form 3 requirement text for token-based matching
@@ -205,7 +233,8 @@ def build_revA_anchors(
             req_bbox=req_bbox,
             requirement_raw=requirement,
             requirement_norm=req_norm.norm_text,
-            local_context=local_context
+            local_context=local_context,
+            zone_bbox=zone_bbox,
         ))
     
     return anchors
