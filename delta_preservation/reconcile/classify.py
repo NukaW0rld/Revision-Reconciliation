@@ -230,17 +230,21 @@ def classify_delta(
     count_match = anchor_count == matched_count or (not anchor_count and not matched_count)
     count_changed = bool(anchor_count and matched_count and anchor_count != matched_count)
     count_missing = bool(anchor_count and not matched_count)  # Count present in anchor but not in span
+    count_added = bool(not anchor_count and matched_count)   # Count added in Rev B (e.g. none → "2X")
     
     # For symbols: check if anchor symbols appear in matched span
     symbol_match = anchor_symbols <= matched_symbols or not anchor_symbols
     
     # Classification decision tree
     # Priority 1: Primary dimension value match is the strongest indicator
-    if count_changed:
-        # Count explicitly changed (e.g., "2 x Ø8" → "4 x Ø8") → changed
+    if count_changed or count_added:
+        # Count explicitly changed or added (e.g., none → "2X", or "2X" → "4X") → changed
         status = "changed"
         confidence = 0.5 * location_score + 0.3 * numeric_overlap + 0.2
-        reasons.append(f"Count changed: {anchor_count} → {matched_count}")
+        if count_changed:
+            reasons.append(f"Count changed: {anchor_count} → {matched_count}")
+        else:
+            reasons.append(f"Count added in Rev B: {matched_count} (was absent in Rev A)")
     elif primary_matches:
         # Primary dimension value matches - this is the key indicator of unchanged
         # Even if tolerances differ or aren't visible in span, the main dimension is the same
@@ -324,6 +328,34 @@ def classify_delta(
             confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
             reasons.append(f"Numeric values changed (only {int(numeric_overlap*100)}% overlap)")
             reasons.append(f"Anchor: {sorted(anchor_numerics)}, Matched: {sorted(matched_numerics)}")
+    elif (
+        numeric_overlap == 0.0
+        and anchor_numerics
+        and matched_numerics
+        and anchor_primary is not None
+        and matched_primary is not None
+        and anchor_primary != 0
+        and abs(anchor_primary - matched_primary) / abs(anchor_primary) > 0.15
+    ):
+        # Spurious-match guard: zero numeric overlap and the primary values differ
+        # significantly — the matched candidate is likely a grid label or unrelated
+        # annotation, not the actual characteristic.  Return "removed".
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="removed",
+            confidence=min(0.85, location_search_coverage),
+            reasons=[
+                "No numeric overlap and primary values differ significantly",
+                f"Anchor primary: {anchor_primary}, Matched primary: {matched_primary}",
+                "Match candidate likely a grid label or unrelated annotation",
+            ],
+            component_scores={
+                "location": location_score,
+                "text": 0.0,
+                "context": context_score,
+            },
+            match=None,
+        )
     elif location_score > 0.6:
         # Good location match but text doesn't align well → likely unchanged
         status = "unchanged"
@@ -457,6 +489,10 @@ def detect_added_characteristics(
 
         return False
 
+    # GD&T feature control frame anchor symbols — defined early so the
+    # unmatched-span pre-filter can exempt single-character GD&T symbols.
+    GDT_ANCHOR_SYMBOLS = {'⌖', '⌒', '⟂', '⊙', '⌓', '⏥', '∥', '∠', '⌖∅'}
+
     # Collect unmatched candidate spans (filtered for drawing content area)
     unmatched_spans: List[TextSpan] = []
     for span in revB_spans:
@@ -466,12 +502,15 @@ def detect_added_characteristics(
         if is_in_exclusion_zone(span.bbox_pdf):
             continue
         text = span.text.strip()
-        if len(text) < 2:
+        if len(text) < 2 and text not in GDT_ANCHOR_SYMBOLS:
             continue
         unmatched_spans.append(span)
 
     # Set of span keys consumed by stacked-pair detection (to avoid double-counting)
     stacked_pair_keys: Set[Tuple] = set()
+
+    # Set of span keys consumed by GD&T group detection
+    gdt_consumed_keys: Set[Tuple] = set()
 
     added_items: List[DeltaItem] = []
     current_char_no = next_char_no
@@ -493,6 +532,69 @@ def detect_added_characteristics(
             if math.sqrt((cx - mx) ** 2 + (cy - my) ** 2) <= threshold:
                 return True
         return False
+
+    # --- Pass 0: GD&T feature control frame detection ---
+    # Feature control frames: a GD&T symbol span (⟂, ⌖, ⏥, etc.) followed by
+    # companion spans (tolerance value, datum references) on the same row.
+    # These groups must be detected together; individual spans don't pass the
+    # standard filters (symbol spans lack numerics; companion spans lack symbols).
+
+    for span in unmatched_spans:
+        key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+        if key in gdt_consumed_keys:
+            continue
+
+        text = span.text.strip()
+        has_gdt = any(sym in text for sym in GDT_ANCHOR_SYMBOLS)
+        if not has_gdt:
+            continue
+
+        if is_in_revA(span):
+            continue
+
+        x0, y0, x1, y1 = span.bbox_pdf
+        sy_center = (y0 + y1) / 2
+
+        # Collect companion spans on the same row (within 10 pt vertically,
+        # within 300 pt horizontally)
+        group_spans = [span]
+        group_keys = [key]
+        for other in unmatched_spans:
+            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+            if other_key == key or other_key in gdt_consumed_keys:
+                continue
+            ox0, oy0, ox1, oy1 = other.bbox_pdf
+            oy_center = (oy0 + oy1) / 2
+            if abs(oy_center - sy_center) > 10.0:
+                continue
+            # Must be horizontally close (within 300 pt)
+            if ox0 > x1 + 300.0 or ox1 < x0 - 300.0:
+                continue
+            group_spans.append(other)
+            group_keys.append(other_key)
+
+        # Sort group spans left-to-right and concatenate text
+        group_spans.sort(key=lambda s: s.bbox_pdf[0])
+        group_text = ' '.join(s.text.strip() for s in group_spans)
+
+        # Mark all group spans consumed so Pass 1 and Pass 2 skip them
+        for k in group_keys:
+            gdt_consumed_keys.add(k)
+
+        reasons_gdt = [
+            f"New GD&T feature control frame in Rev B: \"{group_text}\"",
+            "GD&T control symbol detected",
+        ]
+        added_items.append(DeltaItem(
+            char_no=current_char_no,
+            status="added",
+            confidence=0.75,
+            reasons=reasons_gdt,
+            component_scores={"location": 0.0, "text": 1.0, "context": 0.0},
+            match=None,
+            added_span=group_spans[0],
+        ))
+        current_char_no += 1
 
     # --- Pass 1: detect stacked tolerance-limit pairs ---
     # Stacked pairs: two numeric-only spans at the same horizontal position and
@@ -600,8 +702,8 @@ def detect_added_characteristics(
     # --- Pass 2: standard span-by-span detection ---
     for span in unmatched_spans:
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
-        # Skip spans already consumed by stacked-pair detection
-        if key in stacked_pair_keys:
+        # Skip spans already consumed by GD&T group or stacked-pair detection
+        if key in gdt_consumed_keys or key in stacked_pair_keys:
             continue
 
         # Skip spans that appear verbatim in Rev A at the same position —
@@ -629,6 +731,15 @@ def detect_added_characteristics(
             and len(fp.numeric_tokens) == 1
         )
 
+        # Plain decimal format: "1.250", "3.750" — dimension values with a leading
+        # integer digit and explicit decimal point.  Treated similarly to leading-decimal
+        # annotations; requires exactly one numeric token to avoid matching multi-value
+        # spans that already fail other filters.
+        is_plain_decimal_single = bool(
+            re.match(r'^\d+\.\d+$', text)
+            and len(fp.numeric_tokens) == 1
+        )
+
         # Surface finish callouts: "Ra <value>" or "<value> Ra" (e.g., "1000 Ra",
         # "FINISH TURN 1000 Ra").  The "Ra" indicator alone with a numeric value is
         # sufficient to identify a surface finish annotation.
@@ -644,7 +755,7 @@ def detect_added_characteristics(
         if not fp.numeric_tokens:
             continue
 
-        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single or has_surface_finish):
+        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single or is_plain_decimal_single or has_surface_finish):
             continue
 
         # Skip spans that look like revision notes (contain "ADDED", "NEW", etc.)
@@ -652,7 +763,7 @@ def detect_added_characteristics(
             continue
 
         # Skip non-leading-decimal, non-surface-finish single numeric values
-        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single and not has_surface_finish:
+        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single and not is_plain_decimal_single and not has_surface_finish:
             continue
 
         # Suppress spans that sit close to an already-matched span — they are likely
@@ -670,6 +781,8 @@ def detect_added_characteristics(
             reasons.append("Angle-style callout detected")
         if is_leading_decimal_single:
             reasons.append("Leading-decimal dimension annotation detected")
+        if is_plain_decimal_single:
+            reasons.append("Plain decimal dimension annotation detected")
         if has_surface_finish:
             reasons.append("Surface finish annotation detected (Ra indicator)")
 
@@ -683,7 +796,7 @@ def detect_added_characteristics(
             confidence += 0.1
         if has_surface_finish:
             confidence += 0.10
-        if is_leading_decimal_single:
+        if is_leading_decimal_single or is_plain_decimal_single:
             confidence = 0.55  # Slightly lower confidence for bare decimal values
         confidence = min(confidence, 0.95)
 
