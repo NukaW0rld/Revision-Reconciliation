@@ -124,7 +124,9 @@ def run_pipeline(
     # zone bboxes from Form 3 Field 6 reference locations.  Falls back to None
     # (no zone info) when the grid cannot be detected or when a characteristic's
     # reference location does not contain a zone coordinate.
-    drawing_grid = infer_grid(revA_path, page_index=0)
+    drawing_grid = None
+    if revA_path.exists() and revA_path.stat().st_size > 1024:
+        drawing_grid = infer_grid(revA_path, page_index=0)
     if drawing_grid is not None:
         col_desc = " ".join(f"{lbl}" for lbl, _ in reversed(drawing_grid.col_labels))
         row_desc = " ".join(f"{lbl}" for lbl, _ in drawing_grid.row_labels)

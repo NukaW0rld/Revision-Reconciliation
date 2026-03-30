@@ -161,16 +161,28 @@ def infer_grid(pdf_path: Path, page_index: int = 0) -> Optional["DrawingGrid"]:
         :class:`DrawingGrid` if at least 2 column and 2 row labels are found,
         otherwise ``None``.
     """
-    doc = fitz.open(pdf_path)
-    if page_index < 0 or page_index >= len(doc):
-        doc.close()
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
         return None
 
-    page = doc.load_page(page_index)
-    pw: float = page.rect.width
-    ph: float = page.rect.height
-    text_dict = page.get_text("dict")
-    doc.close()
+    try:
+        try:
+            page_count = len(doc)
+        except TypeError:
+            page_count = getattr(doc, "page_count", None)
+
+        if page_count is not None and (page_index < 0 or page_index >= page_count):
+            return None
+
+        page = doc.load_page(page_index)
+        pw: float = page.rect.width
+        ph: float = page.rect.height
+        if not hasattr(page, "get_text"):
+            return None
+        text_dict = page.get_text("dict")
+    finally:
+        doc.close()
 
     BORDER_THRESHOLD = 60.0
 
