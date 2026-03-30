@@ -26,7 +26,12 @@ def seed_admin():
     from shop.models import User, ShopConfig
     from shop.services.auth import hash_password
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
+    # Run Alembic migrations instead of Base.metadata.create_all()
+    from alembic.config import Config as AlembicConfig
+    from alembic import command as alembic_command
+    alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    alembic_command.upgrade(alembic_cfg, "head")
     Session = sessionmaker(bind=engine)
     with Session() as db:
         existing = db.query(User).filter(User.role == "admin").first()

@@ -2,7 +2,6 @@ import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from shop.database import Base, engine
 from shop.middleware.setup_guard import SetupGuardMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
@@ -81,10 +80,9 @@ def create_app(session_factory=None) -> FastAPI:
             global SessionLocal (shop.db).
     """
     app = FastAPI(title="Delta Preservation")
-    # Create all DB tables on startup
-    Base.metadata.create_all(bind=engine)
-    from shop.database import run_schema_migrations
-    run_schema_migrations(engine)
+    # Schema migrations are handled by Alembic as a pre-start step:
+    #   uv run alembic upgrade head
+    # Tests use Base.metadata.create_all() directly on in-memory DBs.
     # Middleware (outermost registered = executes last)
     app.add_middleware(SetupGuardMiddleware, session_factory=session_factory)
     # Static files
