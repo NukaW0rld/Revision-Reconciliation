@@ -32,7 +32,8 @@ COPY delta_preservation/ ./delta_preservation/
 COPY shop/ ./shop/
 COPY static/js/ ./static/js/
 COPY static/src/ ./static/src/
-COPY run.py run_web.py pyproject.toml uv.lock ./
+COPY run.py run_web.py alembic.ini pyproject.toml uv.lock ./
+COPY alembic/ ./alembic/
 # Copy supervisord config
 COPY docker/supervisord.conf /etc/supervisor/conf.d/delta.conf
 # Activate venv
@@ -41,5 +42,5 @@ ENV PATH="/app/.venv/bin:$PATH"
 RUN mkdir -p /app/data /app/data/uploads /app/out
 # Expose port
 EXPOSE 8000
-# Run supervisord (manages uvicorn + huey_consumer)
-CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Run Alembic migrations then start supervisord (manages uvicorn + huey_consumer)
+CMD ["sh", "-c", "alembic upgrade head && exec supervisord -c /etc/supervisor/supervisord.conf"]
