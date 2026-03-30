@@ -1,0 +1,46 @@
+import shutil
+import sqlite3
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config as AlembicConfig
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _alembic_config(db_url: str) -> AlembicConfig:
+    cfg = AlembicConfig(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", db_url)
+    return cfg
+
+
+def test_baseline_upgrade_handles_repo_db_state(tmp_path, monkeypatch):
+    src_db = ROOT / "data" / "shop.db"
+    db_path = tmp_path / "legacy.db"
+    shutil.copy(src_db, db_path)
+    db_url = f"sqlite:///{db_path}"
+    monkeypatch.setenv("DATABASE_URL", db_url)
+
+    con = sqlite3.connect(db_path)
+    try:
+        before_rows = con.execute("SELECT version_num FROM alembic_version").fetchall()
+    finally:
+        con.close()
+
+    assert before_rows in ([], [("0001",)])
+
+    command.upgrade(_alembic_config(db_url), "head")
+
+    con = sqlite3.connect(db_path)
+    try:
+        version_rows = con.execute("SELECT version_num FROM alembic_version").fetchall()
+        user_table_exists = con.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()[0]
+    finally:
+        con.close()
+
+    assert version_rows == [("0001",)]
+    assert user_table_exists == 1

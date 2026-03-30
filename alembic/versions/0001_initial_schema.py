@@ -8,14 +8,57 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+_EXPECTED_TABLES = {
+    "users",
+    "sessions",
+    "shop_config",
+    "runs",
+    "run_alerts",
+    "review_items",
+}
+
+
+def _existing_tables() -> set[str]:
+    bind = op.get_bind()
+    return set(inspect(bind).get_table_names())
+
+
+def _adopt_existing_schema_if_present() -> bool:
+    """Return True when a legacy pre-Alembic DB already has the full schema.
+
+    In that case, this baseline migration becomes a no-op so Alembic can record
+    revision ``0001`` instead of trying to recreate tables that already exist.
+    If only part of the schema exists, fail loudly rather than guessing.
+    """
+    existing = _existing_tables()
+    app_tables = existing & _EXPECTED_TABLES
+
+    if not app_tables:
+        return False
+
+    missing = _EXPECTED_TABLES - existing
+    if missing:
+        missing_list = ", ".join(sorted(missing))
+        present_list = ", ".join(sorted(app_tables))
+        raise RuntimeError(
+            "Refusing to auto-adopt partially initialized legacy schema. "
+            f"Present tables: {present_list}. Missing tables: {missing_list}."
+        )
+
+    return True
+
 
 def upgrade() -> None:
+    if _adopt_existing_schema_if_present():
+        return
+
     # --- users ---
     op.create_table(
         "users",
