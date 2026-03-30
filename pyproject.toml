@@ -23,6 +23,7 @@ dependencies = [
     "itsdangerous",
     "huey",
     "weasyprint",
+    "alembic",
 ]
 
 [tool.setuptools]
