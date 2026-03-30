@@ -66,6 +66,162 @@ class ParsedFitCallout:
     standard_hint: str
 
 
+# ---------------------------------------------------------------------------
+# Requirement type classification
+# ---------------------------------------------------------------------------
+
+# GD&T feature-control-frame anchor symbols (appear as the first token)
+_GDT_ANCHOR_RE = re.compile(r"^[⌖⌒⟂⊙⌓⏥∥∠]")
+
+# Thread callout patterns (inch fractional, number-size, metric, pipe, bare class)
+_THREAD_CALLOUT_RE = re.compile(
+    r"(?:"
+    r"\d+/\d+-\d+\s*UN[CEF]*"        # 1/4-20 UNC, 3/8-16 UNF
+    r"|#\d+-\d+\s*UN[CEF]*"           # #10-32 UNF
+    r"|[Mm]\d+(?:\s*[Xx×]\s*\d+(?:\.\d+)?)?"  # M8 or M8×1.25
+    r"|\bNPTF?\b"                     # NPT / NPTF
+    r"|\bUN[CEF]+[-\s]\d+[AB]\b"      # UNC-2B, UNF-3A
+    r"|\d+-\d+\s*UN[CEF]*"            # 0.250-20 UNC
+    r")",
+    re.IGNORECASE,
+)
+
+# Chamfer callout: <linear_value> X <angle_value>° (the X is multiplication)
+# e.g. ".070 X 45.0°", "2 X 45°", ".030 x 45°"
+_CHAMFER_CALLOUT_RE = re.compile(
+    r"(?:\.\d+|\d+\.?\d*)\s*[Xx×]\s*(?:\d+\.?\d*|\.\d+)\s*°"
+)
+
+# Fillet / radius prefix: R immediately followed by a digit or decimal point
+_FILLET_PREFIX_RE = re.compile(r"^\s*R[\d.]", re.IGNORECASE)
+
+# Surface-finish Ra indicator
+_SURFACE_FINISH_TYPE_RE = re.compile(r"\bRa\b", re.IGNORECASE)
+
+# ISO fit designator: upper-case letter + digit(s) / lower-case letter + digit(s)
+_FIT_TYPE_RE = re.compile(r"[A-Z]\d+\s*/\s*[a-z]\d+")
+
+
+def classify_requirement_type(text: str) -> str:
+    """Classify a requirement string into a fine-grained semantic type label.
+
+    Returns one of:
+      "gdt"            – GD&T feature control frame (⟂, ⌖, ⏥, …)
+      "thread"         – Thread callout (1/4-20 UNC, M8×1.25, …)
+      "fillet"         – Radius / fillet (R.250, EDGE RADIUS, …)
+      "chamfer"        – Chamfer callout (.070 X 45°, 2 X 45°, …)
+      "angle"          – Plain angle (65°, 30 DEG, …) – not a chamfer
+      "diameter"       – Plain diameter (Ø.500, …) – not GD&T
+      "surface_finish" – Surface roughness (Ra 63, 1000 Ra, …)
+      "weld"           – Weld callout (FILLET WELD, GROOVE WELD, …)
+      "fit"            – ISO fit (H7/p6, …)
+      "other"          – Unrecognised / ambiguous
+    """
+    norm_upper = " ".join(text.upper().split())
+
+    # GD&T: text starts with a GD&T control symbol
+    if _GDT_ANCHOR_RE.match(text.strip()):
+        return "gdt"
+
+    # Thread: contains a recognisable thread specification
+    if _THREAD_CALLOUT_RE.search(text):
+        return "thread"
+
+    # Surface finish: Ra indicator with a numeric roughness value
+    if _SURFACE_FINISH_TYPE_RE.search(text) and re.search(r"\d", text):
+        return "surface_finish"
+
+    # Weld: weld process keyword present alongside "WELD"
+    for weld_pattern, _ in _WELD_PROCESS_PATTERNS:
+        if weld_pattern.search(norm_upper) and "WELD" in norm_upper:
+            return "weld"
+
+    # Chamfer: <value> X <angle>° multiplication pattern
+    if _CHAMFER_CALLOUT_RE.search(text):
+        return "chamfer"
+
+    # Fillet / radius: R-prefix or explicit RADIUS / EDGE RADIUS keyword
+    if _FILLET_PREFIX_RE.match(text) or "RADIUS" in norm_upper or "EDGE RADIUS" in norm_upper:
+        return "fillet"
+
+    # ISO fit designator
+    if _FIT_TYPE_RE.search(text):
+        return "fit"
+
+    # Diameter: Ø symbol without GD&T context
+    if "Ø" in text:
+        return "diameter"
+
+    # Angle: degree symbol or DEG keyword (not a chamfer – already caught above)
+    if "°" in text or re.search(r"\bDEG\b", norm_upper):
+        return "angle"
+
+    return "other"
+
+
+# Pairs of requirement types that are contextually incompatible.
+# Rev A and Rev B requirements belonging to incompatible types should be
+# flagged as "uncertain" rather than silently classified as changed/removed.
+_INCOMPATIBLE_TYPE_PAIRS: frozenset = frozenset({
+    frozenset({"gdt", "thread"}),
+    frozenset({"gdt", "fillet"}),
+    frozenset({"gdt", "chamfer"}),
+    frozenset({"gdt", "surface_finish"}),
+    frozenset({"gdt", "weld"}),
+    frozenset({"gdt", "angle"}),
+    frozenset({"gdt", "diameter"}),
+    frozenset({"thread", "fillet"}),
+    frozenset({"thread", "angle"}),
+    frozenset({"thread", "chamfer"}),
+    frozenset({"thread", "surface_finish"}),
+    frozenset({"thread", "weld"}),
+    frozenset({"thread", "diameter"}),
+    frozenset({"fillet", "angle"}),
+    frozenset({"fillet", "chamfer"}),
+    frozenset({"fillet", "surface_finish"}),
+    frozenset({"fillet", "weld"}),
+    frozenset({"fillet", "diameter"}),
+    frozenset({"angle", "diameter"}),
+    frozenset({"angle", "surface_finish"}),
+    frozenset({"angle", "weld"}),
+    frozenset({"chamfer", "surface_finish"}),
+    frozenset({"chamfer", "weld"}),
+    frozenset({"weld", "surface_finish"}),
+    frozenset({"weld", "diameter"}),
+    frozenset({"surface_finish", "diameter"}),
+    frozenset({"fit", "gdt"}),
+    frozenset({"fit", "weld"}),
+    frozenset({"fit", "surface_finish"}),
+    frozenset({"fit", "thread"}),
+    frozenset({"fit", "angle"}),
+    frozenset({"fit", "fillet"}),
+    frozenset({"fit", "chamfer"}),
+})
+
+
+def are_requirement_types_incompatible(type_a: str, type_b: str) -> bool:
+    """Return True if two requirement type labels are contextually incompatible.
+
+    Two types are incompatible when a Rev A characteristic of one kind (e.g.
+    a thread callout) is matched to a Rev B span of a fundamentally different
+    kind (e.g. a plain linear dimension or an angle).  Such matches should be
+    flagged as "uncertain" so a reviewer can assess whether the characteristic
+    was intentionally redesigned.
+
+    Special case: thread callouts are distinctive enough that matching them
+    against any unclassified ("other") span is treated as incompatible.
+    """
+    if type_a == type_b:
+        return False
+    if "other" in (type_a, type_b):
+        # Thread specs are so self-describing that any unclassified match is
+        # suspicious (the thread nominal diameter is rarely extracted as a
+        # bare decimal; more likely a mismatched span was selected).
+        strong = type_a if type_b == "other" else type_b
+        return strong == "thread"
+    return frozenset({type_a, type_b}) in _INCOMPATIBLE_TYPE_PAIRS
+
+
 def parse_requirement(requirement: str) -> MatchFingerprint:
     """
     Parse a requirement string into a deterministic match fingerprint.

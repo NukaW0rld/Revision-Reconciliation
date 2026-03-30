@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
-from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.reconcile.normalize import (
+    are_requirement_types_incompatible,
+    classify_requirement_type,
+    parse_requirement,
+)
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.types import SemanticCallout
@@ -129,7 +133,33 @@ def classify_delta(
 
     if semantic_result is not None and semantic_result.mode in {"fallback", "incompatible"}:
         reasons.extend(semantic_result.reason_fragments)
-    
+
+    # --- Requirement-type incompatibility check ---
+    # If the Rev A and Rev B requirements belong to contextually incompatible
+    # semantic categories (e.g. a fillet radius vs. an angle, a thread callout
+    # vs. a plain dimension, a GD&T frame vs. a chamfer callout) the numeric
+    # comparison below will produce meaningless results.  Return "uncertain"
+    # immediately so a reviewer can decide whether the design intent changed.
+    anchor_req_type = classify_requirement_type(anchor.requirement_raw)
+    matched_req_type = classify_requirement_type(candidate.span.text)
+    if are_requirement_types_incompatible(anchor_req_type, matched_req_type):
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="uncertain",
+            confidence=max(0.55, 0.5 * location_score),
+            reasons=reasons + [
+                f"Requirement type mismatch: Rev A is '{anchor_req_type}', Rev B is '{matched_req_type}'",
+                f"Rev A: \"{anchor.requirement_raw}\" — Rev B: \"{candidate.span.text}\"",
+                "Contextually incompatible requirement types; manual review required",
+            ],
+            component_scores={
+                "location": location_score,
+                "text": 0.0,
+                "context": context_score,
+            },
+            match=match_or_none,
+        )
+
     # Check if this is a notes-type characteristic
     # Notes blocks should be compared by text pattern, not numeric values
     is_notes_type = anchor_fp.pattern_class == "note" or "NOTES" in anchor.requirement_raw.upper()
