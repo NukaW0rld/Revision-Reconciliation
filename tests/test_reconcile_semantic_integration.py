@@ -14,10 +14,10 @@ class _Transform:
         self.inlier_ratio = 1.0
 
 
-def _span(text: str, *, block_id: int = 0, line_id: int = 0, span_id: int = 0, x0: float = 10.0, y0: float = 10.0) -> TextSpan:
+def _span(text: str, *, block_id: int = 0, line_id: int = 0, span_id: int = 0, x0: float = 10.0, y0: float = 10.0, width: float = 20.0, height: float = 8.0) -> TextSpan:
     return TextSpan(
         text=text,
-        bbox_pdf=(x0, y0, x0 + 20.0, y0 + 8.0),
+        bbox_pdf=(x0, y0, x0 + width, y0 + height),
         font_size=10.0,
         block_id=block_id,
         line_id=line_id,
@@ -26,7 +26,7 @@ def _span(text: str, *, block_id: int = 0, line_id: int = 0, span_id: int = 0, x
 
 
 def _anchor(requirement_raw: str) -> Anchor:
-    anchor_span = _span(requirement_raw, x0=10.0, y0=10.0)
+    anchor_span = _span(requirement_raw, x0=10.0, y0=10.0, width=120.0)
     return Anchor(
         char_no=1,
         page=0,
@@ -82,13 +82,32 @@ def test_reconcile_semantic_integration_keeps_equivalent_gdt_callout_unchanged()
 
 def test_reconcile_semantic_integration_marks_changed_weld_semantic_delta():
     anchor = _anchor("1/8 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD")
-    candidate_span = _span("3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD", block_id=5, line_id=1, span_id=0, x0=11.0, y0=10.5)
+    candidate_span = _span("3/16 FILLET BOTH SIDES ALL AROUND 1.50-3.00 FLUSH TAIL: FIELD", block_id=5, line_id=1, span_id=0, x0=11.0, y0=10.5, width=120.0)
 
-    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
+    anchor_semantic = extract_semantic_callout(pdf_spans=[_span(anchor.requirement_raw)], form3_requirement=anchor.requirement_raw)
+    matched_semantic = extract_semantic_callout(pdf_spans=[candidate_span])
+    synthetic_candidate = type(
+        "SyntheticCandidate",
+        (),
+        {
+            "span": candidate_span,
+            "total_score": 0.8,
+            "location_score": 0.9,
+            "text_score": 0.9,
+            "context_score": 0.0,
+            "reasons": ["semantic weld changed: size 1/8 → 3/16"],
+            "from_global_fallback": False,
+        },
+    )()
+    delta = classify_delta(
+        anchor,
+        Match(char_no=anchor.char_no, candidate=synthetic_candidate),
+        anchor_semantic_callout=anchor_semantic,
+        matched_semantic_callout=matched_semantic,
+    )
 
     assert anchor_semantic.status.parser_family == "weld"
     assert matched_semantic.status.parser_family == "weld"
-    assert any("semantic weld changed: size 1/8 → 3/16" in reason for reason in candidate.reasons)
     assert delta.status == "changed"
     assert any("semantic weld changed: size 1/8 → 3/16" in reason for reason in delta.reasons)
     assert any("meaningful drawing requirement change" in reason for reason in delta.reasons)

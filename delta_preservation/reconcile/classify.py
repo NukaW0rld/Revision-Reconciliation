@@ -480,10 +480,17 @@ def detect_added_characteristics(
     """
     # Build set of matched span keys
     matched_span_keys: Set[Tuple] = set()
+    matched_span_bboxes: List[Tuple[float, float, float, float]] = []
     for match in matches.values():
         span = match.candidate.span
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         matched_span_keys.add(key)
+        matched_span_bboxes.append(span.bbox_pdf)
+        source_spans = getattr(span, "source_spans", None)
+        if source_spans:
+            for source_span in source_spans:
+                matched_span_keys.add((source_span.block_id, source_span.line_id, source_span.span_id, source_span.bbox_pdf))
+                matched_span_bboxes.append(source_span.bbox_pdf)
 
     # Build a lookup of Rev A span content for cross-referencing.
     # Rev B spans whose text appears at the same position in Rev A are pre-existing
@@ -528,6 +535,13 @@ def detect_added_characteristics(
 
         return False
 
+    def is_inside_matched_group(bbox: tuple, tolerance: float = 8.0) -> bool:
+        x0, y0, x1, y1 = bbox
+        for mx0, my0, mx1, my1 in matched_span_bboxes:
+            if x0 >= mx0 - tolerance and y0 >= my0 - tolerance and x1 <= mx1 + tolerance and y1 <= my1 + tolerance:
+                return True
+        return False
+
     # GD&T feature control frame anchor symbols — defined early so the
     # unmatched-span pre-filter can exempt single-character GD&T symbols.
     GDT_ANCHOR_SYMBOLS = {'⌖', '⌒', '⟂', '⊙', '⌓', '⏥', '∥', '∠', '⌖∅'}
@@ -537,6 +551,8 @@ def detect_added_characteristics(
     for span in revB_spans:
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
         if key in matched_span_keys:
+            continue
+        if is_inside_matched_group(span.bbox_pdf):
             continue
         if is_in_exclusion_zone(span.bbox_pdf):
             continue
@@ -563,6 +579,30 @@ def detect_added_characteristics(
         s = match.candidate.span
         sx0, sy0, sx1, sy1 = s.bbox_pdf
         matched_centers.append(((sx0 + sx1) / 2, (sy0 + sy1) / 2))
+
+    # Build set of numeric float values from matched spans.
+    # Used in stacked-pair detection to suppress pairs whose values are already
+    # covered by an existing matched characteristic.  Example: when char 1 is
+    # matched to a "35.2" span (limits-form upper limit of Ø35 ±0.2), a second
+    # unmatched "35.2" / "34.8" stacked pair in another view represents the same
+    # characteristic — not a new one — and should be suppressed.
+    matched_span_float_values: set = set()
+    matched_numeric_pairs: set[tuple[float, float]] = set()
+    for match in matches.values():
+        span = match.candidate.span
+        texts = [span.text.strip()]
+        for source_span in getattr(span, "source_spans", []) or []:
+            texts.append(source_span.text.strip())
+        numeric_values = []
+        for text in texts:
+            try:
+                numeric_values.append(float(text))
+                matched_span_float_values.add(float(text))
+            except ValueError:
+                continue
+        uniq = sorted(set(numeric_values))
+        if len(uniq) >= 2:
+            matched_numeric_pairs.add((uniq[-2], uniq[-1]))
 
     def is_near_matched_span(bbox: tuple, threshold: float = 25.0) -> bool:
         x0, y0, x1, y1 = bbox
@@ -629,6 +669,22 @@ def detect_added_characteristics(
         # Mark all unmatched group spans consumed so Pass 1 and Pass 2 skip them
         for k in group_keys:
             gdt_consumed_keys.add(k)
+
+        # If any companion span (non-anchor) that contains numeric content is
+        # already matched to an existing Rev A characteristic, this GD&T frame
+        # belongs to an existing characteristic — not a new one.  Skip it.
+        # Examples prevented:
+        #   • "⏥ 0.2" where "0.2" was already matched by char 9 (double-detection)
+        #   • "−0.1 ⌓ 0.5 A" where "0.5" was matched by char 11 via global fallback
+        anchor_span_key = key  # Key of the GD&T anchor symbol span
+        has_matched_numeric_companion = any(
+            (s.block_id, s.line_id, s.span_id, s.bbox_pdf) in matched_span_keys
+            and (s.block_id, s.line_id, s.span_id, s.bbox_pdf) != anchor_span_key
+            and any(c.isdigit() for c in s.text)
+            for s in group_spans
+        )
+        if has_matched_numeric_companion:
+            continue
 
         reasons_gdt = [
             f"New GD&T feature control frame in Rev B: \"{group_text}\"",
@@ -720,6 +776,11 @@ def detect_added_characteristics(
             nominal = mean_val
             half_tol = (upper_val - lower_val) / 2.0
             pair_text = f"{upper_val} / {lower_val}"
+            ordered_pair = (lower_val, upper_val)
+            if ordered_pair in matched_numeric_pairs:
+                stacked_pair_keys.add(key_a)
+                stacked_pair_keys.add(key_b)
+                break
             # Use the upper span as the representative span
             upper_span = span_a if val_a >= val_b else span_b
             reasons = [
@@ -789,6 +850,16 @@ def detect_added_characteristics(
             and len(fp.numeric_tokens) == 1
         )
 
+        # Plain integer dimension: standalone integers ≥ 100 such as ordinate
+        # dimensions (155, 225, 450) or general lengths (800) added in a new view.
+        # Zone labels and note numbers are typically < 100; title-block entries are
+        # caught by the exclusion zone check above.
+        is_plain_integer_dimension = bool(
+            re.match(r'^\d+$', text)
+            and len(fp.numeric_tokens) == 1
+            and fp.numeric_tokens[0][0] >= 100
+        )
+
         # Surface finish callouts: "Ra <value>" or "<value> Ra" (e.g., "1000 Ra",
         # "FINISH TURN 1000 Ra").  The "Ra" indicator alone with a numeric value is
         # sufficient to identify a surface finish annotation.
@@ -804,7 +875,7 @@ def detect_added_characteristics(
         if not fp.numeric_tokens:
             continue
 
-        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single or is_plain_decimal_single or has_surface_finish):
+        if not (fp.symbol_tokens or fp.count_tokens or has_angle_dimension or is_leading_decimal_single or is_plain_decimal_single or has_surface_finish or is_plain_integer_dimension):
             continue
 
         # Skip spans that look like revision notes (contain "ADDED", "NEW", etc.)
@@ -812,7 +883,7 @@ def detect_added_characteristics(
             continue
 
         # Skip non-leading-decimal, non-surface-finish single numeric values
-        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single and not is_plain_decimal_single and not has_surface_finish:
+        if len(fp.numeric_tokens) == 1 and not fp.symbol_tokens and not fp.count_tokens and not is_leading_decimal_single and not is_plain_decimal_single and not has_surface_finish and not is_plain_integer_dimension:
             continue
 
         # Suppress spans that sit close to an already-matched span — they are likely
@@ -834,6 +905,8 @@ def detect_added_characteristics(
             reasons.append("Plain decimal dimension annotation detected")
         if has_surface_finish:
             reasons.append("Surface finish annotation detected (Ra indicator)")
+        if is_plain_integer_dimension:
+            reasons.append("Plain integer dimension annotation detected (≥100)")
 
         # Calculate confidence based on how "dimension-like" the span is
         confidence = 0.6
@@ -847,6 +920,8 @@ def detect_added_characteristics(
             confidence += 0.10
         if is_leading_decimal_single or is_plain_decimal_single:
             confidence = 0.55  # Slightly lower confidence for bare decimal values
+        if is_plain_integer_dimension:
+            confidence = 0.55  # Slightly lower confidence for bare integers
         confidence = min(confidence, 0.95)
 
         added_item = DeltaItem(

@@ -131,9 +131,22 @@ class TestSpuriousMatchGuard:
         anchor = _anchor("Ø 12.5")
         # Candidate text is a completely unrelated grid label value
         candidate = _span("A 45.0", block_id=2, line_id=3, span_id=0, x0=100.0, y0=200.0)
-        delta = _classify(anchor, candidate)
-        assert delta.status == "removed", f"Expected 'removed', got '{delta.status}'"
-        assert any("grid label" in r.lower() or "spurious" in r.lower() or "unrelated" in r.lower() for r in delta.reasons)
+
+        anchor_semantic = extract_semantic_callout(
+            pdf_spans=[_span(anchor.requirement_raw)],
+            form3_requirement=anchor.requirement_raw,
+        )
+        matched_semantic = extract_semantic_callout(pdf_spans=[candidate])
+        revb_semantic_by_span = {_span_key(candidate): matched_semantic}
+        candidates = generate_candidates(
+            anchor,
+            [candidate],
+            _Transform(),
+            anchor_semantic_callout=anchor_semantic,
+            revB_semantic_callouts_by_span_key=revb_semantic_by_span,
+        )
+
+        assert candidates == []
 
     def test_genuine_match_not_affected(self):
         """When primary values match, the guard should NOT fire."""
