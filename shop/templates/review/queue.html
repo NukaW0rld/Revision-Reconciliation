@@ -192,8 +192,40 @@
   document.addEventListener('keydown', function (e) {
     // Skip when typing in a form field
     if (e.target.matches('input, textarea, select')) return;
-    // Skip when a dialog/modal is open
-    if (document.querySelector('dialog[open]')) return;
+
+    const openDialog = document.querySelector('dialog[open]');
+
+    // H/L (and arrow equivalents) navigate between revA/revB snippets in full view.
+    // These fire even when a dialog is open; if no dialog is open, do nothing.
+    if (e.key === 'h' || e.key === 'H' || e.key === 'ArrowLeft' ||
+        e.key === 'l' || e.key === 'L' || e.key === 'ArrowRight') {
+      if (!openDialog) return;
+      e.preventDefault();
+      const match = openDialog.id.match(/^modal-(\d+)-(revA|revB)$/);
+      if (!match) return;
+      const charNo = match[1];
+      const side = match[2];
+      const closeInstant = (dialog) => {
+        [dialog, ...dialog.querySelectorAll('*')].forEach(el => el.style.transition = 'none');
+        dialog.close();
+        requestAnimationFrame(() => {
+          [dialog, ...dialog.querySelectorAll('*')].forEach(el => el.style.transition = '');
+        });
+      };
+      if ((e.key === 'h' || e.key === 'H' || e.key === 'ArrowLeft') && side === 'revB') {
+        closeInstant(openDialog);
+        const m = document.getElementById('modal-' + charNo + '-revA');
+        if (m) m.showModal();
+      } else if ((e.key === 'l' || e.key === 'L' || e.key === 'ArrowRight') && side === 'revA') {
+        closeInstant(openDialog);
+        const m = document.getElementById('modal-' + charNo + '-revB');
+        if (m) m.showModal();
+      }
+      return;
+    }
+
+    // All other keys: skip when a dialog/modal is open
+    if (openDialog) return;
 
     const cards = getCards();
     if (cards.length === 0) return;
