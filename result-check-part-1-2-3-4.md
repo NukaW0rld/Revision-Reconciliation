@@ -74,3 +74,45 @@ All of the characteristic annotations on rev B drawing have been moved significa
 # Part 3
 
 - Char 1: unchanged (rev A: .500 IN +/- .005, rev B: .500) <-- Correct. However, the program chose the wrong location to produce the rev A snippet. Instead of centering it on balloon 1, it centered on zone A.1, where the title block is, on the drawing.
+- Char 2: removed (rev A: .750 IN +/- .005, rev B: doesn't exist) <-- Correct
+- Char 3: changed (rev A: 1.250 IN +/- .005, rev B: 1) <-- Incorrect. The correct status should be removed. Rev B shouldn't exist. The program mistakenly captures zone B.1 as rev B snippet (where the isometric view of the part is), and I think it mistakenly read the column number "1" on the top border of the drawing as the rev B requirement.
+- Char 4: unchanged (rev A: 1.500 IN +/- .005, rev B: 1.500) <-- Correct
+- Char 5: unchanged (rev A: .030 TYP. IN +/- .005, rev B: .030 TYP.) <-- Correct
+- Char 6: removed (rev A: 2X Ø.157 THRU IN +/- .005, rev B: doesn't exist) <-- Correct
+- Char 7: removed (rev A: 10-24 UNC THRU, rev B: doesn't exist) <-- Correct
+- Char 8: removed (rev A: 1.000 IN +/- .005, rev B: doesn't exist) <-- Correct
+- Char 9: unchanged (rev A: Ø1.250 IN +/- .005, rev B: Ø1.250) <-- Correct
+- Char 10: unchanged (rev A: Ø2.000 IN +/- .005, rev B: Ø2.000) <-- Correct
+- Char 11: unchanged (rev A: .375 IN +/- .005, rev B: .375) <-- Correct
+- Char 12: unchanged (rev A: .750 IN +/- .005, rev B: .750) <-- Correct
+- Char 13: unchanged (rev A: .650 IN +/- .005, rev B: .650) <-- Correct
+- Char 14: changed (rev A: Ø.313 IN +.002/+.001, rev B: Ø.266 THRU) <-- Correct, with a disclaimer. Rev B can either be recognized as "Ø.266 THRU ⌵ Ø.531 x 82.0°" or "Ø.266 THRU" and later have "⌵ Ø.531 x 82.0°" as a separate added characteristic. Contextually, this characteristic on rev A is just a thru hole, but in rev B it becomes a threaded hole.
+- Char 15: unchanged (rev A: THRU, rev B: DATE) <-- Partially correct. The unchanged status is correctly classified, but rev B should be "THRU" as well, or "Ø.266 THRU ⌵ Ø.531 x 82.0°" and classified as uncertain, which is ok. In this scenario, the program mistakenly captured the "DATE" in the title block.
+- Char 16: changed (rev A: Ø.157 IN +/- .005, rev B: 3X Ø.157 THRU) <-- Incorrect. The correct status should be unchanged. Rev A should be "3X Ø.157", with or without the unit and tolerance. Rev B should be "3X Ø.157".
+- Char 17: unchanged (rev A: THRU, rev B: TITLE) <-- Partially correct. The unchanged status is correctly classified, but rev B should be "THRU" as well. In this scenario, the program mistakenly captured the "TITLE" in the title block.
+- Char 18: uncertain (rev A: 10-24 UNC THRU 120° APART, rev B: 120° APART) <-- Partially correct. Uncertain statuses are not bad, but in this case, rev B should be "10-24 UNC THRU 120° APART".
+- Char 19: changed (rev A: NOTES: 1. QTY: 1 2. ALL DIMS IN INCHES 3. MATL: ALUMINUM 4. FINISH ALL SURFACES 5. BREAK ALL EDGES, rev B: FINISH NOTED SURFACE) <-- Partially correct. The changed status is correctly classified, but rev B should be "NOTES: 1. QTY: 2 2. ALL DIMS IN INCHES 3. MATL: ALUMINUM 4. FINISH ALL SURFACES 5. BREAK ALL EDGES).
+- Char 20: added (rev A: doesn't exist, rev B: 1000 Ra) <-- Partially correct. The added status is correctly classified, but rev B should be "FINISH TURN 1000 Ra" (this is a weld representation).
+
+# Part 4
+
+- Char 1: unchanged (rev A: 1.000 ±.005 in, rev B: 1.000) <-- Correct
+- Char 2: unchanged (rev A: 4.000 ±.005 in, rev B: 4.000) <-- Correct
+- Char 3: unchanged (rev A: 2.000 ±.005 in, rev B: 2.000) <-- Correct
+- Char 4: unchanged (rev A: 1.000 ±.005 in, rev B: 1.000) <-- Correct
+- Char 5: unchanged (rev A: Ø.500 ±.005 THRU in, rev B: Ø.500 THRU) <-- Correct
+- Char 6: unchanged (rev A: Ø.201 ±.005 in / ↧ .50 ±.010 in, rev B: 0.50) <-- Incorrect. The correct status should be changed. Rev B should be "2X Ø.201 ↧ 0.50".
+- Char 7: unchanged (rev A: 1/4-20 UNC-2B, rev B: 1/4-20 UNC - 2B) <-- Correct
+- Char 8: unchanged (rev A: .750 ±.005 in, rev B: .750) <-- Correct
+- Char 9: changed (rev A: 2.500 ±.002 in, rev B: 3) <-- Incorrect. The correct status should be removed. Rev B shouldn't exist. The program mistakenly captured zone A.3 to produce rev B snippet, in which it mistakenly identified the column label "3" as rev B requirement.
+- Char 10: removed (rev A: R.250 ±.005 in TYP, rev B: doesn't exist) <-- Correct, with a disclaimer. The correct status can either be removed, with rev B requirement doesn't exist and later have an added characteristic with rev B being "4X .070 X 45.0°", or the status of char 10 can be changed with rev B being "4X .070 X 45.0°". Contextually, this characteristic is a fillet in rev A drawing and it becomes a chamfer in rev B drawing.
+- Char 11: changed (rev A: NOTES: 1. INTERPRET DIMENSIONING AND TOLERANCING PER ASME Y14.5-2018. 2. REFERENCE TITLE BLOCK FOR MATERIAL AND FINISH. 3. MINIMUM SURFACE FINISH AS MACHINED UNLESS OTHERWISE SPECIFIED. 4. ENCIRCLED DIMENSIONS REQUIRE SUPPLIER INSPECTION PER CUSTOMER APPROVED SAMPLING PLAN. CERTIFICATE OF COMPLIANCE REQUIRED WITH EACH PART SHIPMENT. 5. MATERIAL CERTIFICATION REQUIRED WITH EACH PART SHIPMENT. 6. BAG AND TAG PARTS FOR SHIPMENT (QTY 10 PER BAG)., rev B: NOTES:) <-- Partially correct. The changed status is correctly classified, but rev B should be "NOTES: 1. INTERPRET DIMENSIONING AND TOLERANCING PER ASME Y14.5-2018. 2. REFERENCE TITLE BLOCK FOR MATERIAL AND FINISH. 3. MINIMUM SURFACE FINISH AS MACHINED UNLESS OTHERWISE SPECIFIED. 4. MATERIAL CERTIFICATION REQUIRED WITH EACH PART SHIPMENT. 5. BAG AND TAG PARTS FOR SHIPMENT (QTY 10 PER BAG).
+- Char 12: added (rev A: doesn't exist, rev B: ⏥ ) <-- Partially correct. The added status is correctly classified, but rev B should be "⏥ | 0.01". The program didn't fully capture the FCF.
+- Char 13: added (rev A: doesn't exist, rev B: 2X Ø.201) <-- Incorrect. This is a redundant characteristic. It should've been classified as changed characteristic 6.
+- Char 14: added (rev A: doesn't exist, rev B: ⟂ ) <-- Partially correct. The added status is correctly classified, but rev B should be "⟂ | 0.10 | A | B". The program didn't fully capture the FCF.
+- Char 15: added (rev A: doesn't exist, rev B: .750) <-- Correct
+- Char 16: added (rev A: doesn't exist, rev B: 4X .070 X 45.0°) <-- Correct. This is connected to the disclaimer of char 10.
+- Char 17: added (rev A: doesn't exist, rev B: 1.250) <-- Correct
+- Char 18: added (rev A: doesn't exist, rev B: 1.250) <-- Correct
+
+The program missed an added GD&T characteristic on rev B drawing. It's "⌖ | Ø.005 Ⓜ | A | B | C". The FCf is located right beneath Ø.500 THRU in rev B drawing.

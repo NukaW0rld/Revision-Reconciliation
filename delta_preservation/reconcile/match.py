@@ -159,6 +159,21 @@ def generate_candidates(
         center_b = cv2.perspectiveTransform(center_a, transform.H)[0][0]
         pred_x, pred_y = center_b
     
+    # Estimate page dimensions from spans for exclusion-zone computations.
+    # These mirror the zones used by detect_added_characteristics so that
+    # title-block text (dates, revision labels, part numbers) is never selected
+    # as a candidate match — it would otherwise score well on location for
+    # non-numeric anchors (e.g., "THRU") because both have no numeric content.
+    # Use a floor of half a letter page (306×396 pt) so that the exclusion zones
+    # remain meaningful even when revB_spans contains only a few spans (e.g., in
+    # unit tests).  Real drawings always have wider/taller extent than the floor.
+    if revB_spans:
+        page_width_est = max(max(s.bbox_pdf[2] for s in revB_spans), 612.0)
+        page_height_est = max(max(s.bbox_pdf[3] for s in revB_spans), 792.0)
+    else:
+        page_width_est = 792.0
+        page_height_est = 612.0
+
     # Build candidate pool from spans within search radius.
     # Pre-filter to reduce computational cost of detailed scoring.
     # For notes-type anchors, restrict candidates to spans that look like notes headers
@@ -172,6 +187,15 @@ def generate_candidates(
         dist = math.sqrt((span_cx - pred_x)**2 + (span_cy - pred_y)**2)
 
         if dist <= SEARCH_RADIUS:
+            # Exclude title block (bottom-right corner) and revision table (top-right).
+            # These regions contain administrative text (dates, part numbers, rev letters)
+            # that is never a characteristic annotation but would score highly for
+            # non-numeric anchors due to both sides having no numeric content.
+            if span_cx > page_width_est * 0.70 and span_cy > page_height_est * 0.85:
+                continue  # Title block
+            if span_cx > page_width_est * 0.75 and span_cy < page_height_est * 0.15:
+                continue  # Revision table
+
             if is_notes_anchor:
                 # Only include spans that are actual notes headers
                 span_upper = span.text.strip().upper()
@@ -294,11 +318,13 @@ def score_candidate(
     else:
         numeric_overlap = 1.0 if not span_numerics else 0.0
     
-    # Check if primary value matches exactly
+    # Check if primary value is present in the span's numeric set.
+    # Using set membership (rather than max-equality) correctly handles multi-value
+    # spans such as "10 x 90°" where the anchor primary (10) is present even though
+    # the span's overall maximum (90) differs.
     primary_value_match = (
-        anchor_primary is not None and 
-        span_primary is not None and 
-        anchor_primary == span_primary
+        anchor_primary is not None and
+        anchor_primary in span_numerics
     )
     
     # Strong penalty if primary values exist but don't match.

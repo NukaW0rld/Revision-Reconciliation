@@ -436,6 +436,12 @@ def run_pipeline(
         # Check if this is a notes-type characteristic
         is_notes_type_b = anchor is not None and "NOTES" in anchor.requirement_raw.upper()
 
+        # revB_annotation_spans: all spans that make up the complete annotation text
+        # (primary matched span + companion spans such as ↧, ⌴, ⌵, tolerance suffixes).
+        # Populated below so that requirement_revB can report the full annotation, not
+        # just the single matched span.
+        revB_annotation_spans: List = []
+
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
             base_bbox_b = span.bbox_pdf
@@ -447,6 +453,7 @@ def run_pipeline(
                     all_spans=revB_text_spans,
                     max_vertical_expansion=150.0
                 )
+                revB_annotation_spans = [span]
             else:
                 # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
                 expanded = expand_bbox_with_adjacent_spans(
@@ -457,6 +464,10 @@ def run_pipeline(
                     max_horizontal_expansion=150.0  # ~2 inch max expansion
                 )
                 revB_bbox_pdf = expanded.bbox
+                revB_annotation_spans = [span] + [
+                    s for s in expanded.included_spans
+                    if s.bbox_pdf != span.bbox_pdf
+                ]
 
         elif delta_internal.added_span is not None:
             span = delta_internal.added_span
@@ -471,6 +482,10 @@ def run_pipeline(
                 max_horizontal_expansion=150.0
             )
             exp_bbox = expanded.bbox
+            revB_annotation_spans = [span] + [
+                s for s in expanded.included_spans
+                if s.bbox_pdf != span.bbox_pdf
+            ]
 
             # Ensure minimum size for added characteristics (120x120 in PDF points)
             min_size = 120.0
@@ -590,12 +605,21 @@ def run_pipeline(
                 form3_requirement=form3_requirement,
             )
 
-        # Extract Rev B annotation text from matched or added span
+        # Extract Rev B annotation text.
+        # Combine the primary matched/added span with all companion spans that were
+        # absorbed during bbox expansion (e.g., the ↧ depth symbol beside "8.5",
+        # the ⌴ counterbore symbol beside "Ø13.5", or a stacked tolerance suffix).
+        # Sort left-to-right so the text reads in natural drawing order.
         requirement_revB = None
-        if delta_internal.match is not None:
-            requirement_revB = delta_internal.match.candidate.span.text
-        elif delta_internal.added_span is not None:
-            requirement_revB = delta_internal.added_span.text
+        if revB_annotation_spans:
+            revB_annotation_spans.sort(key=lambda s: s.bbox_pdf[0])
+            combined = " ".join(s.text.strip() for s in revB_annotation_spans if s.text.strip())
+            requirement_revB = combined if combined else None
+        if requirement_revB is None:
+            if delta_internal.match is not None:
+                requirement_revB = delta_internal.match.candidate.span.text
+            elif delta_internal.added_span is not None:
+                requirement_revB = delta_internal.added_span.text
 
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(

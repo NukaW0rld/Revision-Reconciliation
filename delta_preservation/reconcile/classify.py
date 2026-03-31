@@ -229,11 +229,14 @@ def classify_delta(
     anchor_primary = max(anchor_numerics) if anchor_numerics else None
     matched_primary = max(matched_numerics) if matched_numerics else None
     
-    # Check if primary dimension matches - this is the key indicator
+    # Check if primary dimension matches - this is the key indicator.
+    # Use set membership rather than max-equality so that multi-value spans (e.g.,
+    # "10 x 90°" for a countersink that encodes both depth=10 and angle=90°) are
+    # correctly recognised as containing the anchor's primary value (10) even though
+    # the span's overall maximum value (90) is different.
     primary_matches = (
-        anchor_primary is not None and 
-        matched_primary is not None and 
-        anchor_primary == matched_primary
+        anchor_primary is not None and
+        anchor_primary in matched_numerics
     )
     
     # Extract structural tokens (count patterns like "2X", "6X" and symbols like "Ø", "R")
@@ -266,6 +269,40 @@ def classify_delta(
     symbol_match = anchor_symbols <= matched_symbols or not anchor_symbols
     
     # Classification decision tree
+    # Priority 0 (early guard): zero numeric overlap AND primary values diverge
+    # significantly → the matched candidate is almost certainly a grid/border label
+    # or an unrelated annotation.  Return "removed" before the later elif branches
+    # can mis-classify it as "changed".
+    # NOTE: this guard must run before the symbol/overlap checks below, because when
+    # neither anchor nor span has engineering symbols (symbol_match = True) the
+    # `numeric_overlap < 0.5 and symbol_match` branch would otherwise fire first and
+    # reach a "changed" verdict via the limits-form path.
+    if (
+        numeric_overlap == 0.0
+        and anchor_numerics
+        and matched_numerics
+        and anchor_primary is not None
+        and matched_primary is not None
+        and anchor_primary != 0
+        and abs(anchor_primary - matched_primary) / abs(anchor_primary) > 0.15
+    ):
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="removed",
+            confidence=min(0.85, location_search_coverage),
+            reasons=reasons + [
+                "No numeric overlap and primary values differ significantly",
+                f"Anchor primary: {anchor_primary}, Matched primary: {matched_primary}",
+                "Match candidate likely a grid label or unrelated annotation",
+            ],
+            component_scores={
+                "location": location_score,
+                "text": 0.0,
+                "context": context_score,
+            },
+            match=None,
+        )
+
     # Priority 1: Primary dimension value match is the strongest indicator
     if count_changed or count_added:
         # Count explicitly changed or added (e.g., none → "2X", or "2X" → "4X") → changed
@@ -358,34 +395,6 @@ def classify_delta(
             confidence = 0.4 * location_score + 0.3 * numeric_overlap + 0.2
             reasons.append(f"Numeric values changed (only {int(numeric_overlap*100)}% overlap)")
             reasons.append(f"Anchor: {sorted(anchor_numerics)}, Matched: {sorted(matched_numerics)}")
-    elif (
-        numeric_overlap == 0.0
-        and anchor_numerics
-        and matched_numerics
-        and anchor_primary is not None
-        and matched_primary is not None
-        and anchor_primary != 0
-        and abs(anchor_primary - matched_primary) / abs(anchor_primary) > 0.15
-    ):
-        # Spurious-match guard: zero numeric overlap and the primary values differ
-        # significantly — the matched candidate is likely a grid label or unrelated
-        # annotation, not the actual characteristic.  Return "removed".
-        return DeltaItem(
-            char_no=anchor.char_no,
-            status="removed",
-            confidence=min(0.85, location_search_coverage),
-            reasons=[
-                "No numeric overlap and primary values differ significantly",
-                f"Anchor primary: {anchor_primary}, Matched primary: {matched_primary}",
-                "Match candidate likely a grid label or unrelated annotation",
-            ],
-            component_scores={
-                "location": location_score,
-                "text": 0.0,
-                "context": context_score,
-            },
-            match=None,
-        )
     elif location_score > 0.6:
         # Good location match but text doesn't align well → likely unchanged
         status = "unchanged"
@@ -586,10 +595,18 @@ def detect_added_characteristics(
         sy_center = (y0 + y1) / 2
 
         # Collect companion spans on the same row (within 10 pt vertically,
-        # within 300 pt horizontally)
+        # within 300 pt horizontally).
+        # Search ALL revB_spans (not just unmatched_spans) so that tolerance values
+        # and datum references that were already consumed by the main matching phase
+        # are still included in the FCF text.  Only unmatched companions are added
+        # to gdt_consumed_keys (to prevent Pass 1/2 from re-detecting them); matched
+        # companions are included for text purposes only.
         group_spans = [span]
         group_keys = [key]
-        for other in unmatched_spans:
+        # Traverse all revB_spans (not just unmatched_spans) for companion text so that
+        # tolerance values and datum refs already consumed by the main match phase are
+        # still included in the FCF group text.
+        for other in revB_spans:
             other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
             if other_key == key or other_key in gdt_consumed_keys:
                 continue
@@ -601,13 +618,15 @@ def detect_added_characteristics(
             if ox0 > x1 + 300.0 or ox1 < x0 - 300.0:
                 continue
             group_spans.append(other)
-            group_keys.append(other_key)
+            # Only mark unmatched spans as consumed; matched spans remain available
+            if other_key not in matched_span_keys:
+                group_keys.append(other_key)
 
         # Sort group spans left-to-right and concatenate text
         group_spans.sort(key=lambda s: s.bbox_pdf[0])
         group_text = ' '.join(s.text.strip() for s in group_spans)
 
-        # Mark all group spans consumed so Pass 1 and Pass 2 skip them
+        # Mark all unmatched group spans consumed so Pass 1 and Pass 2 skip them
         for k in group_keys:
             gdt_consumed_keys.add(k)
 
