@@ -135,6 +135,7 @@
     <div><span class="text-base-content/50">K/↑</span> prev</div>
     <div><span class="text-base-content/50">A</span> approve</div>
     <div><span class="text-base-content/50">O</span> override</div>
+    <div><span class="text-base-content/50">Space</span> rev A view</div>
   </div>
 
 </div>
@@ -272,6 +273,18 @@
             const ta = panel.querySelector('textarea');
             if (ta) ta.focus();
           }
+        }
+        break;
+      }
+
+      case ' ': {
+        if (!currentCard) break;
+        e.preventDefault();
+        const spaceCharNo = currentCard.dataset.charNo;
+        const revAModal = document.getElementById('modal-' + spaceCharNo + '-revA');
+        if (revAModal) {
+          console.log('[queue] Space open revA modal charNo=' + spaceCharNo);
+          revAModal.showModal();
         }
         break;
       }

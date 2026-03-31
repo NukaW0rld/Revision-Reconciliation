@@ -19,7 +19,8 @@
         <dialog id="modal-{{ item.char_no }}-revA" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
             <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
-            <div class="flex justify-end mt-3">
+            <div class="flex justify-between items-center mt-3">
+              <span class="font-mono text-xs text-base-content/30 pointer-events-none select-none"><span class="text-base-content/50">L/→</span> rev B</span>
               <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
             </div>
           </div>
@@ -39,7 +40,8 @@
         <dialog id="modal-{{ item.char_no }}-revB" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
             <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
-            <div class="flex justify-end mt-3">
+            <div class="flex justify-between items-center mt-3">
+              <span class="font-mono text-xs text-base-content/30 pointer-events-none select-none"><span class="text-base-content/50">H/←</span> rev A</span>
               <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
             </div>
           </div>
