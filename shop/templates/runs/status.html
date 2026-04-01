@@ -137,20 +137,47 @@
 
     <!-- Completed state CTA -->
     {% if run.status == "completed" %}
-    <div>
-      <a href="/review/{{ run.id }}" class="btn btn-primary">Open Review Queue</a>
+    <div class="flex items-center gap-4">
+      <a id="cta-completed" href="/review/{{ run.id }}" class="btn btn-primary">Open Review Queue</a>
+      {% if user.role == 'admin' %}
+      <label class="label cursor-pointer gap-2" id="debug-toggle-completed">
+        <span class="label-text text-xs font-mono">Debug</span>
+        <input type="checkbox" class="toggle toggle-sm toggle-primary debug-toggle"
+               data-cta="cta-completed"
+               onchange="(function(cb){var a=document.getElementById(cb.dataset.cta);var u=new URL(a.href,location.origin);if(cb.checked){u.searchParams.set('debug','1')}else{u.searchParams.delete('debug')}a.href=u.pathname+u.search})(this)" />
+      </label>
+      {% endif %}
     </div>
     {% endif %}
 
     <!-- Reviewing state CTA — resume where they left off -->
     {% if run.status == "reviewing" %}
-    <div>
-      <a href="/review/{{ run.id }}" class="btn btn-primary">Resume Review Queue</a>
+    <div class="flex items-center gap-4">
+      <a id="cta-reviewing" href="/review/{{ run.id }}" class="btn btn-primary">Resume Review Queue</a>
+      {% if user.role == 'admin' %}
+      <label class="label cursor-pointer gap-2" id="debug-toggle-reviewing">
+        <span class="label-text text-xs font-mono">Debug</span>
+        <input type="checkbox" class="toggle toggle-sm toggle-primary debug-toggle"
+               data-cta="cta-reviewing"
+               onchange="(function(cb){var a=document.getElementById(cb.dataset.cta);var u=new URL(a.href,location.origin);if(cb.checked){u.searchParams.set('debug','1')}else{u.searchParams.delete('debug')}a.href=u.pathname+u.search})(this)" />
+      </label>
+      {% endif %}
     </div>
     {% endif %}
 
     <!-- Phase 4: Download and action buttons for signed-off runs -->
     {% if run.status == "signed_off" %}
+    {% if user.role == 'admin' %}
+    <div class="flex items-center gap-4">
+      <a id="cta-signed-off" href="/review/{{ run.id }}" class="btn btn-outline btn-sm">Open Review Queue</a>
+      <label class="label cursor-pointer gap-2" id="debug-toggle-signed-off">
+        <span class="label-text text-xs font-mono">Debug</span>
+        <input type="checkbox" class="toggle toggle-sm toggle-primary debug-toggle"
+               data-cta="cta-signed-off"
+               onchange="(function(cb){var a=document.getElementById(cb.dataset.cta);var u=new URL(a.href,location.origin);if(cb.checked){u.searchParams.set('debug','1')}else{u.searchParams.delete('debug')}a.href=u.pathname+u.search})(this)" />
+      </label>
+    </div>
+    {% endif %}
     <div class="flex flex-wrap gap-3">
       <a href="/exports/{{ run.id }}/audit-packet.pdf" class="btn btn-primary btn-sm">
         Download Audit Packet (PDF)

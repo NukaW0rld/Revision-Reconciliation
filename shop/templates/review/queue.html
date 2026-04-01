@@ -100,6 +100,13 @@
     </div>
     {% endif %}
 
+    {% if debug_mode %}
+    <div class="border-l-4 border-warning bg-warning/10 p-3 mt-3 flex items-center gap-2">
+      <span class="badge badge-warning badge-sm font-mono">DEBUG</span>
+      <span class="text-sm font-mono">Debug mode active — additional diagnostics visible.</span>
+    </div>
+    {% endif %}
+
     {% if error %}
     <div class="border-l-4 border-error bg-base-300/30 p-3 mt-3 font-mono text-sm">
       {% if error == 'pending_items' %}
