@@ -10,10 +10,15 @@ from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
 from shop.services.review import (
-    open_review_queue,
+    DebugVerdictValidationError,
     attempt_sign_off,
-    semantic_contracts_by_char,
     debug_internals_by_char,
+    debug_verdict_state,
+    load_debug_verdicts,
+    open_review_queue,
+    save_debug_verdict,
+    semantic_contracts_by_char,
+    validate_debug_verdict_payload,
 )
 from shop.routers.runs import _get_nav_context
 
@@ -44,6 +49,8 @@ def review_queue(
     all_items = open_review_queue(db, run)
     semantic_contracts = semantic_contracts_by_char(run)
     debug_internals = debug_internals_by_char(run) if debug else {}
+    debug_verdicts = load_debug_verdicts(run) if debug else {}
+    debug_progress = debug_verdict_state(all_items, debug_verdicts) if debug else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
     pending = sum(1 for i in all_items if i.reviewer_decision is None)
@@ -84,6 +91,9 @@ def review_queue(
         "is_amendment": is_amendment,
         "debug_mode": debug,
         "debug_internals": debug_internals,
+        "debug_verdicts": debug_progress["by_item_id"],
+        "debug_submitted": debug_progress["submitted"],
+        "debug_total": debug_progress["total"],
         **nav,
     })
 
@@ -94,6 +104,94 @@ def _item_counts(db: Session, run_id: int):
     approved = sum(1 for i in all_items if i.reviewer_decision == "approved")
     overridden = sum(1 for i in all_items if i.reviewer_decision == "overridden")
     return all_items, pending, approved, overridden
+
+
+def _render_debug_item_card(
+    *,
+    request: Request,
+    run: Run,
+    item: ReviewItem,
+    db: Session,
+    user: User,
+    error: str | None = None,
+    status_code: int = 200,
+):
+    all_items, pending, approved, overridden = _item_counts(db, run.id)
+    debug_verdicts = load_debug_verdicts(run)
+    debug_progress = debug_verdict_state(all_items, debug_verdicts)
+    semantic_contract = semantic_contracts_by_char(run).get(item.char_no)
+    debug_internal = debug_internals_by_char(run).get(item.char_no)
+    return templates.TemplateResponse(
+        request,
+        "review/_item_card_debug.html",
+        {
+            "item": item,
+            "run": run,
+            "run_id": run.id,
+            "user": user,
+            "semantic_contract": semantic_contract,
+            "debug_internal": debug_internal,
+            "debug_verdict": debug_progress["by_item_id"].get(item.id),
+            "debug_submitted": debug_progress["submitted"],
+            "debug_total": debug_progress["total"],
+            "pending": pending,
+            "approved": approved,
+            "overridden": overridden,
+            "total": len(all_items),
+            "read_only": run.status == "signed_off",
+            "is_amendment": bool(run.parent_run_id),
+            "error": error,
+        },
+        status_code=status_code,
+    )
+
+
+@router.post("/{run_id}/debug/items/{item_id}/verdict", response_class=HTMLResponse)
+def save_debug_item_verdict(
+    run_id: int,
+    item_id: int,
+    request: Request,
+    verdict: str = Form(""),
+    corrected_classification: str = Form(""),
+    corrected_requirement_revA: str = Form(""),
+    corrected_requirement_revB: str = Form(""),
+    explanation: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+
+    item = db.query(ReviewItem).filter(ReviewItem.id == item_id).first()
+    if item is None or item.run_id != run_id:
+        raise HTTPException(status_code=404)
+
+    try:
+        payload = validate_debug_verdict_payload(
+            verdict=verdict,
+            corrected_classification=corrected_classification,
+            corrected_requirement_revA=corrected_requirement_revA,
+            corrected_requirement_revB=corrected_requirement_revB,
+            explanation=explanation,
+        )
+    except DebugVerdictValidationError as exc:
+        return _render_debug_item_card(
+            request=request,
+            run=run,
+            item=item,
+            db=db,
+            user=user,
+            error=str(exc),
+            status_code=422,
+        )
+
+    save_debug_verdict(run, item, payload)
+    db.refresh(item)
+    return _render_debug_item_card(request=request, run=run, item=item, db=db, user=user)
 
 
 @router.post("/{run_id}/items/{char_no}/approve", response_class=HTMLResponse)

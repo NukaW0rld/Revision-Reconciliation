@@ -1,0 +1,245 @@
+{% set read_only = read_only if read_only is defined else false %}
+{% set is_amendment = is_amendment if is_amendment is defined else false %}
+<div id="review-item-{{ item.char_no }}"
+     class="item-card border border-base-300 bg-base-200 border-l-4 p-5 {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
+     data-pending="{{ 'true' if not item.reviewer_decision else 'false' }}"
+     data-char-no="{{ item.char_no }}">
+
+  <!-- Two-column layout: left=snippets, right=controls -->
+  <div class="flex gap-6 h-full">
+
+    <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
+    <div class="flex flex-col gap-3 w-64 flex-shrink-0">
+      <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest">Rev A</p>
+      {% if item.revA_snippet_path %}
+        <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
+             class="cursor-pointer w-full min-h-56 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors"
+             onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
+        <dialog id="modal-{{ item.char_no }}-revA" class="modal">
+          <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
+            <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
+            <div class="flex justify-between items-center mt-3">
+              <span class="font-mono text-xs text-base-content/30 pointer-events-none select-none"><span class="text-base-content/50">L/→</span> rev B</span>
+              <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+      {% else %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
+          Image unavailable
+        </div>
+      {% endif %}
+
+      <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest mt-2">Rev B</p>
+      {% if item.revB_snippet_path %}
+        <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
+             class="cursor-pointer w-full min-h-56 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors"
+             onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
+        <dialog id="modal-{{ item.char_no }}-revB" class="modal">
+          <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
+            <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
+            <div class="flex justify-between items-center mt-3">
+              <span class="font-mono text-xs text-base-content/30 pointer-events-none select-none"><span class="text-base-content/50">H/←</span> rev A</span>
+              <form method="dialog"><button class="btn btn-outline btn-sm font-mono">Close</button></form>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>close</button></form>
+        </dialog>
+      {% elif item.pipeline_classification == 'removed' and item.revB_bbox %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
+          Image unavailable
+        </div>
+      {% elif item.pipeline_classification == 'removed' %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
+          Not found in Rev B
+        </div>
+      {% else %}
+        <div class="bg-base-300/30 rounded border border-base-300 p-4 text-center text-base-content/40 text-sm font-mono h-32 flex items-center justify-center">
+          Image unavailable
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- RIGHT PANEL: metadata + actions -->
+    <div class="flex flex-col gap-4 w-80 flex-shrink-0">
+
+      <!-- Char number + classification -->
+      <div class="flex flex-wrap items-baseline gap-3">
+        <span class="text-3xl font-bold font-mono">#{{ item.char_no }}</span>
+        <span class="font-mono text-sm px-2 py-0.5 rounded {{ item.pipeline_classification | classification_badge_class }}">{{ item.pipeline_classification }}</span>
+      </div>
+
+      <!-- Requirements -->
+      {% if item.requirement_revA %}
+        <div>
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev A Requirement</p>
+          <p class="text-sm font-mono bg-base-300/40 border border-base-300 px-3 py-2 rounded">{{ item.requirement_revA }}</p>
+        </div>
+      {% endif %}
+      {% if item.requirement_revB %}
+        <div>
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev B Requirement</p>
+          <p class="text-sm font-mono bg-base-300/40 border border-base-300 px-3 py-2 rounded">{{ item.requirement_revB }}</p>
+        </div>
+      {% endif %}
+
+      {% if item.reviewer_decision %}
+        {% if item.reviewer_decision == 'approved' %}
+          <div class="border-l-4 border-success bg-base-300/30 px-3 py-2">
+            <span class="font-mono font-bold text-success">✓ Approved</span>
+          </div>
+        {% else %}
+          <div class="border-l-4 border-warning bg-base-300/30 px-3 py-2">
+            <span class="font-mono font-bold text-warning">⚠ Overridden → {{ item.override_classification }}</span>
+            <p class="text-xs text-base-content/60 mt-1 font-mono">{{ item.override_note }}</p>
+          </div>
+        {% endif %}
+
+        {% if not read_only %}
+        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/reset"
+              hx-target="#review-item-{{ item.char_no }}"
+              hx-swap="outerHTML">
+          <button type="submit" class="btn btn-ghost btn-xs font-mono text-base-content/50 hover:text-base-content w-full mt-1">
+            ↩ Change Decision
+          </button>
+        </form>
+        {% endif %}
+      {% endif %}
+
+      {% if not item.reviewer_decision or is_amendment %}
+        {% if not read_only %}
+        {% if error %}
+          <p class="text-error text-sm font-mono">{{ error }}</p>
+        {% endif %}
+
+        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
+              hx-target="#review-item-{{ item.char_no }}"
+              hx-swap="outerHTML"
+              hx-indicator="#spinner-{{ item.char_no }}">
+          <button type="submit" class="btn btn-success w-full font-mono">
+            Approve <span class="opacity-50 text-xs ml-1">[A]</span>
+          </button>
+        </form>
+
+        <button type="button"
+                class="btn btn-outline btn-warning w-full font-mono"
+                data-override-toggle="{{ item.char_no }}">
+          Override (O)
+        </button>
+
+        <div id="override-panel-{{ item.char_no }}" hidden
+             class="border border-base-300 bg-base-200 p-4 mt-2">
+          <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
+                hx-target="#review-item-{{ item.char_no }}"
+                hx-swap="outerHTML">
+            <select name="override_classification"
+                    class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary">
+              <option value="unchanged">Unchanged</option>
+              <option value="changed" selected>Changed</option>
+              <option value="removed">Removed</option>
+              <option value="added">Added</option>
+              <option value="uncertain">Uncertain</option>
+            </select>
+            <textarea name="override_note" required placeholder="Override reason (required)"
+                      class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                      rows="3"></textarea>
+            <button type="submit" class="btn btn-warning w-full font-mono">Save Override</button>
+          </form>
+        </div>
+
+        <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- DEBUG INTERNALS PANEL -->
+    {% if debug_internal %}
+    <div class="flex flex-col gap-3 w-80 flex-shrink-0" data-debug-panel>
+      <details open class="bg-base-300/40 border border-base-300 rounded p-3">
+        <summary class="font-mono text-xs font-semibold uppercase tracking-widest text-base-content/50 cursor-pointer">Debug Internals</summary>
+
+        <!-- Bbox Centers -->
+        <div class="mt-3">
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Bbox Centers</p>
+          <p class="text-sm font-mono">
+            Rev A: {% if debug_internal.revA_center %}({{ "%.1f"|format(debug_internal.revA_center[0]) }}, {{ "%.1f"|format(debug_internal.revA_center[1]) }}){% else %}N/A{% endif %}
+          </p>
+          <p class="text-sm font-mono">
+            Rev B: {% if debug_internal.revB_center %}({{ "%.1f"|format(debug_internal.revB_center[0]) }}, {{ "%.1f"|format(debug_internal.revB_center[1]) }}){% else %}N/A{% endif %}
+          </p>
+        </div>
+
+        <!-- Confidence -->
+        <div class="mt-3">
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Confidence</p>
+          <p class="text-sm font-mono">{{ item.confidence }}</p>
+        </div>
+
+        <!-- Scores -->
+        {% if debug_internal.scores %}
+        <div class="mt-3">
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Scores</p>
+          <table class="table table-xs font-mono w-full">
+            <thead><tr>
+              {% for key in debug_internal.scores %}<th class="text-base-content/50">{{ key }}</th>{% endfor %}
+            </tr></thead>
+            <tbody><tr>
+              {% for key, val in debug_internal.scores.items() %}<td>{{ val }}</td>{% endfor %}
+            </tr></tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <!-- Reasons -->
+        {% if debug_internal.reasons %}
+        <div class="mt-3">
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Reasons</p>
+          <ul class="list-disc list-inside text-sm font-mono">
+            {% for reason in debug_internal.reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <!-- Semantic Callout -->
+        {% if semantic_contract is defined and semantic_contract %}
+        <div class="mt-3 border-t border-base-300 pt-3">
+          <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Semantic Contract</p>
+          {% if semantic_contract.family %}
+            <p class="text-xs font-mono"><span class="text-base-content/50">Family:</span> {{ semantic_contract.family }}</p>
+          {% endif %}
+          {% if semantic_contract.summary %}
+            <p class="text-xs font-mono"><span class="text-base-content/50">Summary:</span> {{ semantic_contract.summary }}</p>
+          {% endif %}
+          {% if semantic_contract.provenance %}
+            <p class="text-xs font-mono"><span class="text-base-content/50">Provenance:</span> {{ semantic_contract.provenance }}</p>
+          {% endif %}
+          {% if semantic_contract.detail %}
+            <p class="text-xs font-mono"><span class="text-base-content/50">Detail:</span> {{ semantic_contract.detail }}</p>
+          {% endif %}
+          {% if semantic_contract.reason_fragments %}
+            <p class="text-xs font-mono text-base-content/50 mt-1">Reason Fragments:</p>
+            <ul class="list-disc list-inside text-xs font-mono">
+              {% for frag in semantic_contract.reason_fragments %}
+                <li>{{ frag }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </details>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {% if oob_update %}
+  <div id="progress-bar" hx-swap-oob="true">
+    {% include "review/_progress_bar.html" %}
+  </div>
+  {% include "review/_signoff_footer_oob.html" %}
+  {% endif %}
+</div>

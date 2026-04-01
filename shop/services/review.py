@@ -1,15 +1,136 @@
 import json
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from sqlalchemy.orm import Session
 from delta_preservation.types import DeltaItem
 from shop.models import Run, ReviewItem, User
 from shop.services.semantics import shape_semantic_contract
 from shop.utils import utcnow
 
+DEBUG_VERDICTS_FILENAME = "debug_verdicts.json"
+VALID_DEBUG_VERDICTS = {"correct", "incorrect", "partially_correct"}
+
+
+class DebugVerdictValidationError(ValueError):
+    """Raised when a debug verdict payload is malformed."""
+
 
 def _load_delta_packet(run: Run) -> dict:
     packet_path = Path(run.output_dir) / "delta_packet.json"
     return json.loads(packet_path.read_text())
+
+
+def _debug_verdicts_path(run: Run) -> Path:
+    if not run.output_dir:
+        raise DebugVerdictValidationError("Run output directory is not configured.")
+    return Path(run.output_dir) / DEBUG_VERDICTS_FILENAME
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def load_debug_verdicts(run: Run) -> dict[int, dict]:
+    """Return persisted debug verdicts keyed by ReviewItem.id."""
+    verdicts_path = _debug_verdicts_path(run)
+    if not verdicts_path.exists():
+        return {}
+
+    raw_data = json.loads(verdicts_path.read_text())
+    if not isinstance(raw_data, dict):
+        raise DebugVerdictValidationError("debug_verdicts.json must contain an object.")
+
+    verdicts: dict[int, dict] = {}
+    for raw_key, payload in raw_data.items():
+        try:
+            item_id = int(raw_key)
+        except (TypeError, ValueError) as exc:
+            raise DebugVerdictValidationError("Debug verdict keys must be ReviewItem ids.") from exc
+        if isinstance(payload, dict):
+            verdicts[item_id] = payload
+    return verdicts
+
+
+def validate_debug_verdict_payload(
+    *,
+    verdict: str | None,
+    corrected_classification: str | None = None,
+    corrected_requirement_revA: str | None = None,
+    corrected_requirement_revB: str | None = None,
+    explanation: str | None = None,
+) -> dict:
+    normalized_verdict = (verdict or "").strip()
+    if not normalized_verdict:
+        raise DebugVerdictValidationError("Verdict is required.")
+    if normalized_verdict not in VALID_DEBUG_VERDICTS:
+        raise DebugVerdictValidationError("Unsupported debug verdict.")
+
+    payload = {"verdict": normalized_verdict}
+    optional_fields = {
+        "corrected_classification": _normalize_optional_text(corrected_classification),
+        "corrected_requirement_revA": _normalize_optional_text(corrected_requirement_revA),
+        "corrected_requirement_revB": _normalize_optional_text(corrected_requirement_revB),
+        "explanation": _normalize_optional_text(explanation),
+    }
+
+    if normalized_verdict != "correct":
+        missing = [field for field, value in optional_fields.items() if value is None]
+        if missing:
+            raise DebugVerdictValidationError(
+                "Corrected classification, corrected Rev A requirement, corrected Rev B requirement, and explanation are required for non-correct verdicts."
+            )
+
+    for field, value in optional_fields.items():
+        if value is not None:
+            payload[field] = value
+    return payload
+
+
+def write_debug_verdicts(run: Run, verdicts_by_item_id: dict[int, dict]) -> None:
+    """Atomically persist the debug verdict map for a run."""
+    verdicts_path = _debug_verdicts_path(run)
+    verdicts_path.parent.mkdir(parents=True, exist_ok=True)
+    serializable = {str(item_id): payload for item_id, payload in verdicts_by_item_id.items()}
+
+    with NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=verdicts_path.parent,
+        prefix="debug_verdicts.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp_file:
+        json.dump(serializable, tmp_file, indent=2, sort_keys=True)
+        tmp_file.write("\n")
+        tmp_path = Path(tmp_file.name)
+
+    tmp_path.replace(verdicts_path)
+
+
+def save_debug_verdict(run: Run, item: ReviewItem, payload: dict) -> dict[int, dict]:
+    """Upsert one debug verdict without mutating normal review decision fields."""
+    verdicts_by_item_id = load_debug_verdicts(run)
+    verdicts_by_item_id[item.id] = {
+        **payload,
+        "item_id": item.id,
+        "char_no": item.char_no,
+    }
+    write_debug_verdicts(run, verdicts_by_item_id)
+    return verdicts_by_item_id
+
+
+def debug_verdict_state(items: list[ReviewItem], verdicts_by_item_id: dict[int, dict]) -> dict:
+    """Return template-friendly per-item verdict map and submitted-progress counters."""
+    item_ids = {item.id for item in items}
+    filtered = {item_id: payload for item_id, payload in verdicts_by_item_id.items() if item_id in item_ids}
+    return {
+        "by_item_id": filtered,
+        "submitted": len(filtered),
+        "total": len(items),
+    }
 
 
 def semantic_contracts_by_char(run: Run) -> dict[int | None, dict]:

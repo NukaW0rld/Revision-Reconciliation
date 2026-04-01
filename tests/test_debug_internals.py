@@ -142,3 +142,6 @@ def test_admin_debug_review_returns_200(client: TestClient, admin_user, db_engin
     _login(client, db_engine, admin_user)
     resp = client.get(f"/review/{run_id}?debug=1", follow_redirects=False)
     assert resp.status_code == 200
+    html = resp.text
+    assert "data-debug-panel" in html, "Debug panel marker not found in rendered HTML"
+    assert "1.0" in html, "Expected score value 1.0 not found in rendered HTML"
