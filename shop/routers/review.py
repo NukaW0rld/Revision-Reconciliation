@@ -13,6 +13,7 @@ from shop.services.review import (
     open_review_queue,
     attempt_sign_off,
     semantic_contracts_by_char,
+    debug_internals_by_char,
 )
 from shop.routers.runs import _get_nav_context
 
@@ -42,6 +43,7 @@ def review_queue(
 
     all_items = open_review_queue(db, run)
     semantic_contracts = semantic_contracts_by_char(run)
+    debug_internals = debug_internals_by_char(run) if debug else {}
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
     pending = sum(1 for i in all_items if i.reviewer_decision is None)
@@ -81,6 +83,7 @@ def review_queue(
         "read_only": read_only,
         "is_amendment": is_amendment,
         "debug_mode": debug,
+        "debug_internals": debug_internals,
         **nav,
     })
 

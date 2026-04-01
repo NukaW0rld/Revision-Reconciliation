@@ -25,6 +25,42 @@ def semantic_contracts_by_char(run: Run) -> dict[int | None, dict]:
     return shaped
 
 
+def debug_internals_by_char(run: Run) -> dict[int | None, dict]:
+    """Return debug internals (scores, reasons, bbox centers) keyed by char_no."""
+    if not run.output_dir:
+        return {}
+    packet_data = _load_delta_packet(run)
+    result: dict[int | None, dict] = {}
+    for raw_item in packet_data.get("items", []):
+        char_no = raw_item.get("char_no")
+        scores = raw_item.get("scores") or {}
+        reasons = raw_item.get("reasons") or []
+
+        revA = raw_item.get("revA") or {}
+        revA_bbox = revA.get("bbox")
+        revA_center = (
+            ((revA_bbox[0] + revA_bbox[2]) / 2, (revA_bbox[1] + revA_bbox[3]) / 2)
+            if revA_bbox
+            else None
+        )
+
+        revB = raw_item.get("revB") or {}
+        revB_bbox = revB.get("bbox")
+        revB_center = (
+            ((revB_bbox[0] + revB_bbox[2]) / 2, (revB_bbox[1] + revB_bbox[3]) / 2)
+            if revB_bbox
+            else None
+        )
+
+        result[char_no] = {
+            "scores": scores,
+            "reasons": reasons,
+            "revA_center": revA_center,
+            "revB_center": revB_center,
+        }
+    return result
+
+
 def semantic_contract_for_item(run: Run, item: ReviewItem) -> dict | None:
     if item.char_no is None:
         return semantic_contracts_by_char(run).get(None)
