@@ -2,8 +2,8 @@ This file contains the result of the latest run of part 5's revision drawing pai
 
 The changes made in rev B involve shifting the location of the characteristic annotations on the drawing PDF compared to their former locations on rev A drawing, as well as the addition and removal of characteristics.
 
-- Char 1: unchanged (rev A: Ø35 +0.2/-0.2 mm, rev B: 35.2) <- Partially correct. The unchanged status is correctly classified, but rev B should be "Ø35.2 / Ø34.8" or "Ø35 +0.2/-0.2" just like rev A. It's the same in both revisions. It's presented as a limit tolerance with the upper limit written above the lower limit.
-- Char 2: removed (rev A: Ø35 +0.2/-0.2 mm, rev B: doesn't exist) <- Incorrect. The correct status should be unchanged. Rev B should be the "Ø35.2 / Ø34.8" or "Ø35 +0.2/-0.2" just like rev A. It's the same in both revision, and it's another case of limit tolerance.
+- Char 1: unchanged (rev A: Ø35 +0.2/-0.2 mm, rev B: 35.2 Ø 34.8) <- Partially correct. The unchanged status is correctly classified, but rev B should be "Ø35.2 / Ø34.8" or "Ø35 +0.2/-0.2" just like rev A. It's the same in both revisions. It's presented as a limit tolerance of a diameter characteristic with the upper limit written above the lower limit.
+- Char 2: unchanged (rev A: Ø35 +0.2/-0.2 mm, rev B: Ø35 −0) <- Partially correct. The correct status should be unchanged. Rev B should be the "Ø35.2 / Ø34.8" or "Ø35 +0.2/-0.2" just like rev A. It's the same in both revision, and it's another case of limit tolerance.
 - Char 3: unchanged (rev A: Ø35 +0.2/-0 mm, rev B: Ø35) <- Partially correct. The unchanged status is correctly classified, but rev B should be "Ø35 +0.2/-0" just like rev A.
 - Char 4: removed (rev A: Ø35 +0/-0.2 mm, rev B: doesn't exist) <- Correct
 - Char 5: unchanged (rev A: Ø25 +0.15/-0.15 mm, rev B: Ø25±0.15) <- Correct

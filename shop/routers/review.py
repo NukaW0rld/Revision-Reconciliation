@@ -25,6 +25,7 @@ def review_queue(
     request: Request,
     status_filter: str = "all",
     classification_filter: str = "all",
+    debug: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -34,6 +35,10 @@ def review_queue(
     # Only allow review of completed/warning/reviewing/signing_off/signed_off runs
     if run.status not in ("completed", "warning", "reviewing", "signing_off", "signed_off"):
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
+    # Debug mode: only admins may access
+    if debug and user.role != "admin":
+        return RedirectResponse("/dashboard", status_code=302)
 
     all_items = open_review_queue(db, run)
     semantic_contracts = semantic_contracts_by_char(run)
@@ -75,6 +80,7 @@ def review_queue(
         "error": error,
         "read_only": read_only,
         "is_amendment": is_amendment,
+        "debug_mode": debug,
         **nav,
     })
 
