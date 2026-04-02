@@ -194,6 +194,16 @@ def semantic_contracts_by_char(run: Run) -> dict[int | None, dict]:
     return shaped
 
 
+def _bbox_center(raw_evidence: dict | None) -> tuple[float, float] | None:
+    if not isinstance(raw_evidence, dict):
+        return None
+    bbox = raw_evidence.get("bbox")
+    if not bbox or len(bbox) != 4:
+        return None
+    return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+
+
+
 def debug_internals_by_char(run: Run) -> dict[int | None, dict]:
     """Return debug internals (scores, reasons, bbox centers) keyed by char_no."""
     if not run.output_dir:
@@ -205,29 +215,96 @@ def debug_internals_by_char(run: Run) -> dict[int | None, dict]:
         scores = raw_item.get("scores") or {}
         reasons = raw_item.get("reasons") or []
 
-        revA = raw_item.get("revA") or {}
-        revA_bbox = revA.get("bbox")
-        revA_center = (
-            ((revA_bbox[0] + revA_bbox[2]) / 2, (revA_bbox[1] + revA_bbox[3]) / 2)
-            if revA_bbox
-            else None
-        )
-
-        revB = raw_item.get("revB") or {}
-        revB_bbox = revB.get("bbox")
-        revB_center = (
-            ((revB_bbox[0] + revB_bbox[2]) / 2, (revB_bbox[1] + revB_bbox[3]) / 2)
-            if revB_bbox
-            else None
-        )
-
         result[char_no] = {
             "scores": scores,
             "reasons": reasons,
-            "revA_center": revA_center,
-            "revB_center": revB_center,
+            "revA_center": _bbox_center(raw_item.get("revA")),
+            "revB_center": _bbox_center(raw_item.get("revB")),
         }
     return result
+
+
+
+def assemble_debug_report_payload(db: Session, run: Run) -> dict:
+    """Return a deterministic, read-only debug export payload for a run.
+
+    The merge intentionally preserves queue order using persisted ``ReviewItem.id``
+    ordering plus the packet ordering used when the queue was first seeded. This
+    avoids collapsing rows by ``char_no`` when values are ``None`` or repeated.
+    """
+    review_items = (
+        db.query(ReviewItem)
+        .filter(ReviewItem.run_id == run.id)
+        .order_by(ReviewItem.id)
+        .all()
+    )
+    verdicts_by_item_id = load_debug_verdicts(run)
+    missing_item_ids = [item.id for item in review_items if item.id not in verdicts_by_item_id]
+    if missing_item_ids:
+        raise DebugVerdictValidationError(
+            f"Debug export is incomplete: {len(missing_item_ids)} of {len(review_items)} review items are still missing verdicts."
+        )
+
+    try:
+        packet_data = _load_delta_packet(run)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DebugVerdictValidationError("delta_packet.json could not be read for debug export.") from exc
+
+    raw_items = packet_data.get("items")
+    if not isinstance(raw_items, list):
+        raise DebugVerdictValidationError("delta_packet.json must contain an items array.")
+
+    ordered_packet_items = sorted(
+        raw_items,
+        key=lambda x: (x.get("char_no") is None, x.get("char_no") or 0),
+    )
+    if len(ordered_packet_items) != len(review_items):
+        raise DebugVerdictValidationError(
+            "Review queue and delta packet row counts do not align for debug export."
+        )
+
+    rows: list[dict] = []
+    for queue_index, (item, raw_item) in enumerate(zip(review_items, ordered_packet_items), start=1):
+        delta_item = DeltaItem.model_validate(raw_item)
+        semantic_contract = shape_semantic_contract(delta_item)
+        verdict_payload = verdicts_by_item_id[item.id]
+        rows.append(
+            {
+                "queue_index": queue_index,
+                "review_item_id": item.id,
+                "char_no": item.char_no,
+                "pipeline_classification": item.pipeline_classification,
+                "confidence": item.confidence,
+                "requirement_revA": item.requirement_revA,
+                "requirement_revB": item.requirement_revB,
+                "reviewer_decision": item.reviewer_decision,
+                "override_classification": item.override_classification,
+                "override_note": item.override_note,
+                "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
+                "debug_verdict": verdict_payload.get("verdict"),
+                "corrected_classification": verdict_payload.get("corrected_classification"),
+                "corrected_requirement_revA": verdict_payload.get("corrected_requirement_revA"),
+                "corrected_requirement_revB": verdict_payload.get("corrected_requirement_revB"),
+                "explanation": verdict_payload.get("explanation"),
+                "scores": raw_item.get("scores") or {},
+                "reasons": raw_item.get("reasons") or [],
+                "semantic_callout": raw_item.get("semantic_callout"),
+                "semantic_contract": semantic_contract,
+                "revA_center": _bbox_center(raw_item.get("revA")),
+                "revB_center": _bbox_center(raw_item.get("revB")),
+                "packet_item": raw_item,
+            }
+        )
+
+    return {
+        "run_id": run.id,
+        "run_status": run.status,
+        "packet_run_id": packet_data.get("run_id"),
+        "debug_total": len(review_items),
+        "debug_submitted": len(rows),
+        "items": rows,
+    }
+
 
 
 def semantic_contract_for_item(run: Run, item: ReviewItem) -> dict | None:

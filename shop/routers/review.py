@@ -2,7 +2,7 @@ import asyncio
 import json as _json
 from collections.abc import AsyncIterable
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Response
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy.orm import Session
 from shop.utils import utcnow
@@ -11,6 +11,7 @@ from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
 from shop.services.review import (
     DebugVerdictValidationError,
+    assemble_debug_report_payload,
     attempt_sign_off,
     debug_internals_by_char,
     debug_verdict_state,
@@ -25,12 +26,12 @@ from shop.routers.runs import _get_nav_context
 router = APIRouter(redirect_slashes=False)
 
 
-@router.get("/{run_id}", response_class=HTMLResponse)
 def _debug_queue_progress(run: Run, items: list[ReviewItem]) -> dict:
     debug_verdicts = load_debug_verdicts_for_render(run)
     return debug_verdict_state(items, debug_verdicts)
 
 
+@router.get("/{run_id}", response_class=HTMLResponse)
 def review_queue(
     run_id: int,
     request: Request,
@@ -209,6 +210,31 @@ def save_debug_item_verdict(
     save_debug_verdict(run, item, payload)
     db.refresh(item)
     return _render_debug_item_card(request=request, run=run, item=item, db=db, user=user)
+
+
+@router.get("/{run_id}/debug-report.json")
+def download_debug_report(
+    run_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    try:
+        payload = assemble_debug_report_payload(db, run)
+    except DebugVerdictValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return Response(
+        content=_json.dumps(payload, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="debug_report.json"'},
+    )
 
 
 @router.post("/{run_id}/items/{char_no}/approve", response_class=HTMLResponse)
