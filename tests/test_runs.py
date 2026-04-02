@@ -51,16 +51,21 @@ def _make_excel_bytes() -> bytes:
     return buf.getvalue()
 
 
-def _login_engineer(client, db_engine, engineer_user):
-    """Seed a session for the engineer user and set cookie on client."""
+def _login_user(client, db_engine, user):
+    """Seed a session for a user and set cookie on client."""
     from sqlalchemy.orm import sessionmaker
     from shop.services.auth import create_session
     Session = sessionmaker(bind=db_engine)
     db = Session()
-    token = create_session(db, engineer_user)
+    token = create_session(db, user)
     db.close()
     client.cookies.set("session_token", token)
     return token
+
+
+def _login_engineer(client, db_engine, engineer_user):
+    """Seed a session for the engineer user and set cookie on client."""
+    return _login_user(client, db_engine, engineer_user)
 
 
 # ---------------------------------------------------------------------------
@@ -635,6 +640,42 @@ def test_run_status_lifecycle(client, db_engine, engineer_user):
     db2.close()
     assert run_aborted.status == "failed"
     assert run_aborted.failure_stage == "Alignment"
+
+
+def test_run_status_admin_debug_entry_uses_plain_get_form(client, db_engine, admin_user):
+    """Regression: admin debug entry is submitted by GET form, not inline URL-munging JS."""
+    from shop.models import Run
+
+    Session = sessionmaker(bind=db_engine)
+    _login_user(client, db_engine, admin_user)
+
+    db = Session()
+    run = Run(
+        part_number="PN-DEBUG-CTA",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="J-DEBUG",
+        status="completed",
+        current_stage_index=8,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=admin_user.id,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    run_id = run.id
+    db.close()
+
+    resp = client.get(f"/runs/{run_id}")
+    assert resp.status_code == 200
+    assert f'<form method="GET" action="/review/{run_id}"' in resp.text
+    assert 'name="debug"' in resp.text
+    assert 'value="1"' in resp.text
+    assert 'new URL(' not in resp.text
+    assert 'data-cta=' not in resp.text
 
 
 def test_revA_balloon_failure(db_engine, engineer_user):
