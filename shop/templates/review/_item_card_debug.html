@@ -82,69 +82,7 @@
         </div>
       {% endif %}
 
-      {% if item.reviewer_decision %}
-        {% if item.reviewer_decision == 'approved' %}
-          <div class="border-l-4 border-success bg-base-300/30 px-3 py-2">
-            <span class="font-mono font-bold text-success">✓ Approved</span>
-          </div>
-        {% else %}
-          <div class="border-l-4 border-warning bg-base-300/30 px-3 py-2">
-            <span class="font-mono font-bold text-warning">⚠ Overridden → {{ item.override_classification }}</span>
-            <p class="text-xs text-base-content/60 mt-1 font-mono">{{ item.override_note }}</p>
-          </div>
-        {% endif %}
 
-        {% if not read_only %}
-        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/reset"
-              hx-target="#review-item-{{ item.id }}"
-              hx-swap="outerHTML">
-          <button type="submit" class="btn btn-ghost btn-xs font-mono text-base-content/50 hover:text-base-content w-full mt-1">
-            ↩ Change Decision
-          </button>
-        </form>
-        {% endif %}
-      {% endif %}
-
-      {% if not item.reviewer_decision or is_amendment %}
-        {% if not read_only %}
-        <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
-              hx-target="#review-item-{{ item.id }}"
-              hx-swap="outerHTML"
-              hx-indicator="#spinner-{{ item.id }}">
-          <button type="submit" class="btn btn-success w-full font-mono">
-            Approve <span class="opacity-50 text-xs ml-1">[A]</span>
-          </button>
-        </form>
-
-        <button type="button"
-                class="btn btn-outline btn-warning w-full font-mono"
-                data-override-toggle="{{ item.id }}">
-          Override (O)
-        </button>
-
-        <div id="override-panel-{{ item.id }}" hidden
-             class="border border-base-300 bg-base-200 p-4 mt-2">
-          <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
-                hx-target="#review-item-{{ item.id }}"
-                hx-swap="outerHTML">
-            <select name="override_classification"
-                    class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary">
-              <option value="unchanged">Unchanged</option>
-              <option value="changed" selected>Changed</option>
-              <option value="removed">Removed</option>
-              <option value="added">Added</option>
-              <option value="uncertain">Uncertain</option>
-            </select>
-            <textarea name="override_note" required placeholder="Override reason (required)"
-                      class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
-                      rows="3"></textarea>
-            <button type="submit" class="btn btn-warning w-full font-mono">Save Override</button>
-          </form>
-        </div>
-
-        <span id="spinner-{{ item.id }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
-        {% endif %}
-      {% endif %}
 
       <section class="border border-warning/30 bg-warning/5 p-4 rounded">
         <div class="flex items-center justify-between gap-3 mb-2">
