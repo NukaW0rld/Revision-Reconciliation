@@ -78,6 +78,18 @@ def _get_item(db_engine, item_id):
         db.close()
 
 
+def _assert_export_disabled(html: str, run_id: int):
+    assert 'Export debug_report.json' in html
+    assert 'disabled' in html
+    assert f'/review/{run_id}/debug-report.json' not in html
+
+
+def _assert_export_enabled(html: str, run_id: int):
+    assert 'Export debug_report.json' in html
+    assert f'href="/review/{run_id}/debug-report.json"' in html
+    assert 'download="debug_report.json"' in html
+
+
 def test_save_debug_verdict_creates_file_keyed_by_item_id(db_engine, tmp_path):
     run_id, out_dir = _seed_run(
         db_engine,
@@ -434,6 +446,7 @@ def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_
     assert initial.status_code == 200
     assert "Debug verdicts: 0 of 2 submitted" in initial.text
     assert f'/review/{run_id}/debug/items/{item_id}/verdict' in initial.text
+    _assert_export_disabled(initial.text, run_id)
 
     saved = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
@@ -448,6 +461,7 @@ def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_
     assert saved.status_code == 200, saved.text
     assert "Debug verdicts: 1 of 2 submitted" in saved.text
     assert "Saved: incorrect" in saved.text
+    _assert_export_disabled(saved.text, run_id)
 
     fresh = client.get(f"/review/{run_id}?debug=1")
     assert fresh.status_code == 200
@@ -457,6 +471,99 @@ def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_
     assert "A legacy note" in fresh.text
     assert "B corrected note" in fresh.text
     assert "The model missed the textual requirement change." in fresh.text
+    _assert_export_disabled(fresh.text, run_id)
+
+
+def test_debug_queue_enables_export_after_last_verdict_via_oob_and_fresh_get(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 4,
+                "status": "changed",
+                "confidence": 0.73,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+            {
+                "char_no": 8,
+                "status": "removed",
+                "confidence": 0.81,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    )
+    first_item_id, second_item_id = _open_queue(db_engine, run_id)
+
+    first_saved = client.post(
+        f"/review/{run_id}/debug/items/{first_item_id}/verdict",
+        data={"verdict": "correct"},
+    )
+    assert first_saved.status_code == 200
+    _assert_export_disabled(first_saved.text, run_id)
+
+    final_saved = client.post(
+        f"/review/{run_id}/debug/items/{second_item_id}/verdict",
+        data={"verdict": "correct"},
+    )
+    assert final_saved.status_code == 200
+    assert 'hx-swap-oob="outerHTML"' in final_saved.text
+    assert "Debug verdicts: 2 of 2 submitted" in final_saved.text
+    _assert_export_enabled(final_saved.text, run_id)
+
+    fresh = client.get(f"/review/{run_id}?debug=1")
+    assert fresh.status_code == 200
+    assert "Debug verdicts: 2 of 2 submitted" in fresh.text
+    _assert_export_enabled(fresh.text, run_id)
+
+
+def test_debug_queue_with_zero_items_keeps_export_disabled(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(db_engine, tmp_path, items=[])
+
+    resp = client.get(f"/review/{run_id}?debug=1")
+    assert resp.status_code == 200
+    assert "No items match the selected filters." in resp.text
+    assert "Debug verdicts: 0 of 0 submitted" in resp.text
+    _assert_export_disabled(resp.text, run_id)
+
+
+def test_non_debug_queue_keeps_existing_signoff_footer_behavior_without_export(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 1,
+                "status": "changed",
+                "confidence": 0.71,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            }
+        ],
+    )
+
+    resp = client.get(f"/review/{run_id}")
+    assert resp.status_code == 200
+    assert "Sign Off (1 pending)" in resp.text
+    assert "Export debug_report.json" not in resp.text
+
 
 
 def test_invalid_debug_submit_renders_inline_error_and_leaves_progress_unchanged(
@@ -564,10 +671,21 @@ def test_signed_off_debug_queue_keeps_verdict_form_editable_while_review_control
     )
     item_id = _open_queue(db_engine, run_id)[0]
 
+    saved = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={"verdict": "correct"},
+    )
+    assert saved.status_code == 200
+
     resp = client.get(f"/review/{run_id}?debug=1")
     assert resp.status_code == 200
     assert f'/review/{run_id}/debug/items/{item_id}/verdict' in resp.text
     assert "Save Debug Verdict" in resp.text
+    assert "This run is signed off. Review decisions are shown in read-only mode." in resp.text
+    assert "Sign Off" not in resp.text
+    _assert_export_enabled(resp.text, run_id)
+
+
 def test_debug_export_payload_preserves_queue_order_for_duplicate_and_none_char_numbers(
     db_engine, tmp_path
 ):

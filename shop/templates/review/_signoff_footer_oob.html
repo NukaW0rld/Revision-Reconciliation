@@ -1,12 +1,33 @@
+{% set footer_debug_total = debug_total if debug_total is defined and debug_total is not none else 0 %}
+{% set footer_debug_submitted = debug_submitted if debug_submitted is defined and debug_submitted is not none else 0 %}
+{% set debug_export_ready = debug_mode and footer_debug_total > 0 and footer_debug_submitted >= footer_debug_total %}
 <div id="signoff-footer" hx-swap-oob="outerHTML" class="sticky bottom-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between flex-shrink-0">
   <div>
-    {% if pending > 0 %}
+    {% if debug_mode %}
+      {% if footer_debug_total > 0 %}
+        <p class="text-sm font-mono text-base-content/60">Debug export readiness: {{ footer_debug_submitted }} of {{ footer_debug_total }} verdict{{ 's' if footer_debug_total != 1 else '' }} saved</p>
+      {% else %}
+        <p class="text-sm font-mono text-base-content/60">Debug export readiness: no review items available</p>
+      {% endif %}
+    {% elif pending > 0 %}
       <p class="text-sm font-mono text-base-content/60">{{ pending }} item{{ 's' if pending != 1 else '' }} remaining</p>
     {% else %}
       <p class="text-sm font-mono text-success">All items resolved — ready to sign off</p>
     {% endif %}
   </div>
-  {% if pending == 0 and run.status == 'reviewing' %}
+  {% if debug_mode %}
+    {% if debug_export_ready %}
+      <a href="/review/{{ run.id }}/debug-report.json"
+         class="btn btn-warning font-mono"
+         download="debug_report.json">
+        Export debug_report.json
+      </a>
+    {% else %}
+      <button class="btn btn-warning font-mono opacity-40 cursor-not-allowed" disabled aria-disabled="true">
+        Export debug_report.json{% if footer_debug_total > 0 %} ({{ footer_debug_submitted }}/{{ footer_debug_total }}){% endif %}
+      </button>
+    {% endif %}
+  {% elif pending == 0 and run.status == 'reviewing' %}
     <button class="btn btn-primary font-mono" onclick="document.getElementById('signoff-modal').showModal()">
       Sign Off
     </button>
