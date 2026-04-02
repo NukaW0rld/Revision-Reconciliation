@@ -402,7 +402,29 @@ class TestExceptionFailurePath:
         assert len(alerts) == 0
 
 
-class TestLowConfidenceWarning:
+class TestOutDirResolution:
+    def test_resolve_output_dir_uses_configured_path_when_writable(self, tmp_path):
+        from shop.tasks import _resolve_output_dir
+
+        configured = tmp_path / "custom-out"
+        resolved = _resolve_output_dir(str(configured))
+
+        assert resolved == str(configured)
+        assert configured.exists()
+        assert configured.is_dir()
+
+    def test_resolve_output_dir_falls_back_when_configured_path_is_unwritable(self, tmp_path, monkeypatch):
+        from shop.tasks import _resolve_output_dir
+
+        monkeypatch.setattr("shop.tasks.tempfile.gettempdir", lambda: str(tmp_path))
+
+        resolved = _resolve_output_dir("/proc/delta-preservation-out")
+
+        assert resolved == str(tmp_path / "delta-preservation-out")
+        assert (tmp_path / "delta-preservation-out").exists()
+        assert (tmp_path / "delta-preservation-out").is_dir()
+
+
     """PIPE-06: Low alignment confidence sets status=warning."""
 
     def test_majority_low_location_scores_sets_warning(self, db, SessionLocal, run_record, tmp_path):

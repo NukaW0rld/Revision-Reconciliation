@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 from huey import SqliteHuey, crontab
@@ -15,7 +16,46 @@ if not Path(_default_huey_db).parent.exists():
     _default_huey_db = str(Path(__file__).parent.parent / "huey.db")
 
 HUEY_DB = _default_huey_db
-OUT_DIR = os.environ.get("OUT_DIR", "/app/out")
+
+
+def _path_is_writable_dir(path: Path) -> bool:
+    """Return True when path is a writable directory, or can be created there."""
+    try:
+        if path.exists():
+            return path.is_dir() and os.access(path, os.W_OK | os.X_OK)
+        parent = path.parent
+        return parent.exists() and parent.is_dir() and os.access(parent, os.W_OK | os.X_OK)
+    except OSError:
+        return False
+
+
+def _resolve_output_dir(configured: str | None = None) -> str:
+    """Pick a writable output base directory for pipeline artifacts."""
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured))
+    else:
+        candidates.extend([
+            Path("/app/out"),
+            Path(__file__).parent.parent / "out",
+            Path(tempfile.gettempdir()) / "delta-preservation-out",
+        ])
+
+    for candidate in candidates:
+        if not _path_is_writable_dir(candidate):
+            continue
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            return str(candidate)
+        except OSError:
+            continue
+
+    fallback = Path(tempfile.gettempdir()) / "delta-preservation-out"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return str(fallback)
+
+
+OUT_DIR = _resolve_output_dir(os.environ.get("OUT_DIR"))
 
 huey = SqliteHuey(filename=HUEY_DB)
 
