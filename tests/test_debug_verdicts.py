@@ -942,3 +942,125 @@ def test_non_admin_debug_export_route_is_rejected(
     resp = client.get(f"/review/{run_id}/debug-report.json")
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Admin only"
+
+
+# ── Debug Notes ───────────────────────────────────────────────────────────────
+
+def test_save_and_load_debug_notes(db_engine, tmp_path):
+    """load_debug_notes returns '' before save; round-trips after save."""
+    from shop.services.review import load_debug_notes, save_debug_notes
+
+    run_id, out_dir = _seed_run(
+        db_engine, tmp_path,
+        items=[{"char_no": 1, "status": "unchanged", "confidence": 0.9,
+                "scores": {}, "reasons": [], "revA": None, "revB": None}],
+    )
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = db.query(Run).filter(Run.id == run_id).first()
+
+    assert load_debug_notes(run) == ""
+
+    save_debug_notes(run, "Pipeline missed char 99.")
+    assert load_debug_notes(run) == "Pipeline missed char 99."
+
+    # Overwrite
+    save_debug_notes(run, "Updated notes.")
+    assert load_debug_notes(run) == "Updated notes."
+    db.close()
+
+
+def test_debug_notes_in_export_payload(db_engine, tmp_path):
+    """assemble_debug_report_payload includes the 'notes' key."""
+    from shop.services.review import (
+        assemble_debug_report_payload,
+        load_debug_notes,
+        open_review_queue,
+        save_debug_notes,
+        save_debug_verdict,
+    )
+
+    items = [
+        {"char_no": 1, "status": "changed", "confidence": 0.7,
+         "scores": {"location": 0.5}, "reasons": ["r"],
+         "revA": {"page": 0, "bbox": [0, 0, 10, 10]},
+         "revB": {"page": 0, "bbox": [1, 1, 11, 11]}},
+    ]
+    run_id, out_dir = _seed_run(db_engine, tmp_path, items=items)
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = db.query(Run).filter(Run.id == run_id).first()
+
+    queue = open_review_queue(db, run)
+    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+    save_debug_notes(run, "Char 1 was borderline.")
+
+    payload = assemble_debug_report_payload(db, run)
+    assert payload["notes"] == "Char 1 was borderline."
+    db.close()
+
+
+def test_debug_notes_empty_when_not_saved(db_engine, tmp_path):
+    """assemble_debug_report_payload has 'notes': '' when file is absent."""
+    from shop.services.review import (
+        assemble_debug_report_payload,
+        open_review_queue,
+        save_debug_verdict,
+    )
+
+    items = [
+        {"char_no": 2, "status": "unchanged", "confidence": 0.9,
+         "scores": {}, "reasons": [],
+         "revA": {"page": 0, "bbox": [0, 0, 5, 5]},
+         "revB": {"page": 0, "bbox": [0, 0, 5, 5]}},
+    ]
+    run_id, _ = _seed_run(db_engine, tmp_path, items=items)
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = db.query(Run).filter(Run.id == run_id).first()
+
+    queue = open_review_queue(db, run)
+    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+
+    payload = assemble_debug_report_payload(db, run)
+    assert payload["notes"] == ""
+    db.close()
+
+
+def test_debug_notes_route_saves_and_returns_200(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    """POST /review/{run_id}/debug/notes saves notes and returns success HTML."""
+    from shop.services.review import load_debug_notes
+
+    _login(client, db_engine, admin_user)
+    run_id, out_dir = _seed_run(
+        db_engine, tmp_path,
+        items=[{"char_no": 1, "status": "unchanged", "confidence": 0.9,
+                "scores": {}, "reasons": [], "revA": None, "revB": None}],
+    )
+
+    resp = client.post(f"/review/{run_id}/debug/notes", data={"notes": "A note."})
+    assert resp.status_code == 200
+    assert "Saved" in resp.text
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    run = db.query(Run).filter(Run.id == run_id).first()
+    assert load_debug_notes(run) == "A note."
+    db.close()
+
+
+def test_debug_notes_route_rejected_for_non_admin(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """POST /review/{run_id}/debug/notes returns 403 for non-admin users."""
+    _login(client, db_engine, engineer_user)
+    run_id, _ = _seed_run(
+        db_engine, tmp_path,
+        items=[{"char_no": 1, "status": "unchanged", "confidence": 0.9,
+                "scores": {}, "reasons": [], "revA": None, "revB": None}],
+    )
+
+    resp = client.post(f"/review/{run_id}/debug/notes", data={"notes": "Sneaky."})
+    assert resp.status_code == 403

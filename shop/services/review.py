@@ -8,6 +8,7 @@ from shop.services.semantics import shape_semantic_contract
 from shop.utils import utcnow
 
 DEBUG_VERDICTS_FILENAME = "debug_verdicts.json"
+DEBUG_NOTES_FILENAME = "debug_notes.json"
 VALID_DEBUG_VERDICTS = {"correct", "incorrect", "partially_correct"}
 
 
@@ -24,6 +25,45 @@ def _debug_verdicts_path(run: Run) -> Path:
     if not run.output_dir:
         raise DebugVerdictValidationError("Run output directory is not configured.")
     return Path(run.output_dir) / DEBUG_VERDICTS_FILENAME
+
+
+def _debug_notes_path(run: Run) -> Path:
+    if not run.output_dir:
+        raise DebugVerdictValidationError("Run output directory is not configured.")
+    return Path(run.output_dir) / DEBUG_NOTES_FILENAME
+
+
+def load_debug_notes(run: Run) -> str:
+    """Return the saved debug notes string, or '' if not yet written."""
+    try:
+        notes_path = _debug_notes_path(run)
+    except DebugVerdictValidationError:
+        return ""
+    if not notes_path.exists():
+        return ""
+    try:
+        data = json.loads(notes_path.read_text())
+        return data.get("notes", "") if isinstance(data, dict) else ""
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+def save_debug_notes(run: Run, text: str) -> None:
+    """Atomically persist run-level debug notes."""
+    notes_path = _debug_notes_path(run)
+    notes_path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=notes_path.parent,
+        prefix="debug_notes.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp_file:
+        json.dump({"notes": text}, tmp_file, indent=2, ensure_ascii=False)
+        tmp_file.write("\n")
+        tmp_path = Path(tmp_file.name)
+    tmp_path.replace(notes_path)
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
@@ -302,6 +342,7 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
         "packet_run_id": packet_data.get("run_id"),
         "debug_total": len(review_items),
         "debug_submitted": len(rows),
+        "notes": load_debug_notes(run),
         "items": rows,
     }
 

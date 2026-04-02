@@ -15,8 +15,10 @@ from shop.services.review import (
     attempt_sign_off,
     debug_internals_by_char,
     debug_verdict_state,
+    load_debug_notes,
     load_debug_verdicts_for_render,
     open_review_queue,
+    save_debug_notes,
     save_debug_verdict,
     semantic_contracts_by_char,
     validate_debug_verdict_payload,
@@ -56,6 +58,7 @@ def review_queue(
     semantic_contracts = semantic_contracts_by_char(run)
     debug_internals = debug_internals_by_char(run) if debug else {}
     debug_progress = _debug_queue_progress(run, all_items) if debug else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
+    debug_notes = load_debug_notes(run) if debug else ""
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
     pending = sum(1 for i in all_items if i.reviewer_decision is None)
@@ -99,6 +102,7 @@ def review_queue(
         "debug_verdicts": debug_progress["by_item_id"],
         "debug_submitted": debug_progress["submitted"],
         "debug_total": debug_progress["total"],
+        "debug_notes": debug_notes,
         **nav,
     })
 
@@ -234,6 +238,34 @@ def download_debug_report(
         content=_json.dumps(payload, indent=2),
         media_type="application/json",
         headers={"Content-Disposition": 'attachment; filename="debug_report.json"'},
+    )
+
+
+@router.post("/{run_id}/debug/notes", response_class=HTMLResponse)
+def save_debug_notes_route(
+    run_id: int,
+    request: Request,
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+
+    try:
+        save_debug_notes(run, notes.strip())
+    except Exception:
+        return HTMLResponse(
+            '<span id="debug-notes-status" class="text-error text-xs font-mono">Save failed.</span>',
+            status_code=500,
+        )
+
+    return HTMLResponse(
+        '<span id="debug-notes-status" class="text-success text-xs font-mono">Saved.</span>'
     )
 
 

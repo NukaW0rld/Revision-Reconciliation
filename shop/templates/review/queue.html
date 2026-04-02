@@ -136,6 +136,36 @@
     {% endfor %}
   </div>
 
+  {# ── DEBUG NOTES: Run-level freeform notes (admin debug mode only) ── #}
+  {% if debug_mode %}
+  <div class="border-t border-base-300 bg-base-200/60 px-6 py-5">
+    <div class="max-w-3xl">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="badge badge-warning badge-sm font-mono">DEBUG</span>
+        <h2 class="text-xs font-mono uppercase tracking-widest text-base-content/60">Notes</h2>
+      </div>
+      <p class="text-xs font-mono text-base-content/40 mb-3">
+        Freeform notes for this run — missed characteristics, pipeline observations, anything relevant.
+        Saved to <code>debug_notes.json</code> and included in the debug report export.
+      </p>
+      <form hx-post="/review/{{ run.id }}/debug/notes"
+            hx-target="#debug-notes-status"
+            hx-swap="outerHTML"
+            class="flex flex-col gap-2">
+        <textarea name="notes"
+                  rows="6"
+                  class="w-full bg-base-300 border border-base-300 text-sm font-mono text-base-content placeholder-base-content/30 px-3 py-2 focus:outline-none focus:border-warning resize-y"
+                  placeholder="Enter run-level notes here…">{{ debug_notes }}</textarea>
+        <div class="flex items-center gap-3">
+          <button type="submit"
+                  class="btn btn-warning btn-xs font-mono">Save Notes</button>
+          <span id="debug-notes-status" class="text-xs font-mono text-base-content/40"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   {# ── BOTTOM ZONE: Sticky sign-off footer ── #}
   {% include "review/_signoff_footer.html" %}
 
