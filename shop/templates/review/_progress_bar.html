@@ -1,6 +1,9 @@
-<div id="progress-bar" class="flex gap-5 items-center">
+<div id="progress-bar" class="flex flex-wrap gap-5 items-center">
   <span class="font-mono text-sm text-base-content/60">{{ pending }} pending</span>
   <span class="font-mono text-sm text-success">{{ approved }} approved</span>
   <span class="font-mono text-sm text-warning">{{ overridden }} overridden</span>
   <span class="font-mono text-xs text-base-content/40">/ {{ total }} total</span>
+  {% if debug_mode and debug_total is defined %}
+  <span class="font-mono text-xs text-warning uppercase tracking-widest">Debug verdicts: {{ debug_submitted }} of {{ debug_total }} submitted</span>
+  {% endif %}
 </div>

@@ -1,21 +1,23 @@
 {% set read_only = read_only if read_only is defined else false %}
 {% set is_amendment = is_amendment if is_amendment is defined else false %}
-<div id="review-item-{{ item.char_no }}"
+{% set modal_key = item.id %}
+{% set display_char_no = item.char_no if item.char_no is not none else '—' %}
+{% set debug_form = debug_form if debug_form is defined and debug_form else (debug_verdict if debug_verdict is defined and debug_verdict else {}) %}
+{% set selected_verdict = debug_form.get('verdict', '') if debug_form else '' %}
+<div id="review-item-{{ item.id }}"
      class="item-card border border-base-300 bg-base-200 border-l-4 p-5 {{ 'border-l-success' if item.reviewer_decision else 'border-l-base-300' }}"
      data-pending="{{ 'true' if not item.reviewer_decision else 'false' }}"
-     data-char-no="{{ item.char_no }}">
+     data-char-no="{{ modal_key }}">
 
-  <!-- Two-column layout: left=snippets, right=controls -->
   <div class="flex gap-6 h-full">
 
-    <!-- LEFT PANEL: Rev A snippet (top) + Rev B snippet (bottom) -->
     <div class="flex flex-col gap-3 w-64 flex-shrink-0">
       <p class="text-xs font-mono font-semibold text-base-content/50 uppercase tracking-widest">Rev A</p>
       {% if item.revA_snippet_path %}
         <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}"
              class="cursor-pointer w-full min-h-56 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors"
-             onclick="document.getElementById('modal-{{ item.char_no }}-revA').showModal()">
-        <dialog id="modal-{{ item.char_no }}-revA" class="modal">
+             onclick="document.getElementById('modal-{{ modal_key }}-revA').showModal()">
+        <dialog id="modal-{{ modal_key }}-revA" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
             <img src="/review/{{ run_id }}/snippets/{{ item.revA_snippet_path | basename }}" class="max-w-full">
             <div class="flex justify-between items-center mt-3">
@@ -35,8 +37,8 @@
       {% if item.revB_snippet_path %}
         <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}"
              class="cursor-pointer w-full min-h-56 object-contain rounded border border-base-300 hover:border-primary/50 transition-colors"
-             onclick="document.getElementById('modal-{{ item.char_no }}-revB').showModal()">
-        <dialog id="modal-{{ item.char_no }}-revB" class="modal">
+             onclick="document.getElementById('modal-{{ modal_key }}-revB').showModal()">
+        <dialog id="modal-{{ modal_key }}-revB" class="modal">
           <div class="bg-base-200 border border-base-300 p-4 max-w-5xl w-full mx-auto">
             <img src="/review/{{ run_id }}/snippets/{{ item.revB_snippet_path | basename }}" class="max-w-full">
             <div class="flex justify-between items-center mt-3">
@@ -61,16 +63,12 @@
       {% endif %}
     </div>
 
-    <!-- RIGHT PANEL: metadata + actions -->
-    <div class="flex flex-col gap-4 w-80 flex-shrink-0">
-
-      <!-- Char number + classification -->
+    <div class="flex flex-col gap-4 w-96 flex-shrink-0">
       <div class="flex flex-wrap items-baseline gap-3">
-        <span class="text-3xl font-bold font-mono">#{{ item.char_no }}</span>
+        <span class="text-3xl font-bold font-mono">#{{ display_char_no }}</span>
         <span class="font-mono text-sm px-2 py-0.5 rounded {{ item.pipeline_classification | classification_badge_class }}">{{ item.pipeline_classification }}</span>
       </div>
 
-      <!-- Requirements -->
       {% if item.requirement_revA %}
         <div>
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Rev A Requirement</p>
@@ -98,7 +96,7 @@
 
         {% if not read_only %}
         <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/reset"
-              hx-target="#review-item-{{ item.char_no }}"
+              hx-target="#review-item-{{ item.id }}"
               hx-swap="outerHTML">
           <button type="submit" class="btn btn-ghost btn-xs font-mono text-base-content/50 hover:text-base-content w-full mt-1">
             ↩ Change Decision
@@ -109,14 +107,10 @@
 
       {% if not item.reviewer_decision or is_amendment %}
         {% if not read_only %}
-        {% if error %}
-          <p class="text-error text-sm font-mono">{{ error }}</p>
-        {% endif %}
-
         <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/approve"
-              hx-target="#review-item-{{ item.char_no }}"
+              hx-target="#review-item-{{ item.id }}"
               hx-swap="outerHTML"
-              hx-indicator="#spinner-{{ item.char_no }}">
+              hx-indicator="#spinner-{{ item.id }}">
           <button type="submit" class="btn btn-success w-full font-mono">
             Approve <span class="opacity-50 text-xs ml-1">[A]</span>
           </button>
@@ -124,14 +118,14 @@
 
         <button type="button"
                 class="btn btn-outline btn-warning w-full font-mono"
-                data-override-toggle="{{ item.char_no }}">
+                data-override-toggle="{{ item.id }}">
           Override (O)
         </button>
 
-        <div id="override-panel-{{ item.char_no }}" hidden
+        <div id="override-panel-{{ item.id }}" hidden
              class="border border-base-300 bg-base-200 p-4 mt-2">
           <form hx-post="/review/{{ run_id }}/items/{{ item.char_no }}/override"
-                hx-target="#review-item-{{ item.char_no }}"
+                hx-target="#review-item-{{ item.id }}"
                 hx-swap="outerHTML">
             <select name="override_classification"
                     class="w-full mb-2 bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary">
@@ -148,18 +142,99 @@
           </form>
         </div>
 
-        <span id="spinner-{{ item.char_no }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
+        <span id="spinner-{{ item.id }}" class="htmx-indicator loading loading-spinner loading-sm"></span>
         {% endif %}
       {% endif %}
+
+      <section class="border border-warning/30 bg-warning/5 p-4 rounded">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <div>
+            <p class="text-xs font-mono text-warning uppercase tracking-widest">Debug verdict</p>
+            <p class="text-xs font-mono text-base-content/50">Saved progress: {{ debug_submitted }} of {{ debug_total }} submitted</p>
+          </div>
+          {% if debug_verdict %}
+          <span class="badge badge-warning badge-outline font-mono">Saved: {{ debug_verdict.verdict }}</span>
+          {% else %}
+          <span class="badge badge-ghost font-mono">Not submitted</span>
+          {% endif %}
+        </div>
+
+        {% if read_only %}
+        <p class="text-xs font-mono text-base-content/50 mb-3">Run sign-off keeps normal review controls locked, but debug verdict edits remain available for admins.</p>
+        {% endif %}
+
+        {% if error %}
+          <p class="text-error text-sm font-mono mb-3">{{ error }}</p>
+        {% endif %}
+
+        <form hx-post="/review/{{ run_id }}/debug/items/{{ item.id }}/verdict"
+              hx-target="#review-item-{{ item.id }}"
+              hx-swap="outerHTML"
+              class="space-y-3">
+          <label class="form-control w-full">
+            <span class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Verdict</span>
+            <select id="debug-verdict-{{ item.id }}"
+                    name="verdict"
+                    class="w-full bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-warning"
+                    onchange="window.toggleDebugVerdictFields && window.toggleDebugVerdictFields({{ item.id }})">
+              <option value="" {% if not selected_verdict %}selected{% endif %}>Select verdict</option>
+              <option value="correct" {% if selected_verdict == 'correct' %}selected{% endif %}>Correct</option>
+              <option value="incorrect" {% if selected_verdict == 'incorrect' %}selected{% endif %}>Incorrect</option>
+              <option value="partially_correct" {% if selected_verdict == 'partially_correct' %}selected{% endif %}>Partially correct</option>
+            </select>
+          </label>
+
+          {% set show_corrected = selected_verdict and selected_verdict != 'correct' %}
+          <div id="debug-corrected-fields-{{ item.id }}" class="space-y-3 {% if not show_corrected %}hidden{% endif %}">
+            <label class="form-control w-full">
+              <span class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Corrected classification</span>
+              <select name="corrected_classification"
+                      data-debug-required="true"
+                      class="w-full bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-warning">
+                <option value="" {% if not debug_form.get('corrected_classification') %}selected{% endif %}>Select classification</option>
+                <option value="unchanged" {% if debug_form.get('corrected_classification') == 'unchanged' %}selected{% endif %}>Unchanged</option>
+                <option value="changed" {% if debug_form.get('corrected_classification') == 'changed' %}selected{% endif %}>Changed</option>
+                <option value="removed" {% if debug_form.get('corrected_classification') == 'removed' %}selected{% endif %}>Removed</option>
+                <option value="added" {% if debug_form.get('corrected_classification') == 'added' %}selected{% endif %}>Added</option>
+                <option value="uncertain" {% if debug_form.get('corrected_classification') == 'uncertain' %}selected{% endif %}>Uncertain</option>
+              </select>
+            </label>
+
+            <label class="form-control w-full">
+              <span class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Corrected Rev A requirement</span>
+              <textarea name="corrected_requirement_revA"
+                        rows="2"
+                        data-debug-required="true"
+                        class="w-full bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-warning resize-none">{{ debug_form.get('corrected_requirement_revA', '') }}</textarea>
+            </label>
+
+            <label class="form-control w-full">
+              <span class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Corrected Rev B requirement</span>
+              <textarea name="corrected_requirement_revB"
+                        rows="2"
+                        data-debug-required="true"
+                        class="w-full bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-warning resize-none">{{ debug_form.get('corrected_requirement_revB', '') }}</textarea>
+            </label>
+
+            <label class="form-control w-full">
+              <span class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Explanation</span>
+              <textarea name="explanation"
+                        rows="3"
+                        data-debug-required="true"
+                        class="w-full bg-base-300 border border-base-300 text-base-content px-3 py-2 text-sm font-mono focus:outline-none focus:border-warning resize-none">{{ debug_form.get('explanation', '') }}</textarea>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-warning w-full font-mono">Save Debug Verdict</button>
+        </form>
+      </section>
     </div>
 
-    <!-- DEBUG INTERNALS PANEL -->
     {% if debug_internal %}
     <div class="flex flex-col gap-3 w-80 flex-shrink-0" data-debug-panel>
       <details open class="bg-base-300/40 border border-base-300 rounded p-3">
         <summary class="font-mono text-xs font-semibold uppercase tracking-widest text-base-content/50 cursor-pointer">Debug Internals</summary>
 
-        <!-- Bbox Centers -->
         <div class="mt-3">
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Bbox Centers</p>
           <p class="text-sm font-mono">
@@ -170,13 +245,11 @@
           </p>
         </div>
 
-        <!-- Confidence -->
         <div class="mt-3">
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Confidence</p>
           <p class="text-sm font-mono">{{ item.confidence }}</p>
         </div>
 
-        <!-- Scores -->
         {% if debug_internal.scores %}
         <div class="mt-3">
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Scores</p>
@@ -191,7 +264,6 @@
         </div>
         {% endif %}
 
-        <!-- Reasons -->
         {% if debug_internal.reasons %}
         <div class="mt-3">
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Reasons</p>
@@ -203,7 +275,6 @@
         </div>
         {% endif %}
 
-        <!-- Semantic Callout -->
         {% if semantic_contract is defined and semantic_contract %}
         <div class="mt-3 border-t border-base-300 pt-3">
           <p class="text-xs font-mono text-base-content/50 uppercase tracking-widest mb-1">Semantic Contract</p>
@@ -229,12 +300,32 @@
           {% endif %}
         </div>
         {% endif %}
-
       </details>
     </div>
     {% endif %}
 
   </div>
+
+  <script>
+    (function () {
+      if (window.toggleDebugVerdictFields) {
+        window.toggleDebugVerdictFields({{ item.id }});
+        return;
+      }
+      window.toggleDebugVerdictFields = function (itemId) {
+        const verdict = document.getElementById(`debug-verdict-${itemId}`);
+        const container = document.getElementById(`debug-corrected-fields-${itemId}`);
+        if (!verdict || !container) return;
+        const needsCorrections = verdict.value && verdict.value !== 'correct';
+        container.classList.toggle('hidden', !needsCorrections);
+        container.querySelectorAll('[data-debug-required="true"]').forEach(function (field) {
+          field.required = !!needsCorrections;
+          if (!needsCorrections && field.tagName === 'SELECT') field.selectedIndex = field.selectedIndex;
+        });
+      };
+      window.toggleDebugVerdictFields({{ item.id }});
+    })();
+  </script>
 
   {% if oob_update %}
   <div id="progress-bar" hx-swap-oob="true">

@@ -54,6 +54,54 @@ def load_debug_verdicts(run: Run) -> dict[int, dict]:
     return verdicts
 
 
+def load_debug_verdicts_for_render(run: Run) -> dict[int, dict]:
+    """Best-effort loader for queue rendering.
+
+    The debug queue should stay renderable even if persisted data is partially
+    malformed. Invalid files or entries are ignored here; strict validation is
+    still available through ``load_debug_verdicts`` for write paths and tests.
+    """
+    try:
+        verdicts_path = _debug_verdicts_path(run)
+    except DebugVerdictValidationError:
+        return {}
+    if not verdicts_path.exists():
+        return {}
+
+    try:
+        raw_data = json.loads(verdicts_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw_data, dict):
+        return {}
+
+    verdicts: dict[int, dict] = {}
+    for raw_key, payload in raw_data.items():
+        try:
+            item_id = int(raw_key)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        try:
+            normalized = validate_debug_verdict_payload(
+                verdict=payload.get("verdict"),
+                corrected_classification=payload.get("corrected_classification"),
+                corrected_requirement_revA=payload.get("corrected_requirement_revA"),
+                corrected_requirement_revB=payload.get("corrected_requirement_revB"),
+                explanation=payload.get("explanation"),
+            )
+        except DebugVerdictValidationError:
+            continue
+        verdicts[item_id] = {
+            **payload,
+            **normalized,
+            "item_id": payload.get("item_id", item_id),
+            "char_no": payload.get("char_no"),
+        }
+    return verdicts
+
+
 def validate_debug_verdict_payload(
     *,
     verdict: str | None,

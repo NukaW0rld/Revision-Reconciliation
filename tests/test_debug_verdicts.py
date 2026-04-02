@@ -397,3 +397,177 @@ def test_debug_post_rejects_missing_run_item_and_cross_run_mismatch(
     mismatch = client.post(f"/review/{run1_id}/debug/items/{item2_id}/verdict", data={"verdict": "correct"})
     assert mismatch.status_code == 404
     assert item1_id != item2_id
+
+
+def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_get(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 4,
+                "status": "changed",
+                "confidence": 0.73,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+            {
+                "char_no": 8,
+                "status": "removed",
+                "confidence": 0.81,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    )
+    item_id, _ = _open_queue(db_engine, run_id)
+
+    initial = client.get(f"/review/{run_id}?debug=1")
+    assert initial.status_code == 200
+    assert "Debug verdicts: 0 of 2 submitted" in initial.text
+    assert f'/review/{run_id}/debug/items/{item_id}/verdict' in initial.text
+
+    saved = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "incorrect",
+            "corrected_classification": "changed",
+            "corrected_requirement_revA": "A legacy note",
+            "corrected_requirement_revB": "B corrected note",
+            "explanation": "The model missed the textual requirement change.",
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    assert "Debug verdicts: 1 of 2 submitted" in saved.text
+    assert "Saved: incorrect" in saved.text
+
+    fresh = client.get(f"/review/{run_id}?debug=1")
+    assert fresh.status_code == 200
+    assert "Debug verdicts: 1 of 2 submitted" in fresh.text
+    assert 'option value="incorrect" selected' in fresh.text
+    assert 'option value="changed" selected' in fresh.text
+    assert "A legacy note" in fresh.text
+    assert "B corrected note" in fresh.text
+    assert "The model missed the textual requirement change." in fresh.text
+
+
+def test_invalid_debug_submit_renders_inline_error_and_leaves_progress_unchanged(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 9,
+                "status": "uncertain",
+                "confidence": 0.33,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    invalid = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "incorrect",
+            "corrected_classification": "changed",
+            "corrected_requirement_revA": "",
+            "corrected_requirement_revB": "Updated req",
+            "explanation": "Missing one corrected field should fail.",
+        },
+    )
+    assert invalid.status_code == 422
+    assert "required for non-correct verdicts" in invalid.text
+    assert "Debug verdicts: 0 of 1 submitted" in invalid.text
+    assert 'option value="incorrect" selected' in invalid.text
+    assert "Updated req" in invalid.text
+    assert not (out_dir / "debug_verdicts.json").exists()
+
+
+
+def test_debug_queue_ignores_malformed_saved_entries_on_fresh_get(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 2,
+                "status": "changed",
+                "confidence": 0.51,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    (out_dir / "debug_verdicts.json").write_text(
+        json.dumps(
+            {
+                "bad-key": {"verdict": "correct"},
+                str(item_id): {
+                    "item_id": item_id,
+                    "char_no": 2,
+                    "verdict": "incorrect",
+                    "corrected_classification": "changed",
+                },
+            }
+        )
+    )
+
+    resp = client.get(f"/review/{run_id}?debug=1")
+    assert resp.status_code == 200
+    assert "Debug verdicts: 0 of 1 submitted" in resp.text
+    assert "Saved: incorrect" not in resp.text
+    assert f'/review/{run_id}/debug/items/{item_id}/verdict' in resp.text
+
+
+
+def test_signed_off_debug_queue_keeps_verdict_form_editable_while_review_controls_stay_read_only(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        status="signed_off",
+        items=[
+            {
+                "char_no": 12,
+                "status": "changed",
+                "confidence": 0.88,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    resp = client.get(f"/review/{run_id}?debug=1")
+    assert resp.status_code == 200
+    assert f'/review/{run_id}/debug/items/{item_id}/verdict' in resp.text
+    assert "Save Debug Verdict" in resp.text
+    assert "debug verdict edits remain available for admins" in resp.text
+    assert f'/review/{run_id}/items/12/approve' not in resp.text
+    assert f'/review/{run_id}/items/12/override' not in resp.text
+    assert "Change Decision" not in resp.text

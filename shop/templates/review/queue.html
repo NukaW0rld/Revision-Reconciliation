@@ -126,6 +126,8 @@
     {% for item in items %}
       {% set semantic_contract = semantic_contracts.get(item.char_no) if semantic_contracts is defined else none %}
       {% set debug_internal = debug_internals[item.char_no] if debug_internals is defined and debug_internals and item.char_no in debug_internals else none %}
+      {% set debug_verdict = debug_verdicts.get(item.id) if debug_verdicts is defined else none %}
+      {% set debug_form = debug_verdict if debug_verdict is defined and debug_verdict else {} %}
       {% if debug_mode %}{% include "review/_item_card_debug.html" %}{% else %}{% include "review/_item_card.html" %}{% endif %}
     {% else %}
     <div class="flex items-center justify-center h-full text-base-content/40 font-mono text-sm">
