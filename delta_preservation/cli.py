@@ -13,6 +13,7 @@ while delegating specialized processing to domain-specific modules.
 import argparse
 import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -20,7 +21,7 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import cv2
 
-from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords
+from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords, TextSpan, join_text_spans
 import fitz
 from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.grid import infer_grid, parse_zone_from_reference_location
@@ -47,6 +48,108 @@ from delta_preservation.reconcile.classify import classify_delta, detect_added_c
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
 from delta_preservation.types import DeltaPacket, DeltaItem, Evidence, SemanticCallout
+
+
+_REORDER_SYMBOLS = {"↧", "⌴", "⌵", "⏥", "⌓", "⟂", "⌖", "⌒", "∥", "∠", "⊙", "Ø", "R"}
+_GDT_SYMBOLS = {"⏥", "⌓", "⟂", "⌖", "⌒", "∥", "∠", "⊙"}
+
+
+def _span_key(span: TextSpan) -> tuple:
+    return (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+
+
+def _dedupe_spans(spans: List[TextSpan]) -> List[TextSpan]:
+    unique = []
+    seen = set()
+    for span in spans:
+        key = _span_key(span)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(span)
+    return unique
+
+
+def _spans_in_bbox(all_spans: List[TextSpan], bbox: tuple[float, float, float, float], tolerance: float = 2.0) -> List[TextSpan]:
+    x0, y0, x1, y1 = bbox
+    selected = []
+    for span in all_spans:
+        sx0, sy0, sx1, sy1 = span.bbox_pdf
+        if sx0 >= x0 - tolerance and sy0 >= y0 - tolerance and sx1 <= x1 + tolerance and sy1 <= y1 + tolerance:
+            selected.append(span)
+    return _dedupe_spans(selected)
+
+
+def _format_annotation_text(spans: List[TextSpan], fallback_text: Optional[str] = None) -> Optional[str]:
+    """Render a compact, human-readable annotation string from PDF spans."""
+    spans = [span for span in _dedupe_spans(spans) if span.text and span.text.strip()]
+    if not spans:
+        return fallback_text
+
+    ordered = sorted(spans, key=lambda span: (span.bbox_pdf[1], span.bbox_pdf[0], span.block_id, span.line_id, span.span_id))
+    texts = [span.text.strip() for span in ordered]
+
+    # Notes blocks should preserve full row-major content, not just the matched header span.
+    if any("NOTE" in text.upper() for text in texts):
+        return join_text_spans(ordered)
+
+    # Group spans into visual rows.
+    rows: List[List[TextSpan]] = []
+    for span in ordered:
+        cy = (span.bbox_pdf[1] + span.bbox_pdf[3]) / 2
+        placed = False
+        for row in rows:
+            row_cy = sum((s.bbox_pdf[1] + s.bbox_pdf[3]) / 2 for s in row) / len(row)
+            if abs(cy - row_cy) <= 8.0:
+                row.append(span)
+                placed = True
+                break
+        if not placed:
+            rows.append([span])
+    for row in rows:
+        row.sort(key=lambda span: (span.bbox_pdf[0], span.block_id, span.line_id, span.span_id))
+
+    # Vertical diameter / limit stack: Ø above/below numeric limits.
+    flat_texts = [span.text.strip() for row in rows for span in row]
+    pure_numeric = [text for text in flat_texts if re.fullmatch(r"[+−\-]?\d+(?:\.\d+)?", text)]
+    if any(text == "Ø" for text in flat_texts) and len(pure_numeric) >= 2:
+        numeric_rows = [row for row in rows if any(re.fullmatch(r"[+−\-]?\d+(?:\.\d+)?", s.text.strip()) for s in row)]
+        if len(numeric_rows) >= 2:
+            top_num = next((s.text.strip() for s in numeric_rows[0] if re.fullmatch(r"[+−\-]?\d+(?:\.\d+)?", s.text.strip())), None)
+            bottom_num = next((s.text.strip() for s in numeric_rows[1] if re.fullmatch(r"[+−\-]?\d+(?:\.\d+)?", s.text.strip())), None)
+            prefix = next((text for text in flat_texts if re.fullmatch(r"\d+X", text.upper())), None)
+            if top_num and bottom_num:
+                body = f"Ø{top_num} / Ø{bottom_num}"
+                return f"{prefix} {body}" if prefix else body
+
+    row_texts: List[str] = []
+    for row in rows:
+        row_tokens = [span.text.strip() for span in row if span.text.strip()]
+        if not row_tokens:
+            continue
+
+        prefix_tokens = [token for token in row_tokens if re.fullmatch(r"\d+X", token.upper())]
+        prefix = " ".join(prefix_tokens).strip()
+        core_tokens = [token for token in row_tokens if token not in prefix_tokens]
+
+        leading_symbols = [token for token in core_tokens if token in _REORDER_SYMBOLS]
+        trailing_tokens = [token for token in core_tokens if token not in leading_symbols]
+
+        if any(token in _GDT_SYMBOLS for token in core_tokens):
+            gdt = [token for token in core_tokens if token in _GDT_SYMBOLS]
+            trailing_tokens = [token for token in core_tokens if token not in _GDT_SYMBOLS]
+            row_text = " ".join(gdt + trailing_tokens)
+        elif leading_symbols and trailing_tokens:
+            row_text = " ".join(leading_symbols + trailing_tokens)
+        else:
+            row_text = " ".join(core_tokens)
+
+        if prefix:
+            row_text = f"{prefix} {row_text}" if row_text else prefix
+        row_texts.append(row_text.strip())
+
+    combined = " / ".join(text for text in row_texts if text)
+    return combined or fallback_text or join_text_spans(ordered)
 
 
 def run_pipeline(
@@ -484,7 +587,7 @@ def run_pipeline(
                     all_spans=revB_text_spans,
                     max_vertical_expansion=150.0
                 )
-                revB_annotation_spans = [span]
+                revB_annotation_spans = _spans_in_bbox(revB_text_spans, revB_bbox_pdf)
             else:
                 # Expand bbox to include adjacent spans (symbols like ⌴, ↧, tolerances)
                 expanded = expand_bbox_with_adjacent_spans(
@@ -541,18 +644,8 @@ def run_pipeline(
             except Exception:
                 revB_bbox_pdf = None  # Fallback: "Not found in Rev B" placeholder shown in review card
 
-        # For added characteristics, map the Rev B bbox back to Rev A coordinate space
-        # using the inverse homography so the Rev A snippet shows the corresponding
-        # region in the original drawing (which should be blank/different there).
-        # If no inverse is available, leave revA_bbox_pdf as None (no revA snippet).
-        if anchor is None and revB_bbox_pdf is not None and revA_bbox_pdf is None:
-            from delta_preservation.vision.alignment import apply_transform_bbox
-            try:
-                H_inv = np.linalg.inv(transform.H)
-                revA_bbox_pdf = apply_transform_bbox(revB_bbox_pdf, H_inv)
-            except np.linalg.LinAlgError:
-                # Singular matrix: leave revA snippet as None
-                pass
+        # Added characteristics have no Rev A evidence counterpart. Leave revA_evidence
+        # empty rather than projecting the Rev B bbox backward into a misleading blank area.
 
         # --- Normalize sizes for consistent paired snippets ---
         if revA_bbox_pdf is not None and revB_bbox_pdf is not None:
@@ -643,14 +736,15 @@ def run_pipeline(
         # Sort left-to-right so the text reads in natural drawing order.
         requirement_revB = None
         if revB_annotation_spans:
-            revB_annotation_spans.sort(key=lambda s: s.bbox_pdf[0])
-            combined = " ".join(s.text.strip() for s in revB_annotation_spans if s.text.strip())
-            requirement_revB = combined if combined else None
+            requirement_revB = _format_annotation_text(
+                revB_annotation_spans,
+                fallback_text=(delta_internal.match.candidate.span.text if delta_internal.match is not None else None),
+            )
         if requirement_revB is None:
             if delta_internal.match is not None:
                 requirement_revB = delta_internal.match.candidate.span.text
             elif delta_internal.added_span is not None:
-                requirement_revB = delta_internal.added_span.text
+                requirement_revB = _format_annotation_text([delta_internal.added_span], fallback_text=delta_internal.added_span.text)
 
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
