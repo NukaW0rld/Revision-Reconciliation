@@ -15,7 +15,7 @@ incremental revision updates rather than complete re-FAIRs.
 """
 
 from .anchors import build_revA_anchors, Anchor
-from .match import generate_candidates, assign_matches, Candidate, Match
+from .match import generate_candidates, assign_matches, refine_match_display_text, Candidate, Match
 from .classify import classify_delta, detect_added_characteristics, DeltaItem
 from .normalize import parse_requirement
 from .semantic_compare import compare_semantic_callouts, SemanticCompareResult
@@ -25,6 +25,7 @@ __all__ = [
     "Anchor", 
     "generate_candidates",
     "assign_matches",
+    "refine_match_display_text",
     "Candidate",
     "Match",
     "classify_delta", 

@@ -41,7 +41,7 @@ from delta_preservation.vision.bbox_utils import (
     expand_notes_block
 )
 from delta_preservation.reconcile.anchors import build_revA_anchors
-from delta_preservation.reconcile.match import generate_candidates, assign_matches
+from delta_preservation.reconcile.match import generate_candidates, assign_matches, refine_match_display_text
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
@@ -247,6 +247,7 @@ def run_pipeline(
         candidates_by_anchor[anchor.char_no] = candidates
 
     matches = assign_matches(anchors, candidates_by_anchor)
+    refine_match_display_text(anchors, matches)
     print(f"  Assigned {len(matches)} matches")
 
     # Stage 7: Classify deltas and save snippets

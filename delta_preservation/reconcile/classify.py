@@ -74,6 +74,79 @@ def classify_delta(
     
     # Handle removed case
     if match_or_none is None:
+        # --- Last-chance identity check ---
+        # Before declaring "removed", scan all Rev B spans for the anchor's
+        # primary numeric value with a compatible requirement type.  This catches
+        # cases where the search window missed the annotation (e.g., because the
+        # alignment transform was off due to a new view being added).
+        if revB_text_spans:
+            anchor_fp = parse_requirement(anchor.requirement_raw)
+            anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+            anchor_primary = max(anchor_numerics) if anchor_numerics else None
+            anchor_req_type = classify_requirement_type(anchor.requirement_raw)
+            is_notes_anchor = (
+                anchor_fp.pattern_class == "note"
+                or "NOTES" in anchor.requirement_raw.upper()
+            )
+
+            if anchor_primary is not None and not is_notes_anchor:
+                # Skip the identity check when the anchor's primary value is a
+                # common tolerance/small value that appears everywhere on the
+                # drawing (e.g., 0.3, 0.005, 0.1).  Only run for distinctive
+                # primary dimensions (≥ 1.0) that are unlikely to coincide.
+                # Additionally require ≥2 secondary numerics to overlap — a
+                # single primary match is too prone to false positives (e.g.,
+                # thread callouts like "10-24 UNC" match the number 24 in
+                # many unrelated spans).
+                anchor_secondary = sorted(anchor_numerics - {anchor_primary})
+                is_distinctive = (
+                    anchor_primary >= 1.0
+                    and len(anchor_numerics) >= 2
+                    and anchor_req_type not in ("thread",)
+                )
+                if is_distinctive:
+                    for span in revB_text_spans:
+                        span_fp = parse_requirement(span.text)
+                        span_numerics = {v for v, _ in span_fp.numeric_tokens}
+                        if anchor_primary not in span_numerics:
+                            continue
+                        # Require the span to be annotation-like (not too many values,
+                        # not a tolerance block or notes block)
+                        if len(span_numerics) > 5:
+                            continue
+                        span_text_upper = span.text.strip().upper()
+                        if any(kw in span_text_upper for kw in (
+                            "UNLESS", "SPECIFIED", "ANGULAR", "FRACTIONAL",
+                            "DRAWN", "CHECKED", "TITLE",
+                        )):
+                            continue
+                        # Check requirement type compatibility
+                        span_req_type = classify_requirement_type(span.text)
+                        if are_requirement_types_incompatible(anchor_req_type, span_req_type):
+                            continue
+                        # Require at least one secondary numeric overlap to reduce
+                        # false positives from coincidental primary matches
+                        if anchor_secondary and span_numerics:
+                            if not (set(anchor_secondary) & span_numerics):
+                                continue
+                        # Found a plausible match — reclassify as uncertain
+                        return DeltaItem(
+                            char_no=anchor.char_no,
+                            status="uncertain",
+                            confidence=0.45,
+                            reasons=[
+                                "No candidate in search window, but page-wide scan found "
+                                f"primary value {anchor_primary} in Rev B span: \"{span.text.strip()[:80]}\"",
+                                "Possible alignment miss — manual review recommended",
+                            ],
+                            component_scores={
+                                "location": 0.0,
+                                "text": 0.5,
+                                "context": 0.0,
+                            },
+                            match=None,
+                        )
+
         confidence = min(0.9, location_search_coverage)
         return DeltaItem(
             char_no=anchor.char_no,

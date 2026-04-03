@@ -131,9 +131,9 @@ def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> Gr
         other_h = max(1.0, oy1 - oy0)
 
         same_row = abs(ocy - scy) <= max(10.0, 0.75 * max(seed_h, other_h))
-        close_horiz = abs(ox0 - sx1) <= 28.0 or abs(sx0 - ox1) <= 28.0 or abs(ocx - scx) <= 42.0
-        stacked_same_x = abs(ocx - scx) <= 18.0 and 0.0 < abs(ocy - scy) <= 26.0
-        nearby_symbol = abs(ocy - scy) <= 20.0 and (0 <= sx0 - ox1 <= 40.0 or 0 <= ox0 - sx1 <= 40.0)
+        close_horiz = abs(ox0 - sx1) <= 20.0 or abs(sx0 - ox1) <= 20.0 or abs(ocx - scx) <= 28.0
+        stacked_same_x = abs(ocx - scx) <= 14.0 and 0.0 < abs(ocy - scy) <= 14.0
+        nearby_symbol = abs(ocy - scy) <= 14.0 and (0 <= sx0 - ox1 <= 30.0 or 0 <= ox0 - sx1 <= 30.0)
 
         if same_row and close_horiz:
             included.append(other)
@@ -774,3 +774,77 @@ def assign_matches(
             break  # One shared match per anchor
 
     return matches
+
+
+def refine_match_display_text(
+    anchors: List[Anchor],
+    matches: dict[int, Match],
+) -> None:
+    """Refine the display text of matched GroupedSpans to show only relevant sub-spans.
+
+    When _group_candidate_spans() merges multiple annotations into one blob,
+    the matched span's text includes text from neighbouring balloons.  This
+    post-processing step selects only the source_span(s) that contain the
+    anchor's primary numeric value, producing a clean display string.
+
+    Mutates the Match objects' candidate.span.text in-place (for GroupedSpan
+    instances only).  Regular TextSpan matches are left untouched.
+    """
+    anchor_by_char: dict[int, Anchor] = {a.char_no: a for a in anchors}
+
+    for char_no, match in matches.items():
+        span = match.candidate.span
+        source_spans = getattr(span, "source_spans", None)
+        if not source_spans or len(source_spans) <= 1:
+            continue  # Nothing to refine — single span
+
+        anchor = anchor_by_char.get(char_no)
+        if anchor is None:
+            continue
+
+        anchor_fp = parse_requirement(anchor.requirement_raw)
+        anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+        anchor_primary = max(anchor_numerics) if anchor_numerics else None
+
+        if anchor_primary is None:
+            # Non-numeric anchor (e.g., notes) — keep full grouped text
+            continue
+
+        # Find source spans that contain ANY of the anchor's numeric values
+        # (not just the primary) so that count tokens, symbols, and secondary
+        # values (e.g., tolerances) on companion spans are preserved.
+        relevant_spans: List[TextSpan] = []
+        for src in source_spans:
+            src_fp = parse_requirement(src.text)
+            src_numerics = {v for v, _ in src_fp.numeric_tokens}
+            if src_numerics & anchor_numerics:
+                relevant_spans.append(src)
+
+        if not relevant_spans:
+            # Primary value not found in any individual sub-span — keep full text
+            # (the value may only appear when spans are concatenated)
+            continue
+
+        # Sort relevant spans spatially (top-to-bottom, left-to-right)
+        relevant_spans.sort(key=lambda s: (
+            (s.bbox_pdf[1] + s.bbox_pdf[3]) / 2,
+            s.bbox_pdf[0],
+        ))
+
+        # Replace the grouped span's display text with only the relevant pieces.
+        # We mutate .text on the GroupedSpan dataclass; bbox stays as the full
+        # group bbox so that snippet generation still captures the right region.
+        refined_text = " ".join(s.text.strip() for s in relevant_spans if s.text.strip())
+        if refined_text and refined_text != span.text:
+            # GroupedSpan is frozen — replace the candidate's span with a new instance
+            from delta_preservation.reconcile.match import GroupedSpan
+            refined_span = GroupedSpan(
+                text=refined_text,
+                bbox_pdf=span.bbox_pdf,
+                font_size=span.font_size,
+                block_id=span.block_id,
+                line_id=span.line_id,
+                span_id=span.span_id,
+                source_spans=span.source_spans,
+            )
+            match.candidate.span = refined_span
