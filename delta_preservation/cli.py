@@ -28,6 +28,7 @@ from delta_preservation.vision.balloons import detect_balloons
 from delta_preservation.vision.alignment import (
     estimate_transform,
     estimate_transform_from_text_spans,
+    estimate_transform_candidates_from_text_spans,
     _homography_is_near_identity,
 )
 from delta_preservation.vision.snippets import crop_with_padding, save_snippet
@@ -183,13 +184,21 @@ def run_pipeline(
     # This is more reliable than ORB for engineering drawings where the static title
     # block dominates feature matching and can produce a spurious near-identity
     # transform even when annotation content has shifted significantly.
-    text_transform = estimate_transform_from_text_spans(revA_text_spans, revB_text_spans)
+    text_transforms = estimate_transform_candidates_from_text_spans(revA_text_spans, revB_text_spans)
+    text_transform = text_transforms[0] if text_transforms else None
 
     if text_transform is not None:
         print(f"  Text-span alignment: {text_transform.inliers} inliers, ratio={text_transform.inlier_ratio:.2f}")
         tx = text_transform.H[0, 2]
         ty = text_transform.H[1, 2]
         print(f"  Text-span translation: tx={tx:.1f} ty={ty:.1f} PDF pts")
+        if len(text_transforms) > 1:
+            alt_parts = []
+            for idx, alt_transform in enumerate(text_transforms[1:], start=2):
+                alt_parts.append(
+                    f"T{idx}(tx={alt_transform.H[0, 2]:.1f}, ty={alt_transform.H[1, 2]:.1f}, inliers={alt_transform.inliers})"
+                )
+            print("  Alternate text-span transforms: " + "; ".join(alt_parts))
 
         # Use the text-span transform when the ORB transform is near-identity but
         # the text-span transform indicates significant content shift (> 20 PDF pts).
@@ -205,6 +214,27 @@ def run_pipeline(
     else:
         transform = orb_transform
         print("  Text-span alignment: insufficient common spans, using ORB alignment")
+
+    def _transform_shift(tf):
+        H = getattr(tf, "H", None)
+        if H is None:
+            return None
+        return float(H[0, 2]), float(H[1, 2])
+
+    candidate_transforms: List = [transform]
+    for extra_transform in [orb_transform, *text_transforms]:
+        extra_shift = _transform_shift(extra_transform)
+        if extra_shift is None:
+            if extra_transform not in candidate_transforms:
+                candidate_transforms.append(extra_transform)
+            continue
+        if all(
+            (_transform_shift(existing) is None)
+            or abs(_transform_shift(existing)[0] - extra_shift[0]) > 5.0
+            or abs(_transform_shift(existing)[1] - extra_shift[1]) > 5.0
+            for existing in candidate_transforms
+        ):
+            candidate_transforms.append(extra_transform)
 
     print(f"  Final transform: {transform.inliers} inliers, ratio={transform.inlier_ratio:.2f}")
 
@@ -239,7 +269,7 @@ def run_pipeline(
         candidates = generate_candidates(
             anchor,
             revB_text_spans,
-            transform,
+            candidate_transforms,
             top_k=5,
             anchor_semantic_callout=anchor_semantic_callouts.get(anchor.char_no),
             revB_semantic_callouts_by_span_key=revB_semantic_callouts_by_span_key,

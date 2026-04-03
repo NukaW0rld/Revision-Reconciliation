@@ -173,118 +173,140 @@ def _is_dimension_like(text: str) -> bool:
     return has_engineering_marker or (has_decimal and any(c.isdigit() for c in t.split(".")[-1]))
 
 
+def _index_unique_dimension_centres(spans: "List[TextSpan]") -> "dict[str, Tuple[float, float]]":
+    """Index unambiguous dimension-like texts by their span centre."""
+    counts: "dict[str, int]" = {}
+    centres: "dict[str, Tuple[float, float]]" = {}
+    for s in spans:
+        key = s.text.strip()
+        if not key or not _is_dimension_like(key):
+            continue
+        counts[key] = counts.get(key, 0) + 1
+        x0, y0, x1, y1 = s.bbox_pdf
+        centres[key] = ((x0 + x1) / 2, (y0 + y1) / 2)
+    return {k: centres[k] for k, n in counts.items() if n == 1}
+
+
+def _collect_text_shift_pairs(
+    revA_spans: "List[TextSpan]",
+    revB_spans: "List[TextSpan]",
+) -> "List[Tuple[Tuple[float, float], Tuple[float, float]]]":
+    """Collect unique common dimension-like span centre pairs across revisions."""
+    uniqueA = _index_unique_dimension_centres(revA_spans)
+    uniqueB = _index_unique_dimension_centres(revB_spans)
+    common_keys = set(uniqueA) & set(uniqueB)
+    if len(common_keys) < 2:
+        return []
+
+    shifted_pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]" = []
+    all_pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]" = []
+    for key in common_keys:
+        pA = uniqueA[key]
+        pB = uniqueB[key]
+        delta = ((pA[0] - pB[0]) ** 2 + (pA[1] - pB[1]) ** 2) ** 0.5
+        all_pairs.append((pA, pB))
+        if delta > 5.0:
+            shifted_pairs.append((pA, pB))
+
+    return shifted_pairs if len(shifted_pairs) >= 2 else all_pairs
+
+
+def _transform_from_pairs(
+    pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]",
+) -> Transform:
+    """Build a pure-translation transform from point-pair displacements."""
+    displacements = np.array([[p[1][0] - p[0][0], p[1][1] - p[0][1]] for p in pairs])
+    tx = float(np.median(displacements[:, 0]))
+    ty = float(np.median(displacements[:, 1]))
+    H = np.array([
+        [1.0, 0.0, tx],
+        [0.0, 1.0, ty],
+        [0.0, 0.0, 1.0],
+    ], dtype=np.float64)
+    return Transform(H=H, inliers=len(pairs), inlier_ratio=1.0, quality_ok=True)
+
+
+def _cluster_displacement_pairs(
+    pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]",
+    threshold: float = 55.0,
+) -> "List[List[Tuple[Tuple[float, float], Tuple[float, float]]]]":
+    """Greedily cluster displacement vectors into shift groups.
+
+    Engineering drawings usually have one dominant shift and sometimes one smaller
+    secondary shift when a new view/detail view is inserted.  A lightweight greedy
+    clustering is enough here; we only need alternate candidate search centres, not a
+    perfect global segmentation.
+    """
+    if not pairs:
+        return []
+
+    def _disp(pair: "Tuple[Tuple[float, float], Tuple[float, float]]") -> np.ndarray:
+        return np.array([pair[1][0] - pair[0][0], pair[1][1] - pair[0][1]], dtype=np.float64)
+
+    clusters: list[dict[str, object]] = []
+    for pair in sorted(pairs, key=lambda p: (_disp(p)[0], _disp(p)[1])):
+        disp = _disp(pair)
+        best_idx = None
+        best_dist = None
+        for idx, cluster in enumerate(clusters):
+            centroid = np.mean(cluster["displacements"], axis=0)
+            dist = float(np.linalg.norm(disp - centroid))
+            if best_dist is None or dist < best_dist:
+                best_idx = idx
+                best_dist = dist
+        if best_idx is not None and best_dist is not None and best_dist <= threshold:
+            clusters[best_idx]["pairs"].append(pair)
+            clusters[best_idx]["displacements"].append(disp)
+        else:
+            clusters.append({"pairs": [pair], "displacements": [disp]})
+
+    return [cluster["pairs"] for cluster in clusters]
+
+
+def estimate_transform_candidates_from_text_spans(
+    revA_spans: "List[TextSpan]",
+    revB_spans: "List[TextSpan]",
+    page_width: float = 0.0,
+    page_height: float = 0.0,
+) -> "List[Transform]":
+    """Return one or more candidate translation transforms from text correspondences."""
+    pairs_to_use = _collect_text_shift_pairs(revA_spans, revB_spans)
+    if len(pairs_to_use) < 2:
+        return []
+
+    clusters = [cluster for cluster in _cluster_displacement_pairs(pairs_to_use) if len(cluster) >= 2]
+    if not clusters:
+        return [_transform_from_pairs(pairs_to_use)]
+
+    clusters.sort(key=len, reverse=True)
+    transforms: list[Transform] = []
+    for cluster in clusters:
+        transform = _transform_from_pairs(cluster)
+        tx, ty = _homography_translation(transform.H)
+        if any(
+            ((tx - ex_tx) ** 2 + (ty - ex_ty) ** 2) ** 0.5 <= 40.0
+            for ex_tx, ex_ty in (_homography_translation(existing.H) for existing in transforms)
+        ):
+            continue
+        transforms.append(transform)
+
+    return transforms
+
+
 def estimate_transform_from_text_spans(
     revA_spans: "List[TextSpan]",
     revB_spans: "List[TextSpan]",
     page_width: float = 0.0,
     page_height: float = 0.0,
 ) -> "Optional[Transform]":
-    """
-    Estimate transformation from Rev A to Rev B using matched annotation text spans.
-
-    Engineering drawings share dimension annotations between revisions (values that
-    don't change, like base dimensions that stay the same even if tolerance changes).
-    By matching identical annotation text strings (excluding title-block boilerplate)
-    and using their centre-point pairs as correspondences, we compute a robust
-    translation/homography that captures the true content shift.
-
-    Unlike ORB image features, text-span correspondences are not confused by the large
-    identical title-block region that dominates ORB matching on engineering drawings.
-
-    Algorithm:
-        1. Filter spans to dimension-like content only (engineering markers + decimals).
-        2. Collect point pairs for texts that appear exactly once in each revision
-           (unambiguous correspondences).
-        3. Separate pairs by whether they appear at the same position (delta < 5 pts)
-           or have shifted — the shifted pairs carry the true content transform.
-        4. If enough shifted pairs exist, estimate homography from shifted pairs only.
-           Otherwise fall back to all pairs with RANSAC.
-        5. Return None if fewer than 3 pairs found.
-
-    Args:
-        revA_spans: Text spans from Rev A (PDF coordinate space, 72 DPI).
-        revB_spans: Text spans from Rev B (PDF coordinate space, 72 DPI).
-        page_width: Page width in PDF pts (unused, kept for API compatibility).
-        page_height: Page height in PDF pts (unused, kept for API compatibility).
-
-    Returns:
-        Transform if enough matched annotation spans are found, otherwise None.
-    """
-    # Index spans by text, keeping only dimension-like spans that appear exactly once.
-    def _index_unique(spans: "List[TextSpan]") -> "dict[str, Tuple[float, float]]":
-        counts: "dict[str, int]" = {}
-        centres: "dict[str, Tuple[float, float]]" = {}
-        for s in spans:
-            key = s.text.strip()
-            if not key or not _is_dimension_like(key):
-                continue
-            counts[key] = counts.get(key, 0) + 1
-            x0, y0, x1, y1 = s.bbox_pdf
-            centres[key] = ((x0 + x1) / 2, (y0 + y1) / 2)
-        # Only keep texts that appear exactly once (unambiguous correspondences)
-        return {k: centres[k] for k, n in counts.items() if n == 1}
-
-    uniqueA = _index_unique(revA_spans)
-    uniqueB = _index_unique(revB_spans)
-
-    # Find common unique dimension-like texts
-    common_keys = set(uniqueA) & set(uniqueB)
-
-    if len(common_keys) < 2:
-        return None
-
-    # Build point pairs and separate into "shifted" vs "static" groups
-    shifted_pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]" = []
-    all_pairs: "List[Tuple[Tuple[float, float], Tuple[float, float]]]" = []
-
-    for key in common_keys:
-        pA = uniqueA[key]
-        pB = uniqueB[key]
-        delta = ((pA[0] - pB[0]) ** 2 + (pA[1] - pB[1]) ** 2) ** 0.5
-        all_pairs.append((pA, pB))
-        if delta > 5.0:  # 5 PDF pts threshold for "shifted"
-            shifted_pairs.append((pA, pB))
-
-    # Prefer pairs that actually moved — they encode the true content shift.
-    # Static pairs (same position) don't constrain the translation.
-    pairs_to_use = shifted_pairs if len(shifted_pairs) >= 2 else all_pairs
-
-    if len(pairs_to_use) < 2:
-        return None
-
-    ptsA = np.float32([[p[0][0], p[0][1]] for p in pairs_to_use]).reshape(-1, 1, 2)
-    ptsB = np.float32([[p[1][0], p[1][1]] for p in pairs_to_use]).reshape(-1, 1, 2)
-
-    # Compute pure translation from the median displacement of shifted pairs.
-    #
-    # We deliberately avoid full homography estimation here because:
-    # 1. Engineering drawing revisions apply translations (not rotations/shears) to
-    #    annotation groups.
-    # 2. When multiple view groups shift by different amounts (e.g., main view +362 pts,
-    #    side view +212 pts), fitting a homography yields rotation/shear artifacts that
-    #    are wrong for features outside the fitted region.
-    # 3. Median displacement is robust to the minority cluster (different shift amount)
-    #    and to any mismatched pairs.
-    #
-    # The resulting pure translation gets us within the search radius for most features.
-    # Features that shift by a secondary amount may still land outside the search radius
-    # but will be partially covered by an expanded SEARCH_RADIUS in match.py.
-    displacements = np.array([[p[1][0] - p[0][0], p[1][1] - p[0][1]] for p in pairs_to_use])
-    tx = float(np.median(displacements[:, 0]))
-    ty = float(np.median(displacements[:, 1]))
-
-    H = np.array([
-        [1.0, 0.0, tx],
-        [0.0, 1.0, ty],
-        [0.0, 0.0, 1.0],
-    ], dtype=np.float64)
-
-    return Transform(
-        H=H,
-        inliers=len(pairs_to_use),
-        inlier_ratio=1.0,
-        quality_ok=True,
+    """Return the primary text-span translation transform, if available."""
+    transforms = estimate_transform_candidates_from_text_spans(
+        revA_spans,
+        revB_spans,
+        page_width=page_width,
+        page_height=page_height,
     )
+    return transforms[0] if transforms else None
 
 
 def _homography_translation(H: np.ndarray) -> Tuple[float, float]:

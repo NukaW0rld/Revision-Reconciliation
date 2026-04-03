@@ -173,10 +173,62 @@ def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> Gr
     )
 
 
+def _is_boilerplate_candidate_text(text: str) -> bool:
+    """Return True for general tolerance/title-block boilerplate text.
+
+    These spans often contain engineering numerics/symbols (e.g. "ANGULAR = ±0.3°")
+    but are not characteristic annotations and should never be matched.
+    """
+    upper = " ".join(text.strip().upper().split())
+    if not upper:
+        return False
+    if "UNLESS OTHERWISE SPECIFIED" in upper:
+        return True
+    if "ANGULAR" in upper and ("±" in upper or "+/-" in upper or "=" in upper):
+        return True
+    if "FRACTIONAL" in upper and ("±" in upper or "+/-" in upper or "=" in upper):
+        return True
+    boilerplate_hits = sum(
+        1 for token in (
+            "DIMENSIONS ARE IN",
+            "ANGULAR",
+            "FRACTIONAL",
+            "DRAWN",
+            "CHECKED",
+            "DO NOT SCALE",
+        )
+        if token in upper
+    )
+    return boilerplate_hits >= 2
+
+
+def _span_is_excluded_for_matching(
+    span: TextSpan,
+    *,
+    page_width_est: float,
+    page_height_est: float,
+) -> bool:
+    """Return True when a span lies in a non-annotation boilerplate region."""
+    sx0, sy0, sx1, sy1 = span.bbox_pdf
+    span_cx = (sx0 + sx1) / 2
+    span_cy = (sy0 + sy1) / 2
+
+    if span_cx > page_width_est * 0.70 and span_cy > page_height_est * 0.85:
+        return True  # Title block
+    if span_cx > page_width_est * 0.75 and span_cy < page_height_est * 0.15:
+        return True  # Revision table
+    if page_height_est * 0.78 <= span_cy <= page_height_est * 0.92 and page_width_est * 0.25 <= span_cx <= page_width_est * 0.72:
+        if _is_boilerplate_candidate_text(span.text):
+            return True  # General tolerance/defaults block near bottom-centre
+    if _is_boilerplate_candidate_text(span.text):
+        return True
+    return False
+
+
 def generate_candidates(
     anchor: Anchor,
     revB_spans: List[TextSpan],
-    transform: Transform,
+    transform: Transform | List[Transform],
     top_k: int = 5,
     anchor_semantic_callout: Optional[SemanticCallout] = None,
     revB_semantic_callouts_by_span_key: Optional[dict[tuple, SemanticCallout]] = None,
@@ -247,12 +299,17 @@ def generate_candidates(
     )
 
     center_a = center_a.reshape(-1, 1, 2)
+    transforms = transform if isinstance(transform, list) else [transform]
     if is_notes_anchor:
         # Use Rev A location directly (identity transform for static notes block)
-        pred_x, pred_y = float(center_a[0, 0, 0]), float(center_a[0, 0, 1])
+        predicted_centers = [(float(center_a[0, 0, 0]), float(center_a[0, 0, 1]))]
     else:
-        center_b = cv2.perspectiveTransform(center_a, transform.H)[0][0]
-        pred_x, pred_y = center_b
+        predicted_centers = []
+        for tf in transforms:
+            center_b = cv2.perspectiveTransform(center_a, tf.H)[0][0]
+            pred_x, pred_y = float(center_b[0]), float(center_b[1])
+            if not any(abs(pred_x - ex) <= 5.0 and abs(pred_y - ey) <= 5.0 for ex, ey in predicted_centers):
+                predicted_centers.append((pred_x, pred_y))
     
     # Estimate page dimensions from spans for exclusion-zone computations.
     # These mirror the zones used by detect_added_characteristics so that
@@ -269,6 +326,12 @@ def generate_candidates(
         page_width_est = 792.0
         page_height_est = 612.0
 
+    def _nearest_predicted_distance(span_cx: float, span_cy: float) -> float:
+        return min(
+            math.sqrt((span_cx - pred_x) ** 2 + (span_cy - pred_y) ** 2)
+            for pred_x, pred_y in predicted_centers
+        )
+
     # Build candidate pool from spans within search radius.
     # Pre-filter to reduce computational cost of detailed scoring.
     # For notes-type anchors, restrict candidates to spans that look like notes headers
@@ -280,17 +343,15 @@ def generate_candidates(
         sx0, sy0, sx1, sy1 = span.bbox_pdf
         span_cx = (sx0 + sx1) / 2
         span_cy = (sy0 + sy1) / 2
-        dist = math.sqrt((span_cx - pred_x)**2 + (span_cy - pred_y)**2)
+        dist = _nearest_predicted_distance(span_cx, span_cy)
 
         if dist <= SEARCH_RADIUS:
-            # Exclude title block (bottom-right corner) and revision table (top-right).
-            # These regions contain administrative text (dates, part numbers, rev letters)
-            # that is never a characteristic annotation but would score highly for
-            # non-numeric anchors due to both sides having no numeric content.
-            if span_cx > page_width_est * 0.70 and span_cy > page_height_est * 0.85:
-                continue  # Title block
-            if span_cx > page_width_est * 0.75 and span_cy < page_height_est * 0.15:
-                continue  # Revision table
+            if _span_is_excluded_for_matching(
+                span,
+                page_width_est=page_width_est,
+                page_height_est=page_height_est,
+            ):
+                continue
 
             if is_notes_anchor:
                 # Only include spans that are actual notes headers
@@ -341,12 +402,13 @@ def generate_candidates(
             sx0, sy0, sx1, sy1 = span.bbox_pdf
             span_cx = (sx0 + sx1) / 2
             span_cy = (sy0 + sy1) / 2
-            dist = math.sqrt((span_cx - pred_x) ** 2 + (span_cy - pred_y) ** 2)
-            # Apply same exclusion zones as the normal search
-            if span_cx > page_width_est * 0.70 and span_cy > page_height_est * 0.85:
-                continue  # Title block
-            if span_cx > page_width_est * 0.75 and span_cy < page_height_est * 0.15:
-                continue  # Revision table
+            dist = _nearest_predicted_distance(span_cx, span_cy)
+            if _span_is_excluded_for_matching(
+                span,
+                page_width_est=page_width_est,
+                page_height_est=page_height_est,
+            ):
+                continue
             grouped = _group_candidate_spans(span, revB_spans)
             gkey = (_span_key(grouped), tuple(_span_key(s) for s in grouped.source_spans))
             if gkey in seen_group_keys:
