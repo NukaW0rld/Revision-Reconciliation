@@ -316,19 +316,72 @@ def test_invalid_debug_post_does_not_overwrite_prior_saved_data(
     assert ok.status_code == 200
     saved_before = json.loads((out_dir / "debug_verdicts.json").read_text())
 
+    # Missing corrected_classification should still fail
     invalid = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
             "verdict": "incorrect",
-            "corrected_classification": "changed",
-            "corrected_requirement_revA": "",
+            "corrected_requirement_revA": "Some req",
             "corrected_requirement_revB": "Updated req",
-            "explanation": "Missing one corrected field should fail.",
+            "explanation": "Missing classification should fail.",
         },
     )
     assert invalid.status_code == 422
     assert "required for non-correct verdicts" in invalid.text
     assert json.loads((out_dir / "debug_verdicts.json").read_text()) == saved_before
+
+    # Empty corrected req fields are now allowed — should succeed
+    valid_with_empty_reqs = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "incorrect",
+            "corrected_classification": "changed",
+            "corrected_requirement_revA": "",
+            "corrected_requirement_revB": "",
+            "explanation": "Req fields are optional now.",
+        },
+    )
+    assert valid_with_empty_reqs.status_code == 200
+    saved_after = json.loads((out_dir / "debug_verdicts.json").read_text())
+    assert saved_after[str(item_id)]["verdict"] == "incorrect"
+    assert "corrected_requirement_revA" not in saved_after[str(item_id)]
+    assert "corrected_requirement_revB" not in saved_after[str(item_id)]
+
+
+def test_debug_post_accepts_excessive_classification(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 3,
+                "status": "changed",
+                "confidence": 0.9,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    resp = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "incorrect",
+            "corrected_classification": "excessive",
+            "explanation": "Program flagged a characteristic that should not exist.",
+        },
+    )
+    assert resp.status_code == 200
+    raw = json.loads((out_dir / "debug_verdicts.json").read_text())
+    assert raw[str(item_id)]["corrected_classification"] == "excessive"
+    assert "corrected_requirement_revA" not in raw[str(item_id)]
+    assert "corrected_requirement_revB" not in raw[str(item_id)]
 
 
 def test_debug_post_rejects_missing_and_unsupported_verdicts(
@@ -591,17 +644,15 @@ def test_invalid_debug_submit_renders_inline_error_and_leaves_progress_unchanged
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
             "verdict": "incorrect",
-            "corrected_classification": "changed",
-            "corrected_requirement_revA": "",
+            "corrected_requirement_revA": "Some req",
             "corrected_requirement_revB": "Updated req",
-            "explanation": "Missing one corrected field should fail.",
+            "explanation": "Missing classification should fail.",
         },
     )
     assert invalid.status_code == 422
     assert "required for non-correct verdicts" in invalid.text
     assert "Debug verdicts: 0 of 1 submitted" in invalid.text
     assert 'option value="incorrect" selected' in invalid.text
-    assert "Updated req" in invalid.text
     assert not (out_dir / "debug_verdicts.json").exists()
 
 

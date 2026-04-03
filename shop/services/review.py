@@ -165,10 +165,15 @@ def validate_debug_verdict_payload(
     }
 
     if normalized_verdict != "correct":
-        missing = [field for field, value in optional_fields.items() if value is None]
+        required_for_non_correct = {"corrected_classification", "explanation"}
+        missing = [
+            field
+            for field, value in optional_fields.items()
+            if field in required_for_non_correct and value is None
+        ]
         if missing:
             raise DebugVerdictValidationError(
-                "Corrected classification, corrected Rev A requirement, corrected Rev B requirement, and explanation are required for non-correct verdicts."
+                "Corrected classification and explanation are required for non-correct verdicts."
             )
 
     for field, value in optional_fields.items():
