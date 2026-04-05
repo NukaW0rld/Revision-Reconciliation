@@ -19,6 +19,9 @@ huey.db
 uploads/
 *:Zone.Identifier
 
+# Debug reports
+assets/*.json
+
 # Node.js
 node_modules/
 package-lock.json
