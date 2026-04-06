@@ -529,8 +529,14 @@ def generate_candidates(
                 revB_semantic_callouts_by_span_key is not None and hasattr(span, "source_spans")
             ):
                 pass
+            has_primary_signal = any(
+                "primary=" in reason or "Primary dimension matches" in reason or "close to span" in reason
+                for reason in candidate.reasons
+            )
             carry_global = candidate.total_score >= 0.10 and (
-                candidate.text_score >= 0.20 or any("semantic weld" in r or "semantic GD&T" in r or "semantic surface finish" in r or "semantic fit" in r for r in candidate.reasons)
+                candidate.text_score >= 0.20
+                or has_primary_signal
+                or any("semantic weld" in r or "semantic GD&T" in r or "semantic surface finish" in r or "semantic fit" in r for r in candidate.reasons)
             )
             if carry_global:
                 candidate.from_global_fallback = True
@@ -783,6 +789,16 @@ def score_candidate(
     )
 
 
+def _candidate_has_primary_signal(candidate: Candidate) -> bool:
+    return any(
+        "primary=" in reason
+        or "Primary dimension matches" in reason
+        or "close to span" in reason
+        for reason in candidate.reasons
+    )
+
+
+
 def assign_matches(
     anchors: List[Anchor],
     candidates_by_anchor: dict[int, List[Candidate]]
@@ -809,7 +825,7 @@ def assign_matches(
     Returns:
         Dict mapping assigned char_no to its Match object
     """
-    # Build anchor lookup by char_no for the shared-span fallback
+    # Build anchor lookup by char_no for shared-span and notes-aware fallbacks.
     anchor_by_char: dict[int, Anchor] = {a.char_no: a for a in anchors}
 
     # Build list of all edges: (total_score, char_no, span_key, candidate)
@@ -868,8 +884,10 @@ def assign_matches(
             claims,
             key=lambda item: (
                 not item[1].from_global_fallback,
-                item[1].location_score,
+                _candidate_has_primary_signal(item[1]),
+                item[1].text_score,
                 item[1].total_score,
+                item[1].location_score,
                 -item[0],
             ),
         )
@@ -888,15 +906,21 @@ def assign_matches(
     # Unmatched anchors will be classified as "removed".
     MIN_MATCH_SCORE = 0.12
     MIN_WEAK_MATCH_SCORE = 0.24
+    MIN_NOTES_MATCH_SCORE = 0.08
 
     for total_score, char_no, span_key, candidate in edges:
+        anchor = anchor_by_char.get(char_no)
+        anchor_fp = parse_requirement(anchor.requirement_raw) if anchor is not None else None
+        is_notes_anchor = bool(anchor_fp and anchor_fp.pattern_class == "note")
+        effective_min_score = MIN_NOTES_MATCH_SCORE if is_notes_anchor else MIN_MATCH_SCORE
+
         # Skip implausibly low-scoring matches — they indicate no real candidate
-        if total_score < MIN_MATCH_SCORE:
+        if total_score < effective_min_score:
             continue
         candidate_fp = parse_requirement(candidate.span.text)
         candidate_numerics = {v for v, _ in candidate_fp.numeric_tokens}
-        has_primary_reason = any("primary=" in r or "Primary dimension matches" in r for r in candidate.reasons)
-        if total_score < MIN_WEAK_MATCH_SCORE and not has_primary_reason and len(candidate_numerics) <= 1:
+        has_primary_reason = _candidate_has_primary_signal(candidate)
+        if total_score < MIN_WEAK_MATCH_SCORE and not is_notes_anchor and not has_primary_reason and len(candidate_numerics) <= 1:
             continue
         # Wrong-copy guard: a global-fallback-only candidate must not steal a span
         # that already has a stronger local claimant.  If the target span key is in
@@ -941,6 +965,7 @@ def assign_matches(
         anchor_primary = max(
             (v for v, _ in anchor_fp.numeric_tokens), default=None
         )
+        anchor_type_tokens = [token for token in anchor_fp.type_tokens if token not in {"LENGTH", "DEPTH", "DIAMETER", "RADIUS", "ANGLE", "THREAD", "NOTES"}]
 
         for candidate in candidates:
             if candidate.total_score < MIN_MATCH_SCORE:
@@ -963,21 +988,29 @@ def assign_matches(
             # Only consider spans already used by another anchor (shared annotation)
             if span_key not in used_spans:
                 continue
-            # Allow reuse only when the anchor's primary value appears in the span
-            if anchor_primary is None:
-                continue
             span_fp = parse_requirement(span.text)
             span_numerics = {v for v, _ in span_fp.numeric_tokens}
-            if anchor_primary not in span_numerics:
-                continue
-            # Primary value is confirmed in the span — allow shared match
-            matches[char_no] = Match(
-                char_no=char_no,
-                candidate=candidate,
-                pred_center_b=None
-            )
-            assigned_chars.add(char_no)
-            break  # One shared match per anchor
+            # Allow reuse when the anchor's primary value appears in the span
+            if anchor_primary is not None and anchor_primary in span_numerics:
+                matches[char_no] = Match(
+                    char_no=char_no,
+                    candidate=candidate,
+                    pred_center_b=None
+                )
+                assigned_chars.add(char_no)
+                break
+            # Non-numeric combined annotations (e.g. THRU ALL sharing a depth/countersink
+            # callout) also need bounded reuse when the matched span preserves the
+            # anchor's distinctive type token(s).
+            if anchor_primary is None and anchor_type_tokens:
+                if any(token in span_fp.norm_text for token in anchor_type_tokens):
+                    matches[char_no] = Match(
+                        char_no=char_no,
+                        candidate=candidate,
+                        pred_center_b=None
+                    )
+                    assigned_chars.add(char_no)
+                    break
 
     return matches
 

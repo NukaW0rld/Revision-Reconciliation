@@ -118,7 +118,12 @@ def _compare_gdt(
         return missing
 
     assert left is not None and right is not None
-    if left == right:
+    if (
+        left.control_type == right.control_type
+        and _normalize_gdt_tolerance_text(left.tolerance_text) == _normalize_gdt_tolerance_text(right.tolerance_text)
+        and left.datum_refs == right.datum_refs
+        and left.modifiers == right.modifiers
+    ):
         return SemanticCompareResult(
             comparable=True,
             equal=True,
@@ -132,7 +137,7 @@ def _compare_gdt(
 
     for label, left_value, right_value in (
         ("control", left.control_type, right.control_type),
-        ("tolerance", left.tolerance_text, right.tolerance_text),
+        ("tolerance", _normalize_gdt_tolerance_text(left.tolerance_text), _normalize_gdt_tolerance_text(right.tolerance_text)),
         ("datums", _join_tokens(left.datum_refs), _join_tokens(right.datum_refs)),
         ("modifiers", _join_tokens(left.modifiers), _join_tokens(right.modifiers)),
     ):
@@ -275,6 +280,20 @@ def _compare_fit(
             )
 
     return _generic_changed_result("fit", left.canonical_text, right.canonical_text)
+
+
+def _normalize_gdt_tolerance_text(value: str) -> str:
+    prefix = ""
+    numeric = value
+    if value.startswith(("⌀", "∅")):
+        prefix = "⌀"
+        numeric = value[1:]
+    if numeric.startswith("."):
+        numeric = f"0{numeric}"
+    if "." in numeric:
+        numeric = numeric.rstrip("0").rstrip(".")
+    return f"{prefix}{numeric}"
+
 
 
 def _missing_payload_result(left: object, right: object, *, family: SemanticFamily) -> Optional[SemanticCompareResult]:

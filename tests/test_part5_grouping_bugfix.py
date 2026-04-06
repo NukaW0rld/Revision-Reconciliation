@@ -168,16 +168,22 @@ def test_assign_matches_prefers_stronger_local_owner_for_same_grouped_source_spa
         (46, 0, 0, (498.0, 84.0, 520.0, 92.0)),
     ]
 
-    stronger_local_owner = _candidate(
-        grouped_span,
+    stronger_local_owner = Candidate(
+        span=grouped_span,
         total_score=0.58,
         location_score=0.94,
+        text_score=0.55,
+        context_score=0.0,
+        reasons=["matched: numerics: 100%, primary=35.0"],
         source_span_keys=grouped_source_span_keys,
     )
-    weaker_but_higher_total = _candidate(
-        grouped_span,
+    weaker_but_higher_total = Candidate(
+        span=grouped_span,
         total_score=0.64,
         location_score=0.41,
+        text_score=0.10,
+        context_score=0.0,
+        reasons=["primary value 35.0 close to span 35.2 (±1%)"],
         source_span_keys=grouped_source_span_keys,
     )
 
@@ -276,6 +282,92 @@ def test_generate_candidates_keeps_chained_part6_position_frame_local_to_one_fcf
         "Expected chained closure to stay local to one FCF instead of swallowing the neighboring diameter callout; "
         f"got {source_texts}"
     )
+
+
+
+
+
+def test_assign_matches_prefers_same_source_owner_with_real_primary_signal_over_bare_location():
+    correct_owner = _anchor("Length (110 +/- 0.3 mm)", char_no=2, x0=120.0, y0=120.0)
+    wrong_neighbor = _anchor("Length (38 +/- 0.3 mm)", char_no=3, x0=118.0, y0=118.0)
+    shared_span = _span("110", block_id=90, line_id=0, span_id=0, x0=130.0, y0=130.0, width=16.0)
+    shared_source_span_keys = [_span_key(shared_span)]
+
+    primary_signal_candidate = Candidate(
+        span=shared_span,
+        total_score=0.36,
+        location_score=0.62,
+        text_score=0.28,
+        context_score=0.0,
+        reasons=["matched: numerics: 50%, primary=110.0"],
+        source_span_keys=shared_source_span_keys,
+    )
+    closer_but_wrong_candidate = Candidate(
+        span=shared_span,
+        total_score=0.0,
+        location_score=0.68,
+        text_score=0.0,
+        context_score=0.0,
+        reasons=["primary value 38.0 not found in span"],
+        source_span_keys=shared_source_span_keys,
+    )
+
+    matches = assign_matches(
+        [correct_owner, wrong_neighbor],
+        {
+            2: [primary_signal_candidate],
+            3: [closer_but_wrong_candidate],
+        },
+    )
+
+    assert 2 in matches, (
+        "Expected the real primary-value owner to keep the shared span even when a neighboring anchor is slightly closer; "
+        f"got match keys={set(matches)}"
+    )
+    assert matches[2].candidate is primary_signal_candidate
+    assert 3 not in matches
+
+
+
+def test_shared_span_fallback_keeps_non_numeric_thru_all_companion_attached_to_used_callout():
+    numeric_anchor = _anchor("Ø8", char_no=12, x0=50.0, y0=50.0)
+    thru_anchor = _anchor("Depth (THRU ALL)", char_no=10, x0=55.0, y0=55.0)
+    combined_span = _span("4 x Ø8 THRU ALL Ø13.5 8.5 ⌴ ↧", block_id=91, line_id=0, span_id=0, x0=60.0, y0=60.0, width=90.0)
+    source_keys = [_span_key(combined_span)]
+
+    numeric_candidate = Candidate(
+        span=combined_span,
+        total_score=0.62,
+        location_score=0.72,
+        text_score=0.55,
+        context_score=0.0,
+        reasons=["matched: numerics: 100%, primary=8.0"],
+        source_span_keys=source_keys,
+    )
+    thru_candidate = Candidate(
+        span=combined_span,
+        total_score=0.28,
+        location_score=0.66,
+        text_score=0.10,
+        context_score=0.0,
+        reasons=["matched: THRU ALL companion text"],
+        source_span_keys=source_keys,
+    )
+
+    matches = assign_matches(
+        [numeric_anchor, thru_anchor],
+        {
+            12: [numeric_candidate],
+            10: [thru_candidate],
+        },
+    )
+
+    assert 12 in matches, "Expected the numeric owner to claim the combined callout first"
+    assert 10 in matches, (
+        "Expected non-numeric THRU ALL companion to reuse the already-owned combined callout via shared-span fallback; "
+        f"got match keys={set(matches)}"
+    )
+    assert matches[10].candidate is thru_candidate
 
 
 

@@ -351,6 +351,16 @@ _GDT_MODIFIER_MAP = {
 }
 
 _GDT_TOLERANCE_RE = re.compile(r"^(?:[⌀∅])?(?:\d+(?:\.\d+)?|\.\d+)$")
+
+
+def _normalize_gdt_tolerance_token(token: str) -> str:
+    normalized = token
+    if normalized.startswith("⌀.") or normalized.startswith("∅."):
+        return f"{normalized[0]}0{normalized[1:]}"
+    if normalized.startswith("."):
+        return f"0{normalized}"
+    return normalized
+
 _GDT_DATUM_RE = re.compile(r"^[A-Z](?:-[A-Z])?$")
 
 _WELD_PROCESS_PATTERNS = (
@@ -693,53 +703,62 @@ def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
     if not tokens:
         return None
 
-    control_symbol = tokens[0]
+    control_idx = None
+    control_symbol = None
+    remainder = ""
+    for idx, token in enumerate(tokens):
+        mapped = _GDT_CONTROL_MAP.get(token)
+        if mapped is not None:
+            control_idx = idx
+            control_symbol = token
+            break
+        if len(token) >= 2 and _GDT_CONTROL_MAP.get(token[0]) is not None:
+            control_idx = idx
+            control_symbol = token[0]
+            remainder = token[1:]
+            break
+
+    if control_idx is None or control_symbol is None:
+        return None
+
     control_type = _GDT_CONTROL_MAP.get(control_symbol)
-
-    # Handle combined symbol+diameter ligatures like "⌖∅" or "⟂∅":
-    # split the first char as control symbol, remainder prepended to next token.
-    if control_type is None and len(control_symbol) >= 2:
-        first_char = control_symbol[0]
-        control_type = _GDT_CONTROL_MAP.get(first_char)
-        if control_type is not None:
-            remainder = control_symbol[1:]  # e.g. "∅"
-            # Prepend remainder to the tolerance token
-            if len(tokens) >= 2:
-                tokens = [first_char, remainder + tokens[1]] + tokens[2:]
-            else:
-                tokens = [first_char, remainder]
-
     if control_type is None:
         return None
 
-    if len(tokens) < 2:
-        return "recognized GD&T control symbol but missing tolerance segment"
-
-    # Find the tolerance token — it may not be at index 1 if a modifier
-    # appears between the control symbol and tolerance (e.g., "⌖∅ Ⓛ .02 A B"
-    # from PDF span ordering where the modifier font sorts before the numeric).
-    tolerance_token = None
     tolerance_idx = None
-    for idx in range(1, min(4, len(tokens))):
-        if _is_gdt_tolerance_token(tokens[idx]):
-            tolerance_token = tokens[idx]
+    tolerance_token = None
+    candidate_indices = list(range(max(0, control_idx - 4), min(len(tokens), control_idx + 5)))
+    candidate_indices = [idx for idx in candidate_indices if idx != control_idx]
+    candidate_indices.sort(key=lambda idx: (abs(idx - control_idx), idx > control_idx, idx))
+    for idx in candidate_indices:
+        token = tokens[idx]
+        combined = f"{remainder}{token}" if remainder and idx != control_idx else token
+        if _is_gdt_tolerance_token(combined):
             tolerance_idx = idx
+            tolerance_token = _normalize_gdt_tolerance_token(combined)
             break
 
-    if tolerance_token is None:
+    if tolerance_idx is None or tolerance_token is None:
         return "recognized GD&T control symbol but missing tolerance segment"
 
     modifiers: List[str] = []
     datum_refs: List[str] = []
 
-    # Process tokens before the tolerance (early modifiers)
-    for token in tokens[1:tolerance_idx]:
+    if control_idx < tolerance_idx:
+        pre_tokens = tokens[control_idx + 1:tolerance_idx]
+        post_tokens = tokens[tolerance_idx + 1:]
+    else:
+        pre_tokens = []
+        post_tokens = tokens[tolerance_idx + 1:control_idx] + tokens[control_idx + 1:]
+
+    for token in pre_tokens:
         normalized_modifier = _GDT_MODIFIER_MAP.get(token)
         if normalized_modifier:
             modifiers.append(normalized_modifier)
-        # Skip other pre-tolerance tokens
+            continue
+        return f"recognized GD&T frame contains unsupported segment: {token}"
 
-    for token in tokens[tolerance_idx + 1:]:
+    for token in post_tokens:
         normalized_modifier = _GDT_MODIFIER_MAP.get(token)
         if normalized_modifier:
             modifiers.append(normalized_modifier)
@@ -749,9 +768,11 @@ def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
             continue
         return f"recognized GD&T frame contains unsupported segment: {token}"
 
+    frame_tokens = [control_symbol, tolerance_token, *pre_tokens, *post_tokens]
+
     return ParsedGdtFrame(
         control_type=control_type,
-        frame_text=" | ".join(tokens),
+        frame_text=" | ".join(frame_tokens),
         tolerance_text=tolerance_token,
         datum_refs=datum_refs,
         modifiers=modifiers,

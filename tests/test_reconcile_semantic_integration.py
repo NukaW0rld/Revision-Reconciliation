@@ -163,6 +163,22 @@ def test_reconcile_semantic_integration_fallback_to_numeric_reasoning_when_seman
     assert any("Primary dimension matches" in reason for reason in delta.reasons)
 
 
+def test_reconcile_semantic_integration_parses_trailing_part6_gdt_symbol_order():
+    anchor = _anchor("⌖ ⌀0.06 D B C")
+    candidate_span = _span(".06 D B C ⌖∅", block_id=9, line_id=0, span_id=0, x0=14.0, y0=10.5, width=60.0)
+
+    candidate, delta, anchor_semantic, matched_semantic = _classify(anchor, candidate_span)
+
+    assert anchor_semantic.status.parser_family == "gdt"
+    assert matched_semantic.status.parser_family == "gdt"
+    assert matched_semantic.gdt is not None
+    assert matched_semantic.gdt.control_type == "position"
+    assert matched_semantic.gdt.tolerance_text in {"∅0.06", "⌀0.06", ".06", "∅.06", "⌀.06"}
+    assert matched_semantic.gdt.datum_refs == ["D", "B", "C"]
+    assert delta.status == "unchanged"
+    assert any("semantic GD&T match" in reason for reason in delta.reasons)
+
+
 def test_reconcile_semantic_integration_keeps_part5_trailing_datum_frame_unchanged():
     anchor = _anchor("⟂ 1.5 A")
     spans = [
