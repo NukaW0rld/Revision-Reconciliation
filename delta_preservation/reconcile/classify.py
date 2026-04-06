@@ -495,26 +495,91 @@ def classify_delta(
             # If we have Rev B spans, do a content comparison to detect note changes
             # (e.g., QTY change, different material, different finish requirement)
             if revB_text_spans is not None:
-                matched_cx = (candidate.span.bbox_pdf[0] + candidate.span.bbox_pdf[2]) / 2
-                matched_cy = (candidate.span.bbox_pdf[1] + candidate.span.bbox_pdf[3]) / 2
+                mx0, my0, mx1, my1 = candidate.span.bbox_pdf
+                matched_cx = (mx0 + mx1) / 2
+                matched_cy = (my0 + my1) / 2
+                # Use a wider search for notes blocks: notes content often spans a large
+                # rectangular area. Use generous horizontal AND vertical radii.
+                _notes_h_radius = 800.0
+                _notes_v_radius = 600.0
                 nearby_texts = []
+                import re as _re_notes_filt
                 for nearby_span in revB_text_spans:
                     nx0, ny0, nx1, ny1 = nearby_span.bbox_pdf
                     ncx = (nx0 + nx1) / 2
                     ncy = (ny0 + ny1) / 2
-                    dist = math.sqrt((ncx - matched_cx) ** 2 + (ncy - matched_cy) ** 2)
-                    if dist <= 200.0 and abs(ncx - matched_cx) <= 200.0:
-                        nearby_texts.append(nearby_span.text)
+                    if (abs(ncx - matched_cx) <= _notes_h_radius
+                            and abs(ncy - matched_cy) <= _notes_v_radius):
+                        _st = nearby_span.text.strip()
+                        # Only include spans that look like notes content:
+                        # - multi-word spans (at least 3 words), OR
+                        # - spans containing notes-relevant keywords
+                        _words = _st.split()
+                        _is_notes_kw = any(kw in _st.upper() for kw in (
+                            "NOTES", "INTERPRET", "REFERENCE", "MATERIAL",
+                            "CERTIFICATION", "SHIPMENT", "TOLERANCING",
+                            "DIMENSIONING", "FINISH", "TITLE", "ASME", "BAG",
+                        ))
+                        if len(_words) >= 3 or _is_notes_kw:
+                            nearby_texts.append(_st)
 
                 if nearby_texts:
                     revB_notes_text = " ".join(nearby_texts)
                     revB_notes_fp = parse_requirement(revB_notes_text)
                     revB_tokens = set(revB_notes_fp.norm_text.split())
-                    anchor_tokens = set(anchor_fp.norm_text.split())
+                    # Strip HTML entities (e.g. &#10; for newline) from anchor text
+                    # before tokenising — these come from Form 3 HTML-encoded requirements
+                    # and would cause spurious token mismatches vs plain PDF text.
+                    # Also strip leading/trailing parens/punctuation from tokens
+                    # (e.g. "(1." → "1.", "SHIPMENT.)" → "SHIPMENT.").
+                    import re as _re_ent
+                    _anchor_clean = _re_ent.sub(r'&#\d+;|&[a-z]+;', ' ', anchor_fp.norm_text)
+                    def _clean_token(t: str) -> str:
+                        return t.strip('()')
+                    anchor_tokens = {_clean_token(t) for t in _anchor_clean.split() if _clean_token(t)}
+                    # Apply same clean_token to revB tokens
+                    revB_tokens = {_clean_token(t) for t in revB_tokens if _clean_token(t)}
                     if anchor_tokens and revB_tokens:
                         union_size = len(anchor_tokens | revB_tokens)
                         inter_size = len(anchor_tokens & revB_tokens)
                         notes_similarity = inter_size / union_size if union_size > 0 else 1.0
+                        # If similarity is low, try OCR-normalized comparison.
+                        # Common OCR errors in standard references: "ZO" → "20", "O" → "0"
+                        # in year-like contexts (e.g. "Y14.5-ZO18" → "Y14.5-2018").
+                        if notes_similarity < 0.65:
+                            import re as _re
+                            def _ocr_norm(text: str) -> str:
+                                # Replace letter-O with digit-0 in year-like patterns
+                                # e.g. "ZO18" → "2018", "Y14.5-ZO18" → "Y14.5-2018"
+                                t = _re.sub(r'\bZO(\d{2})\b', r'20\1', text)
+                                t = _re.sub(r'(?<=[A-Z\d\.])O(?=\d{2,})', '0', t)
+                                t = _re.sub(r'(?<=\d)O(?=[A-Z\d])', '0', t)
+                                return t
+                            anchor_norm = _ocr_norm(_anchor_clean)
+                            revB_norm = _ocr_norm(revB_notes_fp.norm_text)
+                            anchor_tokens_norm = {_clean_token(t) for t in parse_requirement(anchor_norm).norm_text.split() if _clean_token(t)}
+                            revB_tokens_norm = {_clean_token(t) for t in parse_requirement(revB_norm).norm_text.split() if _clean_token(t)}
+                            if anchor_tokens_norm and revB_tokens_norm:
+                                union_norm = len(anchor_tokens_norm | revB_tokens_norm)
+                                inter_norm = len(anchor_tokens_norm & revB_tokens_norm)
+                                notes_similarity_norm = inter_norm / union_norm if union_norm > 0 else 1.0
+                                if notes_similarity_norm >= 0.65:
+                                    # OCR normalization resolved the apparent difference
+                                    return DeltaItem(
+                                        char_no=anchor.char_no,
+                                        status="unchanged",
+                                        confidence=0.80,
+                                        reasons=[
+                                            "Notes block matched after OCR normalization",
+                                            f"Raw similarity {notes_similarity:.2f} < 0.65, normalised similarity {notes_similarity_norm:.2f} ≥ 0.65",
+                                        ],
+                                        component_scores={
+                                            "location": location_score,
+                                            "text": notes_similarity_norm,
+                                            "context": context_score,
+                                        },
+                                        match=match_or_none,
+                                    )
                         if notes_similarity < 0.65:
                             return DeltaItem(
                                 char_no=anchor.char_no,
@@ -627,6 +692,42 @@ def classify_delta(
             },
             match=None,
         )
+
+    # Suppress count_added when the anchor is a pure-text modifier (no numerics) and the
+    # matched span simply includes both the anchor text and a sibling's count/dimension.
+    # E.g. anchor="THRU ALL" or "Depth (THRU ALL)" (no numerics) matched to "4X Ø8 THRU ALL"
+    # — the span belongs to an adjacent characteristic; count_added is a false positive.
+    if count_added and not anchor_numerics:
+        import re as _re_kw
+        def _kw_tokens(text: str):
+            # Strip punctuation/parens, split, remove noise
+            _stop = {'', 'A', 'AN', 'THE', 'OF', 'IN', 'AT', 'X'}
+            return {w for w in _re_kw.sub(r'[()\/]', ' ', text.upper()).split() if w not in _stop}
+        anchor_kw = _kw_tokens(anchor_fp.norm_text)
+        matched_kw = _kw_tokens(matched_fp.norm_text)
+        if anchor_kw and matched_kw:
+            overlap_ratio = len(anchor_kw & matched_kw) / len(anchor_kw)
+            if overlap_ratio >= 0.6:
+                # Most anchor keywords are present in matched span → sibling-span capture;
+                # the anchor content is present in Rev B, just embedded in a larger span.
+                # Return unchanged immediately — no further numeric comparisons make sense
+                # since all numerics in the matched span belong to the sibling characteristic.
+                return DeltaItem(
+                    char_no=anchor.char_no,
+                    status="unchanged",
+                    confidence=max(0.75, 0.5 * location_score + 0.25),
+                    reasons=reasons + [
+                        f"Count-added suppressed: {overlap_ratio:.0%} anchor keywords found in matched span "
+                        f"(sibling-span capture, no numerics in anchor)",
+                        "Anchor content present in Rev B span — unchanged",
+                    ],
+                    component_scores={
+                        "location": location_score,
+                        "text": overlap_ratio,
+                        "context": context_score,
+                    },
+                    match=match_or_none,
+                )
 
     # Priority 1: Primary dimension value match is the strongest indicator
     if count_changed or count_added:
