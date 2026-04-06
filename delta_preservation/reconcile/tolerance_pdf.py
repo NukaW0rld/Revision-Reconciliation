@@ -109,7 +109,7 @@ class ToleranceComparison:
 def compare_tolerances(
     revA_tol: PdfTolerance,
     revB_tol: PdfTolerance,
-    epsilon: float = 0.01,
+    epsilon: float = 1e-6,
 ) -> Tuple[bool, bool, bool, List[str]]:
     """Compare two PdfTolerance objects by absolute limits.
 
@@ -186,19 +186,20 @@ def _parse_inline_plus_minus(text: str) -> Optional[Tuple[float, float, float]]:
         (nominal, upper_limit, lower_limit)
     """
 
-    # Match things like: 8.0 ± 0.1 OR 8.0 +/- 0.1
-    pm_re = re.compile(
-        r"[^0-9+-]*"
-        r"(?P<nom>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*"
-        r"(?:±|\+/-)\s*"
-        r"(?P<tol>(?:\d+(?:\.\d*)?|\.\d+))"
-    )
-    m = pm_re.search(text)
-    if not m:
+    marker = re.search(r"±|\+/-", text)
+    if marker is None:
         return None
 
-    nominal = float(m.group("nom"))
-    tol = float(m.group("tol"))
+    left_numbers = _extract_numbers(text[: marker.start()])
+    right_numbers = _extract_numbers(text[marker.end() :])
+    if not left_numbers or not right_numbers:
+        return None
+
+    # Use the last numeric before the tolerance marker as the nominal so
+    # prefixes like "2X" or "Ø" do not steal the parse from leading-decimal
+    # dimensions such as "Ø.438 ±.005".
+    nominal = left_numbers[-1]
+    tol = abs(right_numbers[0])
     return (nominal, nominal + tol, nominal - tol)
 
 
