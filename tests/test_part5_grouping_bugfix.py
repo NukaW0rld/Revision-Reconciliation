@@ -1,7 +1,7 @@
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics
-from delta_preservation.reconcile.match import Match, generate_candidates
+from delta_preservation.reconcile.match import Candidate, Match, assign_matches, generate_candidates
 from delta_preservation.reconcile.normalize import extract_semantic_callout
 
 
@@ -38,6 +38,23 @@ def _anchor(requirement_raw: str, char_no: int = 1, x0: float = 10.0, y0: float 
 
 def _span_key(span: TextSpan):
     return (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+
+
+def _candidate(span: TextSpan, *, total_score: float, location_score: float, source_span_keys: list[tuple] | None = None,
+               from_global_fallback: bool = False) -> Candidate:
+    return Candidate(
+        span=span,
+        total_score=total_score,
+        location_score=location_score,
+        text_score=0.5,
+        context_score=0.0,
+        reasons=[
+            f"location_score={location_score:.3f}",
+            f"from_global_fallback={from_global_fallback}",
+        ],
+        from_global_fallback=from_global_fallback,
+        source_span_keys=source_span_keys or [_span_key(span)],
+    )
 
 
 def test_generate_candidates_groups_split_limit_callout_before_matching():
@@ -139,3 +156,88 @@ def test_generate_candidates_groups_diameter_with_split_tolerances_for_moved_ann
     assert "Ø20" in best.span.text
     assert "+0.05" in best.span.text
     assert "-0.1" in best.span.text
+
+
+def test_assign_matches_prefers_stronger_local_owner_for_same_grouped_source_span_set():
+    owner_anchor = _anchor("Ø35 +0.2/-0.2", char_no=1, x0=480.0, y0=72.0)
+    removed_anchor = _anchor("Ø35 +0/-0.2", char_no=4, x0=350.0, y0=320.0)
+    grouped_span = _span("35.2 Ø 34.8", block_id=45, line_id=0, span_id=0, x0=490.0, y0=74.0, width=45)
+    grouped_source_span_keys = [
+        (45, 0, 0, (490.0, 74.0, 535.0, 82.0)),
+        (45, 1, 0, (498.0, 64.0, 520.0, 72.0)),
+        (46, 0, 0, (498.0, 84.0, 520.0, 92.0)),
+    ]
+
+    stronger_local_owner = _candidate(
+        grouped_span,
+        total_score=0.58,
+        location_score=0.94,
+        source_span_keys=grouped_source_span_keys,
+    )
+    weaker_but_higher_total = _candidate(
+        grouped_span,
+        total_score=0.64,
+        location_score=0.41,
+        source_span_keys=grouped_source_span_keys,
+    )
+
+    matches = assign_matches(
+        [owner_anchor, removed_anchor],
+        {
+            1: [stronger_local_owner],
+            4: [weaker_but_higher_total],
+        },
+    )
+
+    assert 1 in matches, (
+        "Expected owning char_no=1 to keep grouped span via stronger local ownership; "
+        f"got match keys={set(matches)}"
+    )
+    assert matches[1].candidate is stronger_local_owner, (
+        "Expected grouped span owner char_no=1 to win same-source-span collision; "
+        f"got candidate reasons={matches[1].candidate.reasons}"
+    )
+    assert 4 not in matches, (
+        "Expected removed competitor char_no=4 to remain unmatched on grouped source-span collision; "
+        f"got match keys={set(matches)}, owner_reasons={stronger_local_owner.reasons}, "
+        f"competitor_reasons={weaker_but_higher_total.reasons}"
+    )
+
+
+
+def test_same_source_span_tiebreak_does_not_break_true_combined_annotation_sharing():
+    depth_anchor = _anchor("10", char_no=21, x0=100.0, y0=100.0)
+    angle_anchor = _anchor("90°", char_no=22, x0=180.0, y0=180.0)
+    combined_span = _span("10 x 90°", block_id=60, line_id=0, span_id=0, x0=102.0, y0=102.0, width=38)
+    combined_source_span_keys = [
+        (60, 0, 0, (102.0, 102.0, 140.0, 110.0)),
+        (60, 0, 1, (142.0, 102.0, 154.0, 110.0)),
+    ]
+
+    better_local_owner = _candidate(
+        combined_span,
+        total_score=0.57,
+        location_score=0.92,
+        source_span_keys=combined_source_span_keys,
+    )
+    second_characteristic = _candidate(
+        combined_span,
+        total_score=0.61,
+        location_score=0.35,
+        source_span_keys=combined_source_span_keys,
+    )
+
+    matches = assign_matches(
+        [depth_anchor, angle_anchor],
+        {
+            21: [better_local_owner],
+            22: [second_characteristic],
+        },
+    )
+
+    assert 21 in matches, "Expected first characteristic to claim combined annotation in greedy pass"
+    assert 22 in matches, (
+        "Expected shared-span fallback to keep true combined annotation reusable after same-source-span tie-break; "
+        f"got match keys={set(matches)}"
+    )
+    assert matches[22].candidate is second_characteristic

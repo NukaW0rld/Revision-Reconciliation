@@ -776,6 +776,43 @@ def assign_matches(
     # Sort edges by total_score descending
     edges.sort(key=lambda e: e[0], reverse=True)
 
+    # Pre-compute which span keys have at least one non-global-fallback claimant.
+    # A global-fallback-only edge must not steal a span that a local candidate
+    # already claims, regardless of score order.  This is the Part 3-style
+    # wrong-copy guard: a removed anchor (whose candidates are all from the
+    # page-wide fallback pool) cannot displace a surviving anchor that has a
+    # legitimate local candidate for the same annotation span.
+    span_keys_with_local_claimant: set = set()
+    for _score, _char_no, _span_key, _cand in edges:
+        if not _cand.from_global_fallback:
+            span_keys_with_local_claimant.add(_span_key)
+
+    # For direct same-source-span collisions, prefer the anchor with the strongest
+    # local ownership signal rather than whichever edge happens to have the highest
+    # total score.  This is intentionally scoped to identical grouped source-span
+    # sets so the later shared-span fallback still handles genuine combined
+    # annotations (e.g. one callout encoding two different characteristics).
+    source_span_claims: dict[tuple, list[tuple[int, Candidate]]] = {}
+    for _score, _char_no, _span_key, _cand in edges:
+        source_key = tuple(sorted(_cand.source_span_keys or [_span_key]))
+        source_span_claims.setdefault(source_key, []).append((_char_no, _cand))
+
+    preferred_owner_by_source_span_keys: dict[tuple, int] = {}
+    for source_key, claims in source_span_claims.items():
+        claimant_chars = {claim_char_no for claim_char_no, _claim_cand in claims}
+        if len(claimant_chars) <= 1:
+            continue
+        owner_char_no, _owner_candidate = max(
+            claims,
+            key=lambda item: (
+                not item[1].from_global_fallback,
+                item[1].location_score,
+                item[1].total_score,
+                -item[0],
+            ),
+        )
+        preferred_owner_by_source_span_keys[source_key] = owner_char_no
+
     # Greedy assignment
     assigned_chars = set()
     used_spans = set()
@@ -799,10 +836,23 @@ def assign_matches(
         has_primary_reason = any("primary=" in r or "Primary dimension matches" in r for r in candidate.reasons)
         if total_score < MIN_WEAK_MATCH_SCORE and not has_primary_reason and len(candidate_numerics) <= 1:
             continue
+        # Wrong-copy guard: a global-fallback-only candidate must not steal a span
+        # that already has a stronger local claimant.  If the target span key is in
+        # span_keys_with_local_claimant and this edge is from the global fallback
+        # pool, skip it — the local claimant will win on its own turn in the sorted
+        # edge list.  This prevents removed anchors (no local candidate) from
+        # displacing surviving anchors whose annotation happens to share the same
+        # repeated text (Part 3-style wrong-copy failure).
+        if candidate.from_global_fallback and span_key in span_keys_with_local_claimant:
+            continue
+        candidate_source_keys = tuple(sorted(candidate.source_span_keys or [span_key]))
+        preferred_owner = preferred_owner_by_source_span_keys.get(candidate_source_keys)
+        if preferred_owner is not None and preferred_owner != char_no:
+            continue
         # Accept edge only if both char_no and span are available
         if char_no not in assigned_chars and span_key not in used_spans:
-            candidate_source_keys = set(candidate.source_span_keys or [span_key])
-            if candidate_source_keys & used_source_span_keys:
+            candidate_source_keys_set = set(candidate.source_span_keys or [span_key])
+            if candidate_source_keys_set & used_source_span_keys:
                 continue
             matches[char_no] = Match(
                 char_no=char_no,
@@ -811,7 +861,7 @@ def assign_matches(
             )
             assigned_chars.add(char_no)
             used_spans.add(span_key)
-            used_source_span_keys.update(candidate_source_keys)
+            used_source_span_keys.update(candidate_source_keys_set)
 
     # Shared-span fallback: handle combined annotation spans that encode multiple
     # characteristics (e.g., "10 x 90°" for countersink depth=10 AND angle=90°).
