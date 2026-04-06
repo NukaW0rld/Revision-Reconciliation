@@ -241,3 +241,38 @@ def test_same_source_span_tiebreak_does_not_break_true_combined_annotation_shari
         f"got match keys={set(matches)}"
     )
     assert matches[22].candidate is second_characteristic
+
+
+def test_generate_candidates_keeps_chained_part6_position_frame_local_to_one_fcf():
+    anchor = _anchor("⌖ ⌀.05 Ⓜ A B C", char_no=30)
+    spans = [
+        _span("⌖", block_id=70, line_id=0, span_id=0, x0=10.0, y0=10.0, width=8.0),
+        _span("⌀.05", block_id=70, line_id=0, span_id=1, x0=22.0, y0=10.0, width=20.0),
+        _span("Ⓜ", block_id=71, line_id=0, span_id=0, x0=44.0, y0=10.0, width=8.0),
+        _span("A", block_id=71, line_id=0, span_id=1, x0=56.0, y0=10.0, width=8.0),
+        _span("B", block_id=72, line_id=0, span_id=0, x0=68.0, y0=10.0, width=8.0),
+        _span("C", block_id=72, line_id=0, span_id=1, x0=80.0, y0=10.0, width=8.0),
+        _span("4X", block_id=73, line_id=0, span_id=0, x0=118.0, y0=10.0, width=12.0),
+        _span("Ø.625", block_id=73, line_id=0, span_id=1, x0=132.0, y0=10.0, width=24.0),
+    ]
+
+    semantic_by_key = {_span_key(s): extract_semantic_callout(pdf_spans=[s]) for s in spans}
+    anchor_semantic = extract_semantic_callout(pdf_spans=[], form3_requirement=anchor.requirement_raw)
+    candidates = generate_candidates(
+        anchor,
+        spans,
+        _Transform(),
+        anchor_semantic_callout=anchor_semantic,
+        revB_semantic_callouts_by_span_key=semantic_by_key,
+    )
+
+    assert candidates, "expected grouped candidate for the chained Part 6 FCF"
+    source_texts = [span.text for span in candidates[0].span.source_spans]
+    assert source_texts == ["⌖", "⌀.05", "Ⓜ", "A", "B", "C"], (
+        "Expected matcher grouping to keep the full chained FCF companions from the Part 6 shape; "
+        f"got {source_texts}"
+    )
+    assert "4X" not in source_texts and "Ø.625" not in source_texts, (
+        "Expected chained closure to stay local to one FCF instead of swallowing the neighboring diameter callout; "
+        f"got {source_texts}"
+    )

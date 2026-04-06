@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 
 from delta_preservation.io.pdf import TextSpan
+from delta_preservation.reconcile.match import GroupedSpan
 
 
 class _FakeDoc:
@@ -755,3 +756,87 @@ def test_run_pipeline_persists_weld_semantic_callouts_in_delta_packet(tmp_path):
     assert "gdt" not in semantic
     assert "surface_finish" not in semantic
     assert "fit" not in semantic
+
+
+def test_run_pipeline_packet_keeps_full_part6_semantic_text_when_classification_already_trusted_it(tmp_path):
+    from delta_preservation.cli import run_pipeline
+
+    revA = tmp_path / "revA.pdf"
+    revB = tmp_path / "revB.pdf"
+    form3 = tmp_path / "form3.xlsx"
+    revA.write_bytes(b"%PDF-1.4")
+    revB.write_bytes(b"%PDF-1.4")
+    form3.write_bytes(b"PK")
+
+    anchor = _FakeAnchor(char_no=10, requirement_raw="⌖ ⌀.050 Ⓜ D B C")
+    symbol_span = _span("⌖", block_id=12, line_id=0, span_id=0, x0=10.0, y0=10.0)
+    tolerance_span = _span("⌀.050", block_id=12, line_id=0, span_id=1, x0=22.0, y0=10.0)
+    modifier_span = _span("Ⓜ", block_id=12, line_id=0, span_id=2, x0=46.0, y0=10.0)
+    datum_d_span = _span("D", block_id=12, line_id=0, span_id=3, x0=58.0, y0=10.0)
+    datum_b_span = _span("B", block_id=12, line_id=0, span_id=4, x0=68.0, y0=10.0)
+    datum_c_span = _span("C", block_id=12, line_id=0, span_id=5, x0=78.0, y0=10.0)
+    partial_group = GroupedSpan(
+        text="⌖ ⌀.050",
+        bbox_pdf=(10.0, 10.0, 42.0, 18.0),
+        font_size=10.0,
+        block_id=12,
+        line_id=0,
+        span_id=0,
+        source_spans=[symbol_span, tolerance_span],
+    )
+
+    classified_item = _FakeInternalDeltaItem(
+        char_no=10,
+        status="unchanged",
+        confidence=0.9,
+        reasons=[
+            "semantic GD&T match: control type position, tolerance ⌀.050, datums D/B/C, modifiers MMC",
+            "Semantic family agreement overrides formatting-only numeric/text variation",
+        ],
+        component_scores={"location": 0.9, "text": 0.9, "context": 0.9},
+        match=_FakeMatch(partial_group),
+    )
+
+    render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+
+    def fake_extract_text_spans(pdf_path, page_index=0):
+        name = Path(pdf_path).name
+        if name == "revA.pdf":
+            return [_span("FORM3 ANCHOR", block_id=0, line_id=0, span_id=0, x0=12.0, y0=12.0)]
+        return [datum_b_span, datum_c_span, datum_d_span, modifier_span, tolerance_span, symbol_span]
+
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=10, requirement="⌖ ⌀.050 Ⓜ D B C")]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 10}]), \
+         patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
+         patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
+         patch("delta_preservation.cli.render_page", return_value=render_stub), \
+         patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
+         patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
+         patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(partial_group)]), \
+         patch("delta_preservation.cli.assign_matches", return_value={10: _FakeMatch(partial_group)}), \
+         patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
+         patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
+         patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
+         patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
+         patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
+         patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
+        run_dir = run_pipeline(
+            revA_pdf=str(revA),
+            revB_pdf=str(revB),
+            form3_xlsx=str(form3),
+            out_dir=str(tmp_path / "out"),
+            part_name="semantic-packet-gdt-closure",
+        )
+
+    packet = json.loads((run_dir / "delta_packet.json").read_text())
+    item = packet["items"][0]
+    semantic = item["semantic_callout"]
+
+    assert item["reasons"][0].startswith("semantic GD&T match")
+    assert item["requirement_revB"] == "⌖ ⌀.050 Ⓜ D B C"
+    assert semantic["raw_text"] == "⌖ ⌀.050 Ⓜ D B C", (
+        "Expected packet semantic text to stay aligned with the full Part 6 FCF that classification already trusted; "
+        f"got {semantic['raw_text']}"
+    )

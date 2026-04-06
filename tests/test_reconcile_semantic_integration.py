@@ -161,3 +161,41 @@ def test_reconcile_semantic_integration_fallback_to_numeric_reasoning_when_seman
     assert delta.status == "unchanged"
     assert any("semantic comparison fallback" in reason for reason in delta.reasons)
     assert any("Primary dimension matches" in reason for reason in delta.reasons)
+
+
+def test_reconcile_semantic_integration_keeps_part5_trailing_datum_frame_unchanged():
+    anchor = _anchor("⟂ 1.5 A")
+    spans = [
+        _span("⟂", block_id=40, line_id=0, span_id=0, x0=10.0, y0=10.0, width=8.0),
+        _span("1.5", block_id=40, line_id=0, span_id=1, x0=22.0, y0=10.0, width=12.0),
+        _span("A", block_id=41, line_id=0, span_id=0, x0=58.0, y0=10.0, width=8.0),
+    ]
+    semantic_by_key = {_span_key(span): extract_semantic_callout(pdf_spans=[span]) for span in spans}
+    anchor_semantic = extract_semantic_callout(pdf_spans=[], form3_requirement=anchor.requirement_raw)
+
+    candidates = generate_candidates(
+        anchor,
+        spans,
+        _Transform(),
+        anchor_semantic_callout=anchor_semantic,
+        revB_semantic_callouts_by_span_key=semantic_by_key,
+    )
+
+    assert candidates, "expected grouped candidate for the Part 5 trailing datum regression"
+    matched_spans = getattr(candidates[0].span, "source_spans", None) or [candidates[0].span]
+    matched_semantic = extract_semantic_callout(pdf_spans=matched_spans)
+    delta = classify_delta(
+        anchor,
+        Match(char_no=anchor.char_no, candidate=candidates[0]),
+        anchor_semantic_callout=anchor_semantic,
+        matched_semantic_callout=matched_semantic,
+    )
+
+    assert matched_semantic.status.parser_family == "gdt"
+    assert matched_semantic.gdt is not None
+    assert matched_semantic.gdt.datum_refs == ["A"], (
+        "Expected semantic extraction to keep the trailing datum seen in Part 5 char 12; "
+        f"got {matched_semantic.gdt.datum_refs if matched_semantic.gdt else None}"
+    )
+    assert delta.status == "unchanged"
+    assert any("semantic GD&T match" in reason for reason in delta.reasons)

@@ -7,6 +7,7 @@ import numpy as np
 
 from delta_preservation.cli import _format_annotation_text, run_pipeline
 from delta_preservation.io.pdf import TextSpan
+from delta_preservation.reconcile.match import GroupedSpan
 
 
 class _FakeTransform:
@@ -222,3 +223,79 @@ def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
     packet = json.loads((run_dir / "delta_packet.json").read_text())
     row = packet["items"][0]
     assert row["requirement_revB"] == "NOTES: 1. FIRST NOTE 2. SECOND NOTE"
+
+
+def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_companions_arrive_out_of_order(tmp_path):
+    revA = tmp_path / "revA.pdf"
+    revB = tmp_path / "revB.pdf"
+    form3 = tmp_path / "form3.xlsx"
+    revA.write_bytes(b"%PDF-1.4")
+    revB.write_bytes(b"%PDF-1.4")
+    form3.write_bytes(b"PK")
+
+    anchor = _FakeAnchor(char_no=4, requirement_raw="⌖ ⌀.05 Ⓜ A B C")
+    symbol_span = _span("⌖", x0=10.0, y0=10.0, width=8.0, block_id=10, span_id=0)
+    tolerance_span = _span("⌀.05", x0=22.0, y0=10.0, width=20.0, block_id=10, span_id=1)
+    modifier_span = _span("Ⓜ", x0=44.0, y0=10.0, width=8.0, block_id=10, span_id=2)
+    datum_a_span = _span("A", x0=56.0, y0=10.0, width=8.0, block_id=10, span_id=3)
+    datum_b_span = _span("B", x0=66.0, y0=10.0, width=8.0, block_id=10, span_id=4)
+    datum_c_span = _span("C", x0=76.0, y0=10.0, width=8.0, block_id=10, span_id=5)
+    partial_group = GroupedSpan(
+        text="⌖ ⌀.05",
+        bbox_pdf=(10.0, 10.0, 42.0, 18.0),
+        font_size=10.0,
+        block_id=10,
+        line_id=0,
+        span_id=0,
+        source_spans=[symbol_span, tolerance_span],
+    )
+
+    classified_item = _FakeInternalDeltaItem(
+        char_no=4,
+        status="unchanged",
+        confidence=0.91,
+        reasons=["semantic GD&T match: control type position, tolerance ⌀.05, datums A/B/C, modifiers MMC"],
+        component_scores={"location": 0.92, "text": 0.88, "context": 0.84},
+        match=_FakeMatch(partial_group),
+    )
+
+    render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+
+    def fake_extract_text_spans(pdf_path, page_index=0):
+        name = Path(pdf_path).name
+        if name == "revA.pdf":
+            return [_span("FORM3 ANCHOR", x0=10.0, y0=10.0, width=60.0, block_id=0, span_id=0)]
+        return [datum_b_span, datum_c_span, datum_a_span, modifier_span, tolerance_span, symbol_span]
+
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=4, requirement="⌖ ⌀.05 Ⓜ A B C")]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 4}]), \
+         patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
+         patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
+         patch("delta_preservation.cli.render_page", return_value=render_stub), \
+         patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
+         patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
+         patch("delta_preservation.cli.estimate_transform_candidates_from_text_spans", return_value=[]), \
+         patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(partial_group)]), \
+         patch("delta_preservation.cli.assign_matches", return_value={4: _FakeMatch(partial_group)}), \
+         patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
+         patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
+         patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
+         patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
+         patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
+         patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
+        run_dir = run_pipeline(
+            revA_pdf=str(revA),
+            revB_pdf=str(revB),
+            form3_xlsx=str(form3),
+            out_dir=str(tmp_path / "out"),
+            part_name="output-format-gdt-closure",
+        )
+
+    packet = json.loads((run_dir / "delta_packet.json").read_text())
+    row = packet["items"][0]
+    assert row["requirement_revB"] == "⌖ ⌀.05 Ⓜ A B C", (
+        "Expected reviewer-facing requirement_revB to keep the full Part 6 FCF companions even when spans arrive out of order; "
+        f"got {row['requirement_revB']}"
+    )
