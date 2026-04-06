@@ -108,6 +108,78 @@ def _span_key(span: TextSpan | GroupedSpan) -> tuple:
     )
 
 
+_GDT_CONTROL_CHARS = frozenset("⌖⌒⟂⊙⌓⏥∥∠↧")
+_GDT_COMPANION_CHARS = _GDT_CONTROL_CHARS | frozenset("Ø⌀RⓂⓁⓅ")
+_GDT_MODIFIER_TOKENS = frozenset({"M", "L", "P", "MMC", "LMC", "RFS"})
+
+
+def _normalize_span_text(text: str) -> str:
+    return " ".join(text.strip().upper().split())
+
+
+def _span_has_numeric_payload(text: str) -> bool:
+    return bool(re.search(r"\d|[+\-±]", text))
+
+
+def _looks_like_gdt_fragment(text: str) -> bool:
+    normalized = _normalize_span_text(text)
+    if not normalized:
+        return False
+    if any(ch in text for ch in _GDT_COMPANION_CHARS):
+        return True
+    if normalized in _GDT_MODIFIER_TOKENS:
+        return True
+    if re.fullmatch(r"[A-HJ-NP-Z]", normalized):
+        return True
+    return False
+
+
+def _horizontal_gap(a: TextSpan, b: TextSpan) -> float:
+    ax0, _ay0, ax1, _ay1 = a.bbox_pdf
+    bx0, _by0, bx1, _by1 = b.bbox_pdf
+    if bx0 > ax1:
+        return bx0 - ax1
+    if ax0 > bx1:
+        return ax0 - bx1
+    return 0.0
+
+
+def _spans_are_companions(base: TextSpan, other: TextSpan) -> bool:
+    bx0, by0, bx1, by1 = base.bbox_pdf
+    ox0, oy0, ox1, oy1 = other.bbox_pdf
+    bcx = (bx0 + bx1) / 2
+    bcy = (by0 + by1) / 2
+    ocx = (ox0 + ox1) / 2
+    ocy = (oy0 + oy1) / 2
+    base_h = max(1.0, by1 - by0)
+    other_h = max(1.0, oy1 - oy0)
+
+    same_row = abs(ocy - bcy) <= max(10.0, 0.75 * max(base_h, other_h))
+    horiz_gap = _horizontal_gap(base, other)
+    center_dx = abs(ocx - bcx)
+    center_dy = abs(ocy - bcy)
+    pair_is_gdt = _looks_like_gdt_fragment(base.text) or _looks_like_gdt_fragment(other.text)
+    either_has_numeric_payload = _span_has_numeric_payload(base.text) or _span_has_numeric_payload(other.text)
+
+    close_horiz_limit = 28.0 if pair_is_gdt else 20.0
+    center_dx_limit = 32.0 if pair_is_gdt else 28.0
+    stacked_dx_limit = 18.0 if pair_is_gdt else 14.0
+    stacked_dy_limit = 18.0 if pair_is_gdt else 14.0
+
+    if same_row and (horiz_gap <= close_horiz_limit or center_dx <= center_dx_limit):
+        if pair_is_gdt or either_has_numeric_payload:
+            return True
+
+    if (
+        abs(ocx - bcx) <= stacked_dx_limit
+        and 0.0 < center_dy <= stacked_dy_limit
+        and (pair_is_gdt or either_has_numeric_payload)
+    ):
+        return True
+
+    return False
+
+
 def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> GroupedSpan:
     """Merge nearby companion spans into one synthetic span for matching.
 
@@ -115,51 +187,41 @@ def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> Gr
     - diameter/radius symbol split from numeric text
     - stacked limits/tolerances above and below the nominal
     - GD&T symbol/value/datum fragments on the same row
+
+    Grouping walks companion relationships to a fixed point so multi-hop local
+    chains (e.g. symbol → tolerance → modifier → datum) stay intact without
+    weakening assign_matches() ownership heuristics.
     """
     included: List[TextSpan] = [seed_span]
+    seen = {_span_key(seed_span)}
+    queue: List[TextSpan] = [seed_span]
     bbox = seed_span.bbox_pdf
-    sx0, sy0, sx1, sy1 = seed_span.bbox_pdf
-    scx = (sx0 + sx1) / 2
-    scy = (sy0 + sy1) / 2
-    seed_h = max(1.0, sy1 - sy0)
 
-    for other in all_spans:
-        if other is seed_span:
-            continue
-        ox0, oy0, ox1, oy1 = other.bbox_pdf
-        ocx = (ox0 + ox1) / 2
-        ocy = (oy0 + oy1) / 2
-        other_h = max(1.0, oy1 - oy0)
-
-        same_row = abs(ocy - scy) <= max(10.0, 0.75 * max(seed_h, other_h))
-        close_horiz = abs(ox0 - sx1) <= 20.0 or abs(sx0 - ox1) <= 20.0 or abs(ocx - scx) <= 28.0
-        stacked_same_x = abs(ocx - scx) <= 14.0 and 0.0 < abs(ocy - scy) <= 14.0
-        nearby_symbol = abs(ocy - scy) <= 14.0 and (0 <= sx0 - ox1 <= 30.0 or 0 <= ox0 - sx1 <= 30.0)
-
-        if same_row and close_horiz:
+    while queue:
+        current = queue.pop(0)
+        for other in all_spans:
+            if other is current:
+                continue
+            other_key = _span_key(other)
+            if other_key in seen:
+                continue
+            if not _spans_are_companions(current, other):
+                continue
             included.append(other)
-            bbox = union_bbox(bbox, other.bbox_pdf)
-            continue
-
-        if stacked_same_x:
-            included.append(other)
-            bbox = union_bbox(bbox, other.bbox_pdf)
-            continue
-
-        if nearby_symbol and any(sym in other.text for sym in ("Ø", "⟂", "⌓", "⏥", "⌖", "⌒", "↧", "R")):
-            included.append(other)
+            seen.add(other_key)
+            queue.append(other)
             bbox = union_bbox(bbox, other.bbox_pdf)
 
-    unique_spans = []
-    seen = set()
-    for span in included:
-        key = _span_key(span)
-        if key in seen:
-            continue
-        seen.add(key)
-        unique_spans.append(span)
-
-    unique_spans.sort(key=lambda s: ((s.bbox_pdf[1] + s.bbox_pdf[3]) / 2, s.bbox_pdf[0], s.block_id, s.line_id, s.span_id))
+    unique_spans = sorted(
+        included,
+        key=lambda s: (
+            (s.bbox_pdf[1] + s.bbox_pdf[3]) / 2,
+            s.bbox_pdf[0],
+            s.block_id,
+            s.line_id,
+            s.span_id,
+        ),
+    )
     text = " ".join(s.text.strip() for s in unique_spans if s.text.strip())
     avg_font = sum(s.font_size for s in unique_spans) / max(1, len(unique_spans))
 

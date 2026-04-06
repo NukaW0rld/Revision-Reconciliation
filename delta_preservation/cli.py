@@ -43,7 +43,7 @@ from delta_preservation.vision.bbox_utils import (
     expand_notes_block
 )
 from delta_preservation.reconcile.anchors import build_revA_anchors
-from delta_preservation.reconcile.match import generate_candidates, assign_matches, refine_match_display_text
+from delta_preservation.reconcile.match import _group_candidate_spans, generate_candidates, assign_matches, refine_match_display_text
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
@@ -68,6 +68,33 @@ def _dedupe_spans(spans: List[TextSpan]) -> List[TextSpan]:
         seen.add(key)
         unique.append(span)
     return unique
+
+
+def _expand_grouped_annotation_spans(base_spans: List[TextSpan], all_spans: List[TextSpan]) -> List[TextSpan]:
+    """Rebuild local companion closure for reviewer-facing packet assembly.
+
+    The matcher normally emits GroupedSpan.source_spans, but downstream tests may
+    inject a partial grouped span to prove packet assembly can still recover the
+    full local annotation from page spans. Walk closure from each base span and
+    return a deduped set in deterministic order.
+    """
+    expanded: List[TextSpan] = []
+    for span in base_spans:
+        grouped = _group_candidate_spans(span, all_spans)
+        expanded.extend(getattr(grouped, "source_spans", None) or [span])
+
+    ordered = _dedupe_spans(expanded)
+    ordered.sort(key=lambda span: (span.bbox_pdf[1], span.bbox_pdf[0], span.block_id, span.line_id, span.span_id))
+    return ordered
+
+
+def _spans_union_bbox(spans: List[TextSpan]) -> Optional[tuple[float, float, float, float]]:
+    if not spans:
+        return None
+    bbox = spans[0].bbox_pdf
+    for span in spans[1:]:
+        bbox = union_bbox(bbox, span.bbox_pdf)
+    return bbox
 
 
 def _spans_in_bbox(all_spans: List[TextSpan], bbox: tuple[float, float, float, float], tolerance: float = 2.0) -> List[TextSpan]:
@@ -581,7 +608,10 @@ def run_pipeline(
 
         if delta_internal.match is not None:
             span = delta_internal.match.candidate.span
-            base_bbox_b = span.bbox_pdf
+            base_spans = getattr(span, "source_spans", None) or [span]
+            if not is_notes_type_b:
+                base_spans = _expand_grouped_annotation_spans(list(base_spans), revB_text_spans)
+            base_bbox_b = _spans_union_bbox(base_spans) or span.bbox_pdf
 
             if is_notes_type_b:
                 # For notes blocks, expand vertically to include all numbered items
@@ -604,7 +634,6 @@ def run_pipeline(
                 # Use source_spans from GroupedSpan if available — individual PDF
                 # spans preserve font/position info needed for proper text ordering
                 # (e.g., GD&T symbol span before numeric span).
-                base_spans = getattr(span, "source_spans", None) or [span]
                 base_bboxes = {s.bbox_pdf for s in base_spans}
                 revB_annotation_spans = list(base_spans) + [
                     s for s in expanded.included_spans
@@ -727,7 +756,9 @@ def run_pipeline(
             semantic_pdf_spans = []
             form3_requirement = anchor.requirement_raw if anchor is not None else None
 
-            if delta_internal.match is not None:
+            if revB_annotation_spans:
+                semantic_pdf_spans = revB_annotation_spans
+            elif delta_internal.match is not None:
                 semantic_pdf_spans = [delta_internal.match.candidate.span]
             elif delta_internal.added_span is not None:
                 semantic_pdf_spans = [delta_internal.added_span]
@@ -735,6 +766,11 @@ def run_pipeline(
             semantic_callout = extract_semantic_callout(
                 pdf_spans=semantic_pdf_spans,
                 form3_requirement=form3_requirement,
+            )
+        elif revB_annotation_spans and delta_internal.match is not None:
+            semantic_callout = extract_semantic_callout(
+                pdf_spans=revB_annotation_spans,
+                form3_requirement=anchor.requirement_raw if anchor is not None else None,
             )
 
         # Extract Rev B annotation text.

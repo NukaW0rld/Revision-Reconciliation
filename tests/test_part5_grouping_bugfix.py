@@ -1,7 +1,7 @@
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics
-from delta_preservation.reconcile.match import Candidate, Match, assign_matches, generate_candidates
+from delta_preservation.reconcile.match import Candidate, Match, _group_candidate_spans, assign_matches, generate_candidates
 from delta_preservation.reconcile.normalize import extract_semantic_callout
 
 
@@ -276,3 +276,22 @@ def test_generate_candidates_keeps_chained_part6_position_frame_local_to_one_fcf
         "Expected chained closure to stay local to one FCF instead of swallowing the neighboring diameter callout; "
         f"got {source_texts}"
     )
+
+
+
+def test_group_candidate_spans_walks_transitive_gdt_chain_from_middle_seed_in_sorted_order():
+    spans = [
+        _span("⌖", block_id=80, line_id=0, span_id=0, x0=10.0, y0=10.0, width=8.0),
+        _span("⌀.05", block_id=80, line_id=0, span_id=1, x0=22.0, y0=10.0, width=20.0),
+        _span("Ⓜ", block_id=81, line_id=0, span_id=0, x0=44.0, y0=10.0, width=8.0),
+        _span("A", block_id=81, line_id=0, span_id=1, x0=56.0, y0=10.0, width=8.0),
+        _span("B", block_id=82, line_id=0, span_id=0, x0=68.0, y0=10.0, width=8.0),
+        _span("C", block_id=82, line_id=0, span_id=1, x0=80.0, y0=10.0, width=8.0),
+        _span("4X", block_id=83, line_id=0, span_id=0, x0=118.0, y0=10.0, width=12.0),
+    ]
+
+    grouped = _group_candidate_spans(spans[1], spans)
+
+    assert [span.text for span in grouped.source_spans] == ["⌖", "⌀.05", "Ⓜ", "A", "B", "C"]
+    assert grouped.text == "⌖ ⌀.05 Ⓜ A B C"
+
