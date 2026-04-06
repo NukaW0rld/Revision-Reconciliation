@@ -132,12 +132,12 @@ def _format_annotation_text(spans: List[TextSpan], fallback_text: Optional[str] 
         prefix = " ".join(prefix_tokens).strip()
         core_tokens = [token for token in row_tokens if token not in prefix_tokens]
 
-        leading_symbols = [token for token in core_tokens if token in _REORDER_SYMBOLS]
+        leading_symbols = [token for token in core_tokens if token in _REORDER_SYMBOLS or any(c in token for c in _REORDER_SYMBOLS)]
         trailing_tokens = [token for token in core_tokens if token not in leading_symbols]
 
-        if any(token in _GDT_SYMBOLS for token in core_tokens):
-            gdt = [token for token in core_tokens if token in _GDT_SYMBOLS]
-            trailing_tokens = [token for token in core_tokens if token not in _GDT_SYMBOLS]
+        if any(any(c in token for c in _GDT_SYMBOLS) for token in core_tokens):
+            gdt = [token for token in core_tokens if any(c in token for c in _GDT_SYMBOLS)]
+            trailing_tokens = [token for token in core_tokens if not any(c in token for c in _GDT_SYMBOLS)]
             row_text = " ".join(gdt + trailing_tokens)
         elif leading_symbols and trailing_tokens:
             row_text = " ".join(leading_symbols + trailing_tokens)
@@ -401,8 +401,11 @@ def run_pipeline(
         matched_semantic_callout = None
         if match_or_none is not None:
             matched_span = match_or_none.candidate.span
+            # Use source_spans from GroupedSpan if available — individual PDF
+            # spans preserve proper text ordering for GD&T symbol recognition.
+            semantic_spans = getattr(matched_span, "source_spans", None) or [matched_span]
             matched_semantic_callout = extract_semantic_callout(
-                pdf_spans=[matched_span],
+                pdf_spans=semantic_spans,
                 form3_requirement=anchor.requirement_raw,
             )
             revB_semantic_callouts_by_span_key[
@@ -598,9 +601,14 @@ def run_pipeline(
                     max_horizontal_expansion=150.0  # ~2 inch max expansion
                 )
                 revB_bbox_pdf = expanded.bbox
-                revB_annotation_spans = [span] + [
+                # Use source_spans from GroupedSpan if available — individual PDF
+                # spans preserve font/position info needed for proper text ordering
+                # (e.g., GD&T symbol span before numeric span).
+                base_spans = getattr(span, "source_spans", None) or [span]
+                base_bboxes = {s.bbox_pdf for s in base_spans}
+                revB_annotation_spans = list(base_spans) + [
                     s for s in expanded.included_spans
-                    if s.bbox_pdf != span.bbox_pdf
+                    if s.bbox_pdf not in base_bboxes
                 ]
 
         elif delta_internal.added_span is not None:

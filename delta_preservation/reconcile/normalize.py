@@ -71,7 +71,7 @@ class ParsedFitCallout:
 # ---------------------------------------------------------------------------
 
 # GD&T feature-control-frame anchor symbols (appear as the first token)
-_GDT_ANCHOR_RE = re.compile(r"^[⌖⌒⟂⊙⌓⏥∥∠]")
+_GDT_ANCHOR_RE = re.compile(r"^[⌖⌒⟂⊙⌓⏥∥∠]")  # Matches single-char or ligature like ⌖∅
 
 # Thread callout patterns (inch fractional, number-size, metric, pipe, bare class)
 _THREAD_CALLOUT_RE = re.compile(
@@ -331,6 +331,12 @@ def parse_requirement(requirement: str) -> MatchFingerprint:
 _GDT_CONTROL_MAP = {
     "⌖": "position",
     "⌒": "profile_of_a_line",
+    "⌓": "profile_of_a_surface",
+    "⟂": "perpendicularity",
+    "⏥": "flatness",
+    "∠": "angularity",
+    "∥": "parallelism",
+    "⊙": "concentricity",
 }
 
 _GDT_MODIFIER_MAP = {
@@ -339,9 +345,12 @@ _GDT_MODIFIER_MAP = {
     "L": "LMC",
     "LMC": "LMC",
     "P": "projected_tolerance_zone",
+    "Ⓜ": "MMC",
+    "Ⓛ": "LMC",
+    "Ⓢ": "RFS",
 }
 
-_GDT_TOLERANCE_RE = re.compile(r"^(?:⌀)?(?:\d+(?:\.\d+)?|\.\d+)$")
+_GDT_TOLERANCE_RE = re.compile(r"^(?:[⌀∅])?(?:\d+(?:\.\d+)?|\.\d+)$")
 _GDT_DATUM_RE = re.compile(r"^[A-Z](?:-[A-Z])?$")
 
 _WELD_PROCESS_PATTERNS = (
@@ -679,25 +688,58 @@ def _extract_semantic_payload(
 
 def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
     tokens = normalized_text.split()
+    # Strip pipe separators used in Form3 notation (e.g., "⌖ ∅.050 Ⓜ | A | B")
+    tokens = [t for t in tokens if t != "|"]
     if not tokens:
         return None
 
     control_symbol = tokens[0]
     control_type = _GDT_CONTROL_MAP.get(control_symbol)
+
+    # Handle combined symbol+diameter ligatures like "⌖∅" or "⟂∅":
+    # split the first char as control symbol, remainder prepended to next token.
+    if control_type is None and len(control_symbol) >= 2:
+        first_char = control_symbol[0]
+        control_type = _GDT_CONTROL_MAP.get(first_char)
+        if control_type is not None:
+            remainder = control_symbol[1:]  # e.g. "∅"
+            # Prepend remainder to the tolerance token
+            if len(tokens) >= 2:
+                tokens = [first_char, remainder + tokens[1]] + tokens[2:]
+            else:
+                tokens = [first_char, remainder]
+
     if control_type is None:
         return None
 
     if len(tokens) < 2:
         return "recognized GD&T control symbol but missing tolerance segment"
 
-    tolerance_token = tokens[1]
-    if not _is_gdt_tolerance_token(tolerance_token):
+    # Find the tolerance token — it may not be at index 1 if a modifier
+    # appears between the control symbol and tolerance (e.g., "⌖∅ Ⓛ .02 A B"
+    # from PDF span ordering where the modifier font sorts before the numeric).
+    tolerance_token = None
+    tolerance_idx = None
+    for idx in range(1, min(4, len(tokens))):
+        if _is_gdt_tolerance_token(tokens[idx]):
+            tolerance_token = tokens[idx]
+            tolerance_idx = idx
+            break
+
+    if tolerance_token is None:
         return "recognized GD&T control symbol but missing tolerance segment"
 
     modifiers: List[str] = []
     datum_refs: List[str] = []
 
-    for token in tokens[2:]:
+    # Process tokens before the tolerance (early modifiers)
+    for token in tokens[1:tolerance_idx]:
+        normalized_modifier = _GDT_MODIFIER_MAP.get(token)
+        if normalized_modifier:
+            modifiers.append(normalized_modifier)
+        # Skip other pre-tolerance tokens
+
+    for token in tokens[tolerance_idx + 1:]:
         normalized_modifier = _GDT_MODIFIER_MAP.get(token)
         if normalized_modifier:
             modifiers.append(normalized_modifier)
