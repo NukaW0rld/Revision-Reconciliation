@@ -194,12 +194,19 @@ _TITLE_BLOCK_CONTAINS = (
     "UNLESS OTHERWISE SPECIFIED",
     "INTERPRET DIMENSIONING AND TOLERANCING",
     "INTERPRET DRAWING PER",
+    "DO NOT SCALE",
+    "THIRD ANGLE",
+    "FIRST ANGLE",
+    "BREAK ALL SHARP",
+    "REMOVE BURRS",
+    "DIMENSIONS ARE IN",
 )
 
 _TITLE_BLOCK_PATTERNS = [
     re.compile(r"^\s*\.X+\s*=\s*"),           # .X = ±.050, .XX = ±.020
     re.compile(r"^\s*\d+\s+of\s+\d+\s*$"),    # "1 of 1", "2 of 3"
     re.compile(r"^(ANGULAR|FRACTIONAL)\s*="),  # ANGULAR = ±0.3°
+    re.compile(r"^\d+\.\s+(QTY|ALL DIMS|MATL|FINISH|BREAK|INTERPRET)"),  # Notes block items
 ]
 
 
@@ -385,6 +392,10 @@ def generate_candidates(
             if gkey in seen_group_keys:
                 continue
             seen_group_keys.add(gkey)
+            # Post-grouping boilerplate check: the grouped text may reveal
+            # notes-block items ("1. QTY: 2") that individual spans don't.
+            if _is_boilerplate_candidate_text(grouped.text):
+                continue
             candidate_pool.append((grouped, dist, span_cx, span_cy))
     
     # Apply detailed multi-component scoring to each candidate

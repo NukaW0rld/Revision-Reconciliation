@@ -216,6 +216,24 @@ def classify_delta(
     anchor_req_type = classify_requirement_type(anchor.requirement_raw)
     matched_req_type = classify_requirement_type(candidate.span.text)
     if are_requirement_types_incompatible(anchor_req_type, matched_req_type):
+        # When requirement types are incompatible AND location confidence is low,
+        # this is almost certainly a false match — classify as removed.
+        if location_score < 0.3:
+            return DeltaItem(
+                char_no=anchor.char_no,
+                status="removed",
+                confidence=min(0.75, location_search_coverage),
+                reasons=reasons + [
+                    f"Requirement type mismatch: Rev A is '{anchor_req_type}', Rev B is '{matched_req_type}'",
+                    "Low location confidence + type mismatch → likely removed",
+                ],
+                component_scores={
+                    "location": location_score,
+                    "text": 0.0,
+                    "context": context_score,
+                },
+                match=None,
+            )
         return DeltaItem(
             char_no=anchor.char_no,
             status="uncertain",
