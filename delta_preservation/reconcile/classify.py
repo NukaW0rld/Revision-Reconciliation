@@ -387,14 +387,47 @@ def classify_delta(
             reasons.append(f"Count added in Rev B: {matched_count} (was absent in Rev A)")
     elif primary_matches:
         # Primary dimension value matches - this is the key indicator of unchanged
-        # Even if tolerances differ or aren't visible in span, the main dimension is the same
-        status = "unchanged"
-        confidence = 0.4 * location_score + 0.5 * numeric_overlap + 0.1
-        reasons.append(f"Primary dimension matches: {anchor_primary}")
-        if numeric_overlap >= 0.5:
-            reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
-        if count_match and anchor_count:
-            reasons.append(f"Count tokens match: {anchor_count}")
+        # Even if tolerances differ or aren't visible in span, the main dimension is the same.
+        # However, if numeric overlap is low (≤65%), the differing numerics may be
+        # tolerance values that genuinely changed (e.g., ±.005 → ±.01).
+        tolerance_sized_diff = False
+        if numeric_overlap <= 0.65 and anchor_primary is not None and anchor_primary != 0:
+            differing_new = matched_numerics - anchor_numerics
+            differing_old = anchor_numerics - matched_numerics
+            # Only flag when the matched span has a NEW tolerance-sized value AND
+            # the anchor has a DIFFERENT tolerance-sized value that's been replaced.
+            # Both values must be within 5x of each other (same order of magnitude)
+            # to avoid false positives from notation mismatches (e.g., 0.10 vs 0.010).
+            tol_new = [v for v in differing_new if 0 < v <= 0.2 * anchor_primary]
+            tol_old = [v for v in differing_old if 0 < v <= 0.2 * anchor_primary]
+            if tol_new and tol_old:
+                # Check that the differing values are within 5x of each other
+                for nv in tol_new:
+                    for ov in tol_old:
+                        ratio = max(nv, ov) / min(nv, ov)
+                        if ratio <= 5.0:
+                            tolerance_sized_diff = True
+                            reasons.append(
+                                f"Tolerance-sized numeric differs: "
+                                f"anchor {sorted(anchor_numerics)}, matched {sorted(matched_numerics)}"
+                            )
+                            break
+                    if tolerance_sized_diff:
+                        break
+
+        if tolerance_sized_diff:
+            status = "changed"
+            confidence = max(0.65, 0.4 * location_score + 0.3 * numeric_overlap + 0.2)
+            reasons.append(f"Primary dimension matches: {anchor_primary}")
+            reasons.append("Tolerance value changed despite same primary dimension")
+        else:
+            status = "unchanged"
+            confidence = 0.4 * location_score + 0.5 * numeric_overlap + 0.1
+            reasons.append(f"Primary dimension matches: {anchor_primary}")
+            if numeric_overlap >= 0.5:
+                reasons.append(f"Numeric values match ({int(numeric_overlap*100)}% overlap)")
+            if count_match and anchor_count:
+                reasons.append(f"Count tokens match: {anchor_count}")
     elif numeric_overlap >= 0.5 and symbol_match:
         # Good numeric overlap with matching symbols.
         # However, the overlap may come purely from matching a shared tolerance value

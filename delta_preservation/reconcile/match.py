@@ -13,6 +13,7 @@ drawing revisions, even when layout changes significantly.
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 import math
+import re
 import numpy as np
 import cv2
 
@@ -173,6 +174,35 @@ def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> Gr
     )
 
 
+_TITLE_BLOCK_EXACT = frozenset({
+    "DATE", "TITLE", "NAME", "DRAWN", "CHECKED", "DESIGNED", "APPROVED",
+    "REV", "REV.", "REVISION", "MATERIAL", "MATERIALS", "FINISH",
+    "SCALE", "SHEET", "SIZE", "DWG NO.", "DWG NO", "WEIGHT",
+    "THIRD ANGLE PROJECTION", "FIRST ANGLE PROJECTION",
+    "DO NOT SCALE DRAWING", "DO NOT SCALE",
+    "BREAK ALL SHARP EDGES AND", "BREAK ALL SHARP EDGES", "REMOVE BURRS",
+    "DIMENSIONS ARE IN INCHES", "DIMENSIONS ARE IN MM",
+    "DIMENSIONS ARE IN MILLIMETERS",
+    "SURFACE FINISH", "PROPRIETARY", "CONFIDENTIAL",
+    "UNLESS OTHERWISE SPECIFIED", "UNLESS OTHERWISE SPECIFIED,",
+    "INTERPRET DRAWING PER", "INTERPRET DIMENSIONS PER",
+    "THIRD ANGLE", "DRAWING NO", "DRAWING NO.",
+    "MACHINING",
+})
+
+_TITLE_BLOCK_CONTAINS = (
+    "UNLESS OTHERWISE SPECIFIED",
+    "INTERPRET DIMENSIONING AND TOLERANCING",
+    "INTERPRET DRAWING PER",
+)
+
+_TITLE_BLOCK_PATTERNS = [
+    re.compile(r"^\s*\.X+\s*=\s*"),           # .X = ±.050, .XX = ±.020
+    re.compile(r"^\s*\d+\s+of\s+\d+\s*$"),    # "1 of 1", "2 of 3"
+    re.compile(r"^(ANGULAR|FRACTIONAL)\s*="),  # ANGULAR = ±0.3°
+]
+
+
 def _is_boilerplate_candidate_text(text: str) -> bool:
     """Return True for general tolerance/title-block boilerplate text.
 
@@ -182,24 +212,15 @@ def _is_boilerplate_candidate_text(text: str) -> bool:
     upper = " ".join(text.strip().upper().split())
     if not upper:
         return False
-    if "UNLESS OTHERWISE SPECIFIED" in upper:
+    if upper in _TITLE_BLOCK_EXACT:
         return True
-    if "ANGULAR" in upper and ("±" in upper or "+/-" in upper or "=" in upper):
-        return True
-    if "FRACTIONAL" in upper and ("±" in upper or "+/-" in upper or "=" in upper):
-        return True
-    boilerplate_hits = sum(
-        1 for token in (
-            "DIMENSIONS ARE IN",
-            "ANGULAR",
-            "FRACTIONAL",
-            "DRAWN",
-            "CHECKED",
-            "DO NOT SCALE",
-        )
-        if token in upper
-    )
-    return boilerplate_hits >= 2
+    for phrase in _TITLE_BLOCK_CONTAINS:
+        if phrase in upper:
+            return True
+    for pat in _TITLE_BLOCK_PATTERNS:
+        if pat.match(upper):
+            return True
+    return False
 
 
 def _span_is_excluded_for_matching(
@@ -863,6 +884,17 @@ def refine_match_display_text(
         anchor = anchor_by_char.get(char_no)
         if anchor is None:
             continue
+
+        # Skip refinement for GD&T feature control frames — the leading symbol
+        # span (⌖∅, ⟂∅, ⌓, ⏥, ∠, etc.) has no numeric tokens and would be
+        # stripped, breaking both display text and semantic comparison.
+        _GDT_CONTROL_CHARS = set("⌖⌒⟂⊙⌓⏥∥∠")
+        has_gdt = any(
+            any(c in src.text for c in _GDT_CONTROL_CHARS)
+            for src in source_spans
+        )
+        if has_gdt:
+            continue  # Keep the full grouped text for GD&T FCFs
 
         anchor_fp = parse_requirement(anchor.requirement_raw)
         anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
