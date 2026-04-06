@@ -49,6 +49,7 @@ def classify_delta(
     anchor_semantic_callout: Optional[SemanticCallout] = None,
     matched_semantic_callout: Optional[SemanticCallout] = None,
     revB_text_spans: Optional[List["TextSpan"]] = None,
+    matched_span_keys_strong: Optional[Set[Tuple]] = None,
 ) -> DeltaItem:
     """Classify delta status for a single Rev A anchor.
     
@@ -147,6 +148,82 @@ def classify_delta(
                             match=None,
                         )
 
+        # --- Keyword-anchor last-chance scan ---
+        # When the anchor has no distinctive numeric value (e.g., bare "THRU" or
+        # keyword-only requirements), the numeric-based scan above doesn't fire.
+        # Instead, look for a Rev B span whose text contains the anchor's requirement
+        # as a substring (case-insensitive, Unicode-normalised), excluding title-block
+        # and revision-table regions.  This rescues pure-text anchors that were
+        # missed because the search window didn't reach the correct annotation.
+        if (
+            not is_notes_anchor
+            and anchor_primary is None
+            and len(anchor.requirement_raw.strip()) >= 3
+            and revB_text_spans
+        ):
+            _page_w = max((s.bbox_pdf[2] for s in revB_text_spans), default=792.0)
+            _page_h = max((s.bbox_pdf[3] for s in revB_text_spans), default=612.0)
+            _anchor_kw = anchor.requirement_raw.strip().upper().replace("\u2212", "-")
+            for span in revB_text_spans:
+                _sx0, _sy0, _sx1, _sy1 = span.bbox_pdf
+                _scx = (_sx0 + _sx1) / 2
+                _scy = (_sy0 + _sy1) / 2
+                # Skip title block and revision table exclusion zones
+                if _scx > _page_w * 0.70 and _scy > _page_h * 0.85:
+                    continue
+                if _scx > _page_w * 0.75 and _scy < _page_h * 0.15:
+                    continue
+                # Skip spans already claimed by another surviving anchor so that
+                # keyword anchors (e.g. "THRU") don't wrongly match a grouped
+                # characteristic span that belongs to a different char.
+                _skw = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
+                if matched_span_keys_strong and _skw in matched_span_keys_strong:
+                    continue
+                # Skip spans with boilerplate keywords
+                _st_upper = span.text.strip().upper()
+                if any(kw in _st_upper for kw in (
+                    "UNLESS", "SPECIFIED", "ANGULAR", "FRACTIONAL",
+                    "DRAWN", "CHECKED", "TITLE", "SCALE", "DATE",
+                )):
+                    continue
+                # Check if anchor keyword is a substring of the span text
+                _st_norm = _st_upper.replace("\u2212", "-")
+                if _anchor_kw in _st_norm:
+                    # When the anchor keyword is the entire span, or is a trailing
+                    # suffix (e.g. "THRU" at end of "Ø.266 THRU"), the Rev B span
+                    # IS the characteristic annotation → classify as unchanged.
+                    # When the keyword is deeply embedded in a longer callout, keep
+                    # it as uncertain for reviewer attention.
+                    _is_exact_or_suffix = (
+                        _st_norm == _anchor_kw
+                        or _st_norm.endswith(_anchor_kw)
+                        or _st_norm.endswith(" " + _anchor_kw)
+                    )
+                    _kw_status = "unchanged" if _is_exact_or_suffix else "uncertain"
+                    _kw_confidence = 0.65 if _is_exact_or_suffix else 0.45
+                    _kw_reason = (
+                        "No candidate in search window, but page-wide keyword scan "
+                        f"found anchor text as characteristic suffix in Rev B span: \"{span.text.strip()[:80]}\""
+                        if _is_exact_or_suffix else
+                        "No candidate in search window, but page-wide keyword scan "
+                        f"found anchor text in Rev B span: \"{span.text.strip()[:80]}\""
+                    )
+                    return DeltaItem(
+                        char_no=anchor.char_no,
+                        status=_kw_status,
+                        confidence=_kw_confidence,
+                        reasons=[
+                            _kw_reason,
+                            "Possible alignment miss — manual review recommended",
+                        ],
+                        component_scores={
+                            "location": 0.0,
+                            "text": 0.5,
+                            "context": 0.0,
+                        },
+                        match=None,
+                    )
+
         confidence = min(0.9, location_search_coverage)
         return DeltaItem(
             char_no=anchor.char_no,
@@ -166,7 +243,39 @@ def classify_delta(
     location_score = candidate.location_score
     text_score = candidate.text_score
     context_score = candidate.context_score
-    
+
+    # --- Notes-block content guard (match path) ---
+    # If the matched span is notes-block text (numbered general notes like
+    # "1. QTY: 2  2. ALL DIMS IN INCHES  3. MATL: ..."), it cannot be a valid
+    # Rev B characteristic callout.  Return "removed" immediately.
+    # Also catches short "N." patterns that are notes-block item counters
+    # (e.g., "1." by itself is the list-item number in a general notes block).
+    import re as _re
+    _span_text_stripped = candidate.span.text.strip()
+    _span_text_upper = _span_text_stripped.upper()
+    _notes_keywords = ("QTY", "ALL DIMS", "MATL:", "FINISH NOTED", "BREAK ALL EDGES",
+                        "UNLESS OTHERWISE", "TOLERANCES", "PROPRIETARY")
+    _is_notes_span = (
+        any(kw in _span_text_upper for kw in _notes_keywords)
+        or bool(_re.fullmatch(r'\d+\.', _span_text_stripped))  # bare "1.", "2.", etc.
+    )
+    if _is_notes_span:
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="removed",
+            confidence=min(0.8, location_search_coverage),
+            reasons=[
+                "Matched span is notes-block content — not a valid Rev B characteristic callout",
+                f"Span text: \"{candidate.span.text.strip()[:80]}\"",
+            ],
+            component_scores={
+                "location": location_score,
+                "text": 0.0,
+                "context": context_score,
+            },
+            match=None,
+        )
+
     # Parse fingerprints from both anchor requirement and matched span
     anchor_fp = parse_requirement(anchor.requirement_raw)
     matched_fp = parse_requirement(candidate.span.text)
@@ -216,6 +325,32 @@ def classify_delta(
     anchor_req_type = classify_requirement_type(anchor.requirement_raw)
     matched_req_type = classify_requirement_type(candidate.span.text)
     if are_requirement_types_incompatible(anchor_req_type, matched_req_type):
+        # Special case: anchor text is effectively a substring of the matched span text.
+        # This happens when a grouped span combines the anchor's annotation with a
+        # preceding feature callout (e.g., "10-24 UNC THRU 120° APART" is a substring
+        # of "3X Ø.157 THRU / 10−24 UNC THRU / 120° APART").  The requirement IS
+        # present; it was just grouped with a different-type lead annotation.
+        # Unicode-normalise hyphens (U+2212 → U+002D) before checking.
+        _anchor_norm = anchor.requirement_raw.replace("\u2212", "-").strip()
+        _span_norm = candidate.span.text.replace("\u2212", "-")
+        if _anchor_norm and _anchor_norm in _span_norm:
+            # Anchor text found verbatim in matched span → treat as unchanged
+            reasons_compat = reasons + [
+                f"Anchor text found verbatim in grouped Rev B span (type mismatch suppressed)",
+                f"Rev A: \"{anchor.requirement_raw}\" ⊆ Rev B: \"{candidate.span.text}\"",
+            ]
+            return DeltaItem(
+                char_no=anchor.char_no,
+                status="unchanged",
+                confidence=max(0.7, 0.6 * location_score + 0.1),
+                reasons=reasons_compat,
+                component_scores={
+                    "location": location_score,
+                    "text": 0.8,
+                    "context": context_score,
+                },
+                match=match_or_none,
+            )
         # When requirement types are incompatible AND location confidence is low,
         # this is almost certainly a false match — classify as removed.
         if location_score < 0.3:
@@ -234,6 +369,80 @@ def classify_delta(
                 },
                 match=None,
             )
+        # Rescue path: if revB spans are available and we have strong-match tracking,
+        # scan for an unmatched span that is type-compatible and passes the limits-form
+        # check.  This handles the case where the correct span was mis-assigned to
+        # another anchor via a weak (limits-form only) path and the true match is
+        # accessible as a non-strong-claimed span.
+        if revB_text_spans is not None and matched_span_keys_strong is not None:
+            _anchor_fp = parse_requirement(anchor.requirement_raw)
+            _anchor_numerics = {v for v, _ in _anchor_fp.numeric_tokens}
+            _anchor_primary = max(_anchor_numerics) if _anchor_numerics else None
+            if _anchor_primary is not None and _anchor_primary > 0:
+                _small = [v for v in _anchor_numerics if 0 < v < _anchor_primary]
+                _tol_est = min(_small) if _small else None
+                _rel_tol = _tol_est / abs(_anchor_primary) if _tol_est else None
+                for _rspan in revB_text_spans:
+                    _rkey = (_rspan.block_id, _rspan.line_id, _rspan.span_id, _rspan.bbox_pdf)
+                    if _rkey in matched_span_keys_strong:
+                        continue
+                    _rtype = classify_requirement_type(_rspan.text)
+                    if are_requirement_types_incompatible(anchor_req_type, _rtype):
+                        continue
+                    _rfp = parse_requirement(_rspan.text)
+                    _rnums = {v for v, _ in _rfp.numeric_tokens}
+                    _rprimary = max(_rnums) if _rnums else None
+                    if _rprimary is None:
+                        continue
+                    # Check if anchor primary is in the span (direct match)
+                    if _anchor_primary in _rnums:
+                        return DeltaItem(
+                            char_no=anchor.char_no,
+                            status="unchanged",
+                            confidence=max(0.65, 0.5 * location_score + 0.2),
+                            reasons=reasons + [
+                                f"Requirement type mismatch with assigned span suppressed: "
+                                f"found compatible Rev B span with primary value {_anchor_primary}",
+                                f"Compatible span: \"{_rspan.text.strip()[:80]}\"",
+                            ],
+                            component_scores={
+                                "location": location_score,
+                                "text": 0.5,
+                                "context": context_score,
+                            },
+                            match=match_or_none,
+                        )
+                    # Check limits-form match against the rescue span
+                    if _tol_est is not None and _rel_tol is not None and _rel_tol < 0.15:
+                        _pdiff = abs(_anchor_primary - _rprimary)
+                        if _pdiff <= 1.5 * _tol_est:
+                            # Additional stacked-limits verification for rescue spans
+                            _rescue_ok = True
+                            if len(_rnums) == 2:
+                                _rnums_sorted = sorted(_rnums, reverse=True)
+                                _rescue_upper = _rnums_sorted[0]
+                                _has_zero_pos = 0.0 in _anchor_numerics
+                                _exp_upper = _anchor_primary if _has_zero_pos else _anchor_primary + _tol_est
+                                if abs(_rescue_upper - _exp_upper) > _tol_est * 0.15 + 1e-9:
+                                    _rescue_ok = False
+                            if _rescue_ok:
+                                return DeltaItem(
+                                    char_no=anchor.char_no,
+                                    status="unchanged",
+                                    confidence=max(0.6, 0.4 * location_score + 0.2),
+                                    reasons=reasons + [
+                                        f"Requirement type mismatch with assigned span suppressed: "
+                                        f"found compatible limits-form Rev B span",
+                                        f"Compatible span: \"{_rspan.text.strip()[:80]}\"",
+                                        f"Limits-form rescue: anchor {_anchor_primary} ± {_tol_est} ≈ {_rprimary}",
+                                    ],
+                                    component_scores={
+                                        "location": location_score,
+                                        "text": 0.4,
+                                        "context": context_score,
+                                    },
+                                    match=match_or_none,
+                                )
         return DeltaItem(
             char_no=anchor.char_no,
             status="uncertain",
@@ -249,6 +458,31 @@ def classify_delta(
                 "context": context_score,
             },
             match=match_or_none,
+        )
+
+    # Guard: if the matched span is a notes block but the anchor is NOT a notes
+    # anchor, the match is a wrong-copy.  Notes block text typically starts with
+    # a list-item pattern ("1. QTY:", "2. ALL DIMS", etc.).  A dimension anchor
+    # matching such a span has grabbed an unrelated numeric (e.g., "1." in the
+    # notes) and should be classified as removed.
+    _notes_item_re = re.compile(r'^\d+\.\s+(QTY|ALL DIMS|MATL|FINISH|BREAK|INTERPRET)', re.IGNORECASE)
+    _matched_is_notes_block = bool(_notes_item_re.match(" ".join(candidate.span.text.strip().upper().split())))
+    if _matched_is_notes_block and anchor_fp.pattern_class != "note" and "NOTES" not in anchor.requirement_raw.upper():
+        return DeltaItem(
+            char_no=anchor.char_no,
+            status="removed",
+            confidence=min(0.80, location_search_coverage),
+            reasons=reasons + [
+                "Matched span is a notes block but anchor is not a notes anchor",
+                f"Notes block text: \"{candidate.span.text.strip()[:80]}\"",
+                "Wrong-copy match rejected: anchor should be removed",
+            ],
+            component_scores={
+                "location": location_score,
+                "text": 0.0,
+                "context": context_score,
+            },
+            match=None,
         )
 
     # Check if this is a notes-type characteristic
@@ -508,11 +742,42 @@ def classify_delta(
             else:
                 limits_form_match = primary_diff / abs(anchor_primary) <= 0.03
 
+        sibling_span_rejection = False  # True when stacked-limits check identifies a sibling span
+        if limits_form_match and small_numerics:
+            # Stacked-limits verification: when the matched span contains exactly two
+            # numeric values (a stacked upper/lower limits pair), verify that the
+            # anchor's own expected upper limit matches the span's upper value.
+            # An anchor with "+0" positive tolerance (0.0 in its numerics) has
+            # upper_limit = anchor_primary; otherwise upper_limit = primary + tolerance.
+            # Mismatch means this span belongs to a DIFFERENT characteristic whose
+            # tolerance band is centred differently (e.g., ±0.2 vs +0/-0.2).
+            _tol_est = min(small_numerics)
+            if len(matched_numerics) == 2:
+                _matched_sorted = sorted(matched_numerics, reverse=True)
+                _matched_upper = _matched_sorted[0]
+                _has_zero_pos = 0.0 in anchor_numerics
+                _expected_upper = anchor_primary if _has_zero_pos else anchor_primary + _tol_est
+                if abs(_matched_upper - _expected_upper) > _tol_est * 0.15 + 1e-9:
+                    # Span's upper limit doesn't match this anchor's expected upper limit.
+                    # The span belongs to a sibling characteristic — reject limits-form.
+                    limits_form_match = False
+                    sibling_span_rejection = True
+                    reasons.append(
+                        f"Limits-form rejected: expected upper {_expected_upper:.4g}, "
+                        f"span upper {_matched_upper:.4g} — span belongs to sibling char"
+                    )
+
         if limits_form_match:
             # Limits-form notation: matched span is within the anchor's tolerance band
             status = "unchanged"
             confidence = 0.4 * location_score + 0.2 + 0.1  # No numeric overlap bonus
             reasons.append(f"Limits-form match: {anchor_primary} ± tolerance ≈ {matched_primary}")
+        elif sibling_span_rejection:
+            # The only candidate span belongs to a sibling characteristic (wrong-copy
+            # ownership). This anchor has no valid Rev B match → classify as removed.
+            status = "removed"
+            confidence = min(0.8, location_search_coverage)
+            reasons.append("Matched span claimed by sibling characteristic — anchor has no valid Rev B span")
         else:
             # Genuinely different numeric values → changed
             status = "changed"
@@ -755,6 +1020,13 @@ def detect_added_characteristics(
         if is_in_revA(span):
             continue
 
+        # If the GD&T anchor span is spatially close to an already-matched span,
+        # it is a companion row of an existing matched FCF (e.g., a second-row
+        # tolerance compartment of char 12's position callout) — not a new characteristic.
+        if is_near_matched_span(span.bbox_pdf, threshold=40.0):
+            gdt_consumed_keys.add(key)
+            continue
+
         x0, y0, x1, y1 = span.bbox_pdf
         sy_center = (y0 + y1) / 2
 
@@ -808,6 +1080,17 @@ def detect_added_characteristics(
             for s in group_spans
         )
         if has_matched_numeric_companion:
+            continue
+
+        # If any span in the assembled group is spatially close to an already-matched
+        # span (within 50 pts), this FCF belongs to an existing characteristic —
+        # e.g., a second-compartment flatness/profile callout that shares datum
+        # label spans with a matched position tolerance.
+        group_near_match = any(
+            is_near_matched_span(s.bbox_pdf, threshold=50.0)
+            for s in group_spans
+        )
+        if group_near_match:
             continue
 
         reasons_gdt = [
@@ -1015,6 +1298,32 @@ def detect_added_characteristics(
         # a matched "Ø.266 THRU" countersink callout, or tolerance limit companions).
         if is_near_matched_span(span.bbox_pdf):
             continue
+
+        # Suppress plain-integer candidates that sit near general-tolerance boilerplate
+        # text (e.g., "UNLESS OTHERWISE SPECIFIED", "DIMENSIONS ARE IN MILLIMETERS").
+        # These integers are likely reference/overall values in the standards block, not
+        # new measurement characteristics.  Symbol-bearing and count-bearing spans are
+        # exempt because they are unambiguously engineering annotations.
+        if is_plain_integer_dimension and not fp.symbol_tokens and not fp.count_tokens:
+            sx0, sy0, sx1, sy1 = span.bbox_pdf
+            scx, scy = (sx0 + sx1) / 2, (sy0 + sy1) / 2
+            _boilerplate_kws = (
+                "UNLESS", "OTHERWISE", "SPECIFIED", "DIMENSIONS ARE",
+                "SURFACE FINISH", "DO NOT SCALE", "ANGULAR", "FRACTIONAL",
+                "INTERPRET", "TOLERANCING",
+            )
+            _near_boilerplate = False
+            for _other in revB_spans:
+                _ot = _other.text.strip().upper()
+                if not any(kw in _ot for kw in _boilerplate_kws):
+                    continue
+                _ox0, _oy0, _ox1, _oy1 = _other.bbox_pdf
+                _ocx, _ocy = (_ox0 + _ox1) / 2, (_oy0 + _oy1) / 2
+                if math.sqrt((_ocx - scx) ** 2 + (_ocy - scy) ** 2) <= 120.0:
+                    _near_boilerplate = True
+                    break
+            if _near_boilerplate:
+                continue
 
         # This looks like a new characteristic
         reasons = [

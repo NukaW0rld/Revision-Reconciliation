@@ -422,6 +422,34 @@ def run_pipeline(
 
     delta_items_internal: List[DeltaItemInternal] = []
 
+    # Build a set of span keys for "strong" matches — matches where the anchor's
+    # primary numeric value is present in the matched span's numerics.  These spans
+    # are legitimately claimed and should NOT be reused by the rescue path in
+    # classify_delta.  Limits-form-only matches (text_score≈0, primary not in span)
+    # are intentionally excluded so that a sibling anchor can find the correct span
+    # via the rescue scan.
+    from delta_preservation.reconcile.normalize import parse_requirement as _pr
+    _matched_span_keys_strong: set = set()
+    for _char_no, _match in matches.items():
+        _anchor_obj = next((a for a in anchors if a.char_no == _char_no), None)
+        if _anchor_obj is None:
+            continue
+        _afp = _pr(_anchor_obj.requirement_raw)
+        _aprimary = max((v for v, _ in _afp.numeric_tokens), default=None)
+        if _aprimary is None:
+            continue
+        _mspan = _match.candidate.span
+        _mfp = _pr(_mspan.text)
+        _mnums = {v for v, _ in _mfp.numeric_tokens}
+        if _aprimary in _mnums:
+            # Anchor primary is present in matched span → strong match
+            _mk = (_mspan.block_id, _mspan.line_id, _mspan.span_id, _mspan.bbox_pdf)
+            _matched_span_keys_strong.add(_mk)
+            for _src_span in getattr(_mspan, "source_spans", []) or []:
+                _matched_span_keys_strong.add(
+                    (_src_span.block_id, _src_span.line_id, _src_span.span_id, _src_span.bbox_pdf)
+                )
+
     for anchor in anchors:
         match_or_none = matches.get(anchor.char_no)
         tol_cmp = tolerance_comparisons.get(anchor.char_no)
@@ -446,6 +474,7 @@ def run_pipeline(
             anchor_semantic_callout=anchor_semantic_callouts.get(anchor.char_no),
             matched_semantic_callout=matched_semantic_callout,
             revB_text_spans=revB_text_spans,
+            matched_span_keys_strong=_matched_span_keys_strong,
         )
         delta_items_internal.append(delta_item_internal)
 
