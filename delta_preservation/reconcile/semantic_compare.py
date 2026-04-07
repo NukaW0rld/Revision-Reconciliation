@@ -118,9 +118,12 @@ def _compare_gdt(
         return missing
 
     assert left is not None and right is not None
+    left_tolerance_normalized = _normalize_gdt_tolerance_text(left.tolerance_text)
+    right_tolerance_normalized = _normalize_gdt_tolerance_text(right.tolerance_text)
+
     if (
         left.control_type == right.control_type
-        and _normalize_gdt_tolerance_text(left.tolerance_text) == _normalize_gdt_tolerance_text(right.tolerance_text)
+        and left_tolerance_normalized == right_tolerance_normalized
         and left.datum_refs == right.datum_refs
         and left.modifiers == right.modifiers
     ):
@@ -137,7 +140,7 @@ def _compare_gdt(
 
     for label, left_value, right_value in (
         ("control", left.control_type, right.control_type),
-        ("tolerance", _normalize_gdt_tolerance_text(left.tolerance_text), _normalize_gdt_tolerance_text(right.tolerance_text)),
+        ("tolerance", left.tolerance_text, right.tolerance_text),
         ("datums", _join_tokens(left.datum_refs), _join_tokens(right.datum_refs)),
         ("modifiers", _join_tokens(left.modifiers), _join_tokens(right.modifiers)),
     ):
