@@ -1,7 +1,15 @@
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics
-from delta_preservation.reconcile.match import Candidate, Match, _group_candidate_spans, assign_matches, generate_candidates
+from delta_preservation.reconcile.match import (
+    Candidate,
+    GroupedSpan,
+    Match,
+    _group_candidate_spans,
+    assign_matches,
+    generate_candidates,
+    refine_match_display_text,
+)
 from delta_preservation.reconcile.normalize import extract_semantic_callout
 
 
@@ -386,4 +394,69 @@ def test_group_candidate_spans_walks_transitive_gdt_chain_from_middle_seed_in_so
 
     assert [span.text for span in grouped.source_spans] == ["⌖", "⌀.05", "Ⓜ", "A", "B", "C"]
     assert grouped.text == "⌖ ⌀.05 Ⓜ A B C"
+
+
+def test_refine_match_display_text_strips_gdt_companion_from_dimension_anchor():
+    anchor = _anchor("2X Ø.438 ±.005", char_no=3)
+    source_spans = [
+        _span("2X Ø.438 ±.005", block_id=100, line_id=0, span_id=0, x0=10.0, y0=10.0, width=40.0),
+        _span("⌖∅ .05 A B C", block_id=100, line_id=0, span_id=1, x0=54.0, y0=10.0, width=42.0),
+    ]
+    grouped = GroupedSpan(
+        text=" / ".join(span.text for span in source_spans),
+        bbox_pdf=(10.0, 10.0, 96.0, 18.0),
+        font_size=10.0,
+        block_id=100,
+        line_id=0,
+        span_id=0,
+        source_spans=source_spans,
+    )
+    match = Match(
+        char_no=anchor.char_no,
+        candidate=Candidate(
+            span=grouped,
+            total_score=0.9,
+            location_score=0.9,
+            text_score=0.9,
+            context_score=0.0,
+            reasons=["synthetic grouped span"],
+        ),
+    )
+
+    refine_match_display_text([anchor], {anchor.char_no: match})
+
+    assert match.candidate.span.text == "2X Ø.438 ±.005"
+
+
+def test_refine_match_display_text_picks_matching_gdt_fcf_when_group_contains_multiple_frames():
+    anchor = _anchor("⌓0.2D", char_no=9)
+    source_spans = [
+        _span("⌓ 2 D G H", block_id=101, line_id=0, span_id=0, x0=10.0, y0=10.0, width=28.0),
+        _span("⌓ 0.2 D", block_id=101, line_id=1, span_id=0, x0=10.0, y0=22.0, width=26.0),
+        _span("2 SURFACES", block_id=101, line_id=2, span_id=0, x0=10.0, y0=34.0, width=36.0),
+    ]
+    grouped = GroupedSpan(
+        text=" / ".join(span.text for span in source_spans),
+        bbox_pdf=(10.0, 10.0, 46.0, 42.0),
+        font_size=10.0,
+        block_id=101,
+        line_id=0,
+        span_id=0,
+        source_spans=source_spans,
+    )
+    match = Match(
+        char_no=anchor.char_no,
+        candidate=Candidate(
+            span=grouped,
+            total_score=0.9,
+            location_score=0.9,
+            text_score=0.9,
+            context_score=0.0,
+            reasons=["synthetic grouped span"],
+        ),
+    )
+
+    refine_match_display_text([anchor], {anchor.char_no: match})
+
+    assert match.candidate.span.text == "⌓ 0.2 D"
 

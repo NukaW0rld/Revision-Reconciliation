@@ -233,3 +233,16 @@ class TestPlainDecimalDetection:
         )
         assert len(results) >= 1, "Expected '3.750' to be detected as added"
         assert results[0].status == "added"
+
+
+class TestToleranceOverlapThreshold:
+    """Tolerance-only numeric changes in the 65-70% overlap band should be marked changed."""
+
+    def test_angle_tolerance_change_above_old_threshold_marks_changed(self):
+        anchor = _anchor("2X 22.0° ±1°")
+        candidate = _span("2X 22.0° +0.3° -0.1°", block_id=4, line_id=0, span_id=0, x0=12.0, y0=11.0, width=48.0)
+
+        delta = _classify(anchor, candidate)
+
+        assert delta.status == "changed", f"Expected 'changed', got '{delta.status}' with reasons={delta.reasons}"
+        assert any("Tolerance value changed" in reason for reason in delta.reasons)

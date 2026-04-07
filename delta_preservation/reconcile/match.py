@@ -20,7 +20,7 @@ import cv2
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.vision.bbox_utils import union_bbox
-from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.reconcile.normalize import parse_requirement, classify_requirement_type
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.types import SemanticCallout
 from delta_preservation.vision.alignment import Transform
@@ -131,6 +131,26 @@ def _looks_like_gdt_fragment(text: str) -> bool:
         return True
     if re.fullmatch(r"[A-HJ-NP-Z]", normalized):
         return True
+    return False
+
+
+def _looks_like_gdt_related_source_span(text: str) -> bool:
+    """Return True for source spans that belong to a GD&T frame, not a plain dimension."""
+    normalized = _normalize_span_text(text)
+    if not normalized:
+        return False
+    if any(ch in text for ch in _GDT_CONTROL_CHARS):
+        return True
+    if normalized in _GDT_MODIFIER_TOKENS:
+        return True
+    if re.fullmatch(r"[A-HJ-NP-Z]", normalized):
+        return True
+    if any(ch in text for ch in "ⓂⓁⓅ"):
+        return True
+    if any(ch in text for ch in "Ø⌀R"):
+        req_type = classify_requirement_type(text)
+        if req_type not in {"diameter", "radius", "thread"} and "±" not in text and "/" not in text:
+            return True
     return False
 
 
@@ -1041,17 +1061,6 @@ def refine_match_display_text(
         if anchor is None:
             continue
 
-        # Skip refinement for GD&T feature control frames — the leading symbol
-        # span (⌖∅, ⟂∅, ⌓, ⏥, ∠, etc.) has no numeric tokens and would be
-        # stripped, breaking both display text and semantic comparison.
-        _GDT_CONTROL_CHARS = set("⌖⌒⟂⊙⌓⏥∥∠")
-        has_gdt = any(
-            any(c in src.text for c in _GDT_CONTROL_CHARS)
-            for src in source_spans
-        )
-        if has_gdt:
-            continue  # Keep the full grouped text for GD&T FCFs
-
         anchor_fp = parse_requirement(anchor.requirement_raw)
         anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
         anchor_primary = max(anchor_numerics) if anchor_numerics else None
@@ -1060,15 +1069,60 @@ def refine_match_display_text(
             # Non-numeric anchor (e.g., notes) — keep full grouped text
             continue
 
-        # Find source spans that contain ANY of the anchor's numeric values
-        # (not just the primary) so that count tokens, symbols, and secondary
-        # values (e.g., tolerances) on companion spans are preserved.
-        relevant_spans: List[TextSpan] = []
-        for src in source_spans:
-            src_fp = parse_requirement(src.text)
-            src_numerics = {v for v, _ in src_fp.numeric_tokens}
-            if src_numerics & anchor_numerics:
-                relevant_spans.append(src)
+        has_gdt = any(any(c in src.text for c in _GDT_CONTROL_CHARS) for src in source_spans)
+        anchor_is_gdt = any(c in anchor.requirement_raw for c in _GDT_CONTROL_CHARS)
+
+        if has_gdt:
+            control_seed_spans = [
+                src for src in source_spans if any(c in src.text for c in _GDT_CONTROL_CHARS)
+            ]
+            seen_gdt_keys = {_span_key(src) for src in control_seed_spans}
+            gdt_source = list(control_seed_spans)
+            queue = list(control_seed_spans)
+            while queue:
+                current = queue.pop(0)
+                for src in source_spans:
+                    src_key = _span_key(src)
+                    if src_key in seen_gdt_keys:
+                        continue
+                    if not _looks_like_gdt_related_source_span(src.text):
+                        continue
+                    if not _spans_are_companions(current, src):
+                        continue
+                    gdt_source.append(src)
+                    seen_gdt_keys.add(src_key)
+                    queue.append(src)
+
+            dim_source = [src for src in source_spans if _span_key(src) not in seen_gdt_keys]
+
+            if not anchor_is_gdt:
+                # Dimension anchor: strip GD&T companion spans, keep dimension spans.
+                relevant_spans = dim_source if dim_source else source_spans
+            else:
+                # GD&T anchor: strip dimension companion spans while preserving
+                # chained modifier/datum fragments for the same FCF.
+                relevant_spans = gdt_source if gdt_source else source_spans
+                gdt_numeric_source = [
+                    src for src in gdt_source if parse_requirement(src.text).numeric_tokens
+                ]
+                if len(gdt_numeric_source) > 1 and anchor_primary is not None:
+                    best = [
+                        src
+                        for src in gdt_numeric_source
+                        if anchor_primary in {v for v, _ in parse_requirement(src.text).numeric_tokens}
+                    ]
+                    if best:
+                        relevant_spans = best
+        else:
+            # Find source spans that contain ANY of the anchor's numeric values
+            # (not just the primary) so that count tokens, symbols, and secondary
+            # values (e.g., tolerances) on companion spans are preserved.
+            relevant_spans: List[TextSpan] = []
+            for src in source_spans:
+                src_fp = parse_requirement(src.text)
+                src_numerics = {v for v, _ in src_fp.numeric_tokens}
+                if src_numerics & anchor_numerics:
+                    relevant_spans.append(src)
 
         if not relevant_spans:
             # Primary value not found in any individual sub-span — keep full text

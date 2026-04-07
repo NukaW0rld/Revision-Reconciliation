@@ -744,7 +744,7 @@ def classify_delta(
         # However, if numeric overlap is low (≤65%), the differing numerics may be
         # tolerance values that genuinely changed (e.g., ±.005 → ±.01).
         tolerance_sized_diff = False
-        if numeric_overlap <= 0.65 and anchor_primary is not None and anchor_primary != 0:
+        if numeric_overlap <= 0.70 and anchor_primary is not None and anchor_primary != 0:
             differing_new = matched_numerics - anchor_numerics
             differing_old = anchor_numerics - matched_numerics
             # Only flag when the matched span has a NEW tolerance-sized value AND
