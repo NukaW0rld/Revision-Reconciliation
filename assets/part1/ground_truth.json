@@ -1,0 +1,272 @@
+{
+  "part_name": "Part1",
+  "general_notes": "",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "unchanged",
+      "requirement_revB": "120",
+      "snippet_center_revA": [478.4, 717.3],
+      "snippet_center_revB": [478.4, 731.5]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "110",
+      "snippet_center_revA": [478.4, 785.4],
+      "snippet_center_revB": [478.4, 799.6]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": "38",
+      "snippet_center_revA": [478.7, 864.7],
+      "snippet_center_revB": [478.7, 864.7]
+    },
+    {
+      "char_no": 4,
+      "classification": "unchanged",
+      "requirement_revB": "41",
+      "snippet_center_revA": [593.8, 849.2],
+      "snippet_center_revB": [593.8, 864.6]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "70",
+      "snippet_center_revA": [238.5, 1044.6],
+      "snippet_center_revB": [241.5, 1041.5]
+    },
+    {
+      "char_no": 6,
+      "classification": "unchanged",
+      "requirement_revB": "R9.9",
+      "snippet_center_revA": [383.1, 1180.0],
+      "snippet_center_revB": [385.3, 1180.0]
+    },
+    {
+      "char_no": 7,
+      "classification": "unchanged",
+      "requirement_revB": "10",
+      "snippet_center_revA": [577.9, 1181.1],
+      "snippet_center_revB": [577.9, 1167.4]
+    },
+    {
+      "char_no": 8,
+      "classification": "unchanged",
+      "requirement_revB": "10",
+      "snippet_center_revA": [710.5, 1089.5],
+      "snippet_center_revB": [695.8, 1089.5]
+    },
+    {
+      "char_no": 9,
+      "classification": "changed",
+      "requirement_revB": "4 x Ø8",
+      "snippet_center_revA": [726.3, 987.4],
+      "snippet_center_revB": [726.3, 987.4]
+    },
+    {
+      "char_no": 10,
+      "classification": "unchanged",
+      "requirement_revB": "THRU ALL",
+      "snippet_center_revA": [775.8, 987.4],
+      "snippet_center_revB": [772.6, 987.4]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": "⌴ Ø13.5",
+      "snippet_center_revA": [736.8, 1002.1],
+      "snippet_center_revB": [738.9, 1002.1]
+    },
+    {
+      "char_no": 13,
+      "classification": "unchanged",
+      "requirement_revB": "120.0°",
+      "snippet_center_revA": [378.0, 278.0],
+      "snippet_center_revB": [378.0, 278.0]
+    },
+    {
+      "char_no": 14,
+      "classification": "unchanged",
+      "requirement_revB": "Ø45.2",
+      "snippet_center_revA": [280.0, 512],
+      "snippet_center_revB": [280, 512]
+    },
+    {
+      "char_no": 15,
+      "classification": "unchanged",
+      "requirement_revB": "Ø24",
+      "snippet_center_revA": [314, 548],
+      "snippet_center_revB": [314, 548]
+    },
+    {
+      "char_no": 16,
+      "classification": "unchanged",
+      "requirement_revB": "6 x Ø3.3",
+      "snippet_center_revA": [700, 486],
+      "snippet_center_revB": [700, 486]
+    },
+    {
+      "char_no": 17,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 12.0",
+      "snippet_center_revA": [746, 486],
+      "snippet_center_revB": [746, 486]
+    },
+    {
+      "char_no": 18,
+      "classification": "unchanged",
+      "requirement_revB": "M4 - 6H",
+      "snippet_center_revA": [704, 502],
+      "snippet_center_revB": [704, 502]
+    },
+    {
+      "char_no": 19,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 8.0",
+      "snippet_center_revA": [744, 502],
+      "snippet_center_revB": [744, 502]
+    },
+    {
+      "char_no": 20,
+      "classification": "unchanged",
+      "requirement_revB": "45",
+      "snippet_center_revA": [1232, 824],
+      "snippet_center_revB": [1230, 838]
+    },
+    {
+      "char_no": 21,
+      "classification": "unchanged",
+      "requirement_revB": "35",
+      "snippet_center_revA": [1242, 890],
+      "snippet_center_revB": [1242, 904]
+    },
+    {
+      "char_no": 22,
+      "classification": "unchanged",
+      "requirement_revB": "Ø12 +0.3 +0.1",
+      "snippet_center_revA": [1060, 890],
+      "snippet_center_revB": [1060, 890]
+    },
+    {
+      "char_no": 23,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 100",
+      "snippet_center_revA": [1102, 890],
+      "snippet_center_revB": [1102, 890]
+    },
+    {
+      "char_no": 24,
+      "classification": "unchanged",
+      "requirement_revB": "Ø18.9",
+      "snippet_center_revA": [1038, 1192],
+      "snippet_center_revB": [1038, 1192]
+    },
+    {
+      "char_no": 25,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 18",
+      "snippet_center_revA": [1070, 1192],
+      "snippet_center_revB": [1070, 1192]
+    },
+    {
+      "char_no": 26,
+      "classification": "unchanged",
+      "requirement_revB": "G1/2\" - 6H",
+      "snippet_center_revA": [1038, 1206],
+      "snippet_center_revB": [1038, 1206]
+    },
+    {
+      "char_no": 27,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 18",
+      "snippet_center_revA": [1084, 1206],
+      "snippet_center_revB": [1084, 1206]
+    },
+    {
+      "char_no": 28,
+      "classification": "unchanged",
+      "requirement_revB": "5",
+      "snippet_center_revA": [1328, 1176],
+      "snippet_center_revB": [1328, 1162]
+    },
+    {
+      "char_no": 29,
+      "classification": "unchanged",
+      "requirement_revB": "20",
+      "snippet_center_revA": [1334, 1214],
+      "snippet_center_revB": [1334, 1198]
+    },
+    {
+      "char_no": 30,
+      "classification": "unchanged",
+      "requirement_revB": "2 x Ø8.1±0.1",
+      "snippet_center_revA": [1106, 236],
+      "snippet_center_revB": [1106, 236]
+    },
+    {
+      "char_no": 31,
+      "classification": "unchanged",
+      "requirement_revB": "⌵10",
+      "snippet_center_revA": [1092, 250],
+      "snippet_center_revB": [1092, 250]
+    },
+    {
+      "char_no": 32,
+      "classification": "unchanged",
+      "requirement_revB": "90°",
+      "snippet_center_revA": [1126, 250],
+      "snippet_center_revB": [1126, 250]
+    },
+    {
+      "char_no": 33,
+      "classification": "unchanged",
+      "requirement_revB": "90",
+      "snippet_center_revA": [1916, 864],
+      "snippet_center_revB": [1916, 878]
+    },
+    {
+      "char_no": 34,
+      "classification": "unchanged",
+      "requirement_revB": "80",
+      "snippet_center_revA": [1656, 1032],
+      "snippet_center_revB": [1668, 1032]
+    },
+    {
+      "char_no": 35,
+      "classification": "unchanged",
+      "requirement_revB": "40",
+      "snippet_center_revA": [1730, 1032],
+      "snippet_center_revB": [1730, 1032]
+    },
+    {
+      "char_no": 36,
+      "classification": "unchanged",
+      "requirement_revB": "2 x Ø8",
+      "snippet_center_revA": [2132, 898],
+      "snippet_center_revB": [2132, 898]
+    },
+    {
+      "char_no": 37,
+      "classification": "unchanged",
+      "requirement_revB": "R10",
+      "snippet_center_revA": [2190, 1176],
+      "snippet_center_revB": [2190, 1176]
+    },
+    {
+      "char_no": 38,
+      "classification": "unchanged",
+      "requirement_revB": "NOTES\n1. INTERPRET DIMENSIONING AND TOLERANCING PER ASME Y14.5-2018.\n2. REFERENCE TITLE BLOCK FOR MATERIAL AND FINISH.\n3. MATERIAL CERTIFICATION REQUIRED WITH EACH PART SHIPMENT.\n4. BAG AND TAG PARTS FOR SHIPMENT.",
+      "snippet_center_revA": [522, 1456],
+      "snippet_center_revB": [522, 1456]
+    },
+    {
+      "char_no": 39,
+      "classification": "added",
+      "requirement_revB": "2 x 5 X 45.0°",
+      "snippet_center_revA": [1722, 1204],
+      "snippet_center_revB": [1722, 1204]
+    }
+  ]
+}

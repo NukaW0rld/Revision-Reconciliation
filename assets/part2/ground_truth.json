@@ -1,0 +1,162 @@
+{
+  "part_name": "Part2",
+  "general_notes": "In rev B drawing, a new left view is introduced, therefore every characteristic annotation in the drawing is shifted significantly from their original position compared to rev A drawing.",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [244.5, 259.5],
+      "snippet_center_revB": [619.5, 259.5]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "2.900",
+      "snippet_center_revA": [438, 238],
+      "snippet_center_revB": [800, 256]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": ".160 .140",
+      "snippet_center_revA": [654, 216],
+      "snippet_center_revB": [1016, 234]
+    },
+    {
+      "char_no": 4,
+      "classification": "unchanged",
+      "requirement_revB": ".160 .140",
+      "snippet_center_revA": [266, 410],
+      "snippet_center_revB": [628, 426]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "R.750",
+      "snippet_center_revA": [958, 638],
+      "snippet_center_revB": [1172, 604]
+    },
+    {
+      "char_no": 6,
+      "classification": "changed",
+      "requirement_revB": ".850",
+      "snippet_center_revA": [1016, 668],
+      "snippet_center_revB": [1192, 648]
+    },
+    {
+      "char_no": 7,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [1290, 868],
+      "snippet_center_revB": [1480, 828]
+    },
+    {
+      "char_no": 8,
+      "classification": "unchanged",
+      "requirement_revB": ".160 .140",
+      "snippet_center_revA": [1216, 832],
+      "snippet_center_revB": [1426, 800]
+    },
+    {
+      "char_no": 9,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [1060, 926],
+      "snippet_center_revB": [1292, 886]
+    },
+    {
+      "char_no": 10,
+      "classification": "unchanged",
+      "requirement_revB": "1.350±.010",
+      "snippet_center_revA": [1012, 980],
+      "snippet_center_revB": [1228, 854]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": "1.250±.010",
+      "snippet_center_revA": [226, 580],
+      "snippet_center_revB": [590, 546]
+    },
+    {
+      "char_no": 12,
+      "classification": "unchanged",
+      "requirement_revB": ".733",
+      "snippet_center_revA": [436, 698],
+      "snippet_center_revB": [798, 668]
+    },
+    {
+      "char_no": 13,
+      "classification": "changed",
+      "requirement_revB": "5.040±.010",
+      "snippet_center_revA": [622, 712],
+      "snippet_center_revB": [984, 682]
+    },
+    {
+      "char_no": 14,
+      "classification": "unchanged",
+      "requirement_revB": "2 x R.750",
+      "snippet_center_revA": [666, 986],
+      "snippet_center_revB": [1026, 954]
+    },
+    {
+      "char_no": 15,
+      "classification": "unchanged",
+      "requirement_revB": "Ø.300",
+      "snippet_center_revA": [462, 868],
+      "snippet_center_revB": [828, 836]
+    },
+    {
+      "char_no": 16,
+      "classification": "changed",
+      "requirement_revB": "1.460",
+      "snippet_center_revA": [222, 946],
+      "snippet_center_revB": [584, 918]
+    },
+    {
+      "char_no": 17,
+      "classification": "unchanged",
+      "requirement_revB": "DRAWING NOTES:\n1. INTERPRET DRAWING PER ASME Y14.5 - 1994.\n2. ALL SURFACES 63 MICROINCHES.\n3. FUSION ARC WELD PER PS1240, CLASS B, GRADE 2.\n4. POST WELDING HEAT TREATMENT AND STRESS RELIEF PER PS2481.\n5. MARK PER PS4250.",
+      "snippet_center_revA": [306, 1098],
+      "snippet_center_revB": [306, 1098]
+    },
+    {
+      "char_no": 18,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [1016, 1126],
+      "snippet_center_revB": [1292, 1006]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "2 x Ø.750",
+      "snippet_center_revA": [226, 802],
+      "snippet_center_revB": [556, 800]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "2 x .730",
+      "snippet_center_revA": [486, 1030],
+      "snippet_center_revB": [812, 1006]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "Ø.500±.020",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [456, 466]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": ".900",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [212, 466]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": ".635 .615",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [214, 568]
+    }
+  ]
+}
