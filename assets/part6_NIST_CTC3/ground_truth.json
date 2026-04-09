@@ -1,0 +1,152 @@
+{
+  "part_name": "Part6",
+  "general_notes": "",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "unchanged",
+      "requirement_revB": "4X .820±.06",
+      "snippet_center_revA": [180, 518],
+      "snippet_center_revB": [180, 518]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": ".750",
+      "snippet_center_revA": [298, 464],
+      "snippet_center_revB": [298, 464]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": "2X Ø.438 ±.005",
+      "snippet_center_revA": [140, 400],
+      "snippet_center_revB": [140, 400]
+    },
+    {
+      "char_no": 4,
+      "classification": "changed",
+      "requirement_revB": "⌖ ∅.05 A B C",
+      "snippet_center_revA": [170, 418],
+      "snippet_center_revB": [156, 420]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "Ø.438 ±.005",
+      "snippet_center_revA": [154, 86],
+      "snippet_center_revB": [154, 86]
+    },
+    {
+      "char_no": 6,
+      "classification": "changed",
+      "requirement_revB": "⌖ ∅.02Ⓛ A B",
+      "snippet_center_revA": [168, 104],
+      "snippet_center_revB": [178, 104]
+    },
+    {
+      "char_no": 7,
+      "classification": "changed",
+      "requirement_revB": "Ø.438 ±.01",
+      "snippet_center_revA": [544, 78],
+      "snippet_center_revB": [544, 78]
+    },
+    {
+      "char_no": 8,
+      "classification": "changed",
+      "requirement_revB": "⟂ ∅.01Ⓛ A",
+      "snippet_center_revA": [554, 96],
+      "snippet_center_revB": [558, 96]
+    },
+    {
+      "char_no": 9,
+      "classification": "unchanged",
+      "requirement_revB": "4X Ø.625 ±.005",
+      "snippet_center_revA": [522, 404],
+      "snippet_center_revB": [522, 404]
+    },
+    {
+      "char_no": 10,
+      "classification": "unchanged",
+      "requirement_revB": "⌖ ∅.05Ⓜ D B C",
+      "snippet_center_revA": [546, 422],
+      "snippet_center_revB": [546, 422]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": "Ø2.00 ±.01",
+      "snippet_center_revA": [160, 250],
+      "snippet_center_revB": [160, 250]
+    },
+    {
+      "char_no": 12,
+      "classification": "unchanged",
+      "requirement_revB": "⌖ ∅.06 D B C",
+      "snippet_center_revA": [184, 268],
+      "snippet_center_revB": [184, 268]
+    },
+    {
+      "char_no": 13,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [514, 172],
+      "snippet_center_revB": [514, 172]
+    },
+    {
+      "char_no": 14,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [532, 190],
+      "snippet_center_revB": [532, 190]
+    },
+    {
+      "char_no": 15,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .01",
+      "snippet_center_revA": [208, 170],
+      "snippet_center_revB": [208, 170]
+    },
+    {
+      "char_no": 16,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .03 A B C",
+      "snippet_center_revA": [188, 320],
+      "snippet_center_revB": [188, 320]
+    },
+    {
+      "char_no": 17,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .06 A B C",
+      "snippet_center_revA": [542, 236],
+      "snippet_center_revB": [540, 192]
+    },
+    {
+      "char_no": 18,
+      "classification": "unchanged",
+      "requirement_revB": "∠ .04 A",
+      "snippet_center_revA": [524, 332],
+      "snippet_center_revB": [524, 346]
+    },
+    {
+      "char_no": 19,
+      "classification": "changed",
+      "requirement_revB": "Ø1.065 ±.005",
+      "snippet_center_revA": [1002, 420],
+      "snippet_center_revB": [1002, 420]
+    },
+    {
+      "char_no": 20,
+      "classification": "unchanged",
+      "requirement_revB": "⟂ ∅.01 E",
+      "snippet_center_revA": [1006, 438],
+      "snippet_center_revB": [1006, 438]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⏥ .005 / .25 X .25",
+      "snippet_center_revA": [562, 276],
+      "snippet_center_revB": [562, 276]
+    }
+  ]
+}

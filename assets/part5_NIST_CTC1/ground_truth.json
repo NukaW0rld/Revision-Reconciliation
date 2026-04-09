@@ -1,0 +1,132 @@
+{
+  "part_name": "Part5",
+  "general_notes": "A new left view is introduced in rev B drawing, which made every characteristic annotation shifted significantly from their original position compared to rev A drawing.",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "unchanged",
+      "requirement_revB": "Ø35.2 34.8",
+      "snippet_center_revA": [280, 78],
+      "snippet_center_revB": [496, 76]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "Ø35.2 34.8",
+      "snippet_center_revA": [656, 78],
+      "snippet_center_revB": [726, 60]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": "Ø35 +0.2 -0",
+      "snippet_center_revA": [660, 270],
+      "snippet_center_revB": [860, 378]
+    },
+    {
+      "char_no": 4,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [84, 270],
+      "snippet_center_revB": [334, 290]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "Ø25±0.15",
+      "snippet_center_revA": [380, 126],
+      "snippet_center_revB": [612, 128]
+    },
+    {
+      "char_no": 6,
+      "classification": "unchanged",
+      "requirement_revB": "60°±0.5°",
+      "snippet_center_revA": [424, 358],
+      "snippet_center_revB": [672, 358]
+    },
+    {
+      "char_no": 7,
+      "classification": "unchanged",
+      "requirement_revB": "Ø20 +0.05 -0.1",
+      "snippet_center_revA": [272, 598],
+      "snippet_center_revB": [682, 420]
+    },
+    {
+      "char_no": 8,
+      "classification": "unchanged",
+      "requirement_revB": "Ø20 +0.1 -0.05",
+      "snippet_center_revA": [300, 640],
+      "snippet_center_revB": [690, 462]
+    },
+    {
+      "char_no": 9,
+      "classification": "unchanged",
+      "requirement_revB": "⏥ 0.2",
+      "snippet_center_revA": [660, 140],
+      "snippet_center_revB": [714, 108]
+    },
+    {
+      "char_no": 10,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [676, 496],
+      "snippet_center_revB": [856, 476]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ 0.5 A",
+      "snippet_center_revA": [1004, 452],
+      "snippet_center_revB": [962, 430]
+    },
+    {
+      "char_no": 12,
+      "classification": "unchanged",
+      "requirement_revB": "⟂ 1.5 A",
+      "snippet_center_revA": [1072, 484],
+      "snippet_center_revB": [1004, 388]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "155",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [154, 620]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "225",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [196, 620]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "295",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [236, 620]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "450",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [322, 620]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "800",
+      "snippet_center_revA": [362, 580],
+      "snippet_center_revB": [612, 580]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "3X Ø18 ↧30",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [242, 66]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "M20x2.5 − 6H ↧6",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [242, 80]
+    }
+  ]
+}

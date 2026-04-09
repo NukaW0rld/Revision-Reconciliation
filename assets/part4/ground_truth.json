@@ -1,0 +1,119 @@
+{
+  "part_name": "Part4",
+  "general_notes": "",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "unchanged",
+      "requirement_revB": "1.000",
+      "snippet_center_revA": [804, 416],
+      "snippet_center_revB": [804, 402]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "4.000",
+      "snippet_center_revA": [338, 666],
+      "snippet_center_revB": [338, 666]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": "2.000",
+      "snippet_center_revA": [576, 508],
+      "snippet_center_revB": [588, 508]
+    },
+    {
+      "char_no": 4,
+      "classification": "unchanged",
+      "requirement_revB": "1.000",
+      "snippet_center_revA": [524, 544],
+      "snippet_center_revB": [536, 544]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "Ø.500 THRU",
+      "snippet_center_revA": [514, 382],
+      "snippet_center_revB": [498, 366]
+    },
+    {
+      "char_no": 6,
+      "classification": "changed",
+      "requirement_revB": "2X Ø.201 ↧ 0.50",
+      "snippet_center_revA": [346, 376],
+      "snippet_center_revB": [346, 376]
+    },
+    {
+      "char_no": 7,
+      "classification": "unchanged",
+      "requirement_revB": "1/4-20 UNC - 2B",
+      "snippet_center_revA": [346, 390],
+      "snippet_center_revB": [346, 390]
+    },
+    {
+      "char_no": 8,
+      "classification": "unchanged",
+      "requirement_revB": ".750",
+      "snippet_center_revA": [152, 608],
+      "snippet_center_revB": [156, 626]
+    },
+    {
+      "char_no": 9,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [338, 608],
+      "snippet_center_revB": [338, 608]
+    },
+    {
+      "char_no": 10,
+      "classification": "changed",
+      "requirement_revB": "4X .070 X 45.0°",
+      "snippet_center_revA": [106, 404],
+      "snippet_center_revB": [114, 408]
+    },
+    {
+      "char_no": 11,
+      "classification": "changed",
+      "requirement_revB": "NOTES:\n1. INTERPRET DIMENSIONING AND TOLERANCING PER ASME Y14.5-2018.\n2. REFERENCE TITLE BLOCK FOR MATERIAL AND FINISH.\n3. MINIMUM SURFACE FINISH AS MACHINED UNLESS OTHERWISE SPECIFIED.\n4. MATERIAL CERTIFICATION REQUIRED WITH EACH PART SHIPMENT.\n5. BAG AND TAG PARTS FOR SHIPMENT (QTY 10 PER BAG).",
+      "snippet_center_revA": [274, 174],
+      "snippet_center_revB": [240, 154]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⌖ ∅.005Ⓜ A B C",
+      "snippet_center_revA": [528, 384],
+      "snippet_center_revB": [528, 384]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⏥ 0.01",
+      "snippet_center_revA": [916, 450],
+      "snippet_center_revB": [916, 450]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⟂ .010 A B",
+      "snippet_center_revA": [110, 522],
+      "snippet_center_revB": [110, 522]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "1.250",
+      "snippet_center_revA": [288, 626],
+      "snippet_center_revB": [288, 626]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "1.250",
+      "snippet_center_revA": [382, 626],
+      "snippet_center_revB": [382, 626]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": ".750",
+      "snippet_center_revA": [518, 626],
+      "snippet_center_revB": [518, 626]
+    }
+  ]
+}

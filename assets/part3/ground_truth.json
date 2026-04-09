@@ -1,0 +1,157 @@
+{
+  "part_name": "Part3",
+  "general_notes": "",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "unchanged",
+      "requirement_revB": ".500",
+      "snippet_center_revA": [330, 110],
+      "snippet_center_revB": [342, 104]
+    },
+    {
+      "char_no": 2,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [380, 122],
+      "snippet_center_revB": [380, 122]
+    },
+    {
+      "char_no": 3,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [426, 138],
+      "snippet_center_revB": [380, 122]
+    },
+    {
+      "char_no": 4,
+      "classification": "unchanged",
+      "requirement_revB": "1.500",
+      "snippet_center_revA": [484, 148],
+      "snippet_center_revB": [396, 138]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": ".030 TYP.",
+      "snippet_center_revA": [78, 92],
+      "snippet_center_revB": [110, 88]
+    },
+    {
+      "char_no": 6,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [98, 214],
+      "snippet_center_revB": [98, 214]
+    },
+    {
+      "char_no": 7,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [98, 228],
+      "snippet_center_revB": [98, 214]
+    },
+    {
+      "char_no": 8,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [270, 222],
+      "snippet_center_revB": [270, 222]
+    },
+    {
+      "char_no": 9,
+      "classification": "unchanged",
+      "requirement_revB": "Ø1.250",
+      "snippet_center_revA": [126, 286],
+      "snippet_center_revB": [126, 286]
+    },
+    {
+      "char_no": 10,
+      "classification": "unchanged",
+      "requirement_revB": "Ø2.000",
+      "snippet_center_revA": [126, 310],
+      "snippet_center_revB": [126, 310]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": ".375",
+      "snippet_center_revA": [100, 352],
+      "snippet_center_revB": [100, 352]
+    },
+    {
+      "char_no": 12,
+      "classification": "unchanged",
+      "requirement_revB": ".750",
+      "snippet_center_revA": [100, 434],
+      "snippet_center_revB": [100, 434]
+    },
+    {
+      "char_no": 13,
+      "classification": "unchanged",
+      "requirement_revB": ".650",
+      "snippet_center_revA": [186, 504],
+      "snippet_center_revB": [186, 504]
+    },
+    {
+      "char_no": 14,
+      "classification": "changed",
+      "requirement_revB": "Ø.266",
+      "snippet_center_revA": [378, 434],
+      "snippet_center_revB": [396, 426]
+    },
+    {
+      "char_no": 15,
+      "classification": "unchanged",
+      "requirement_revB": "THRU",
+      "snippet_center_revA": [432, 434],
+      "snippet_center_revB": [414, 426]
+    },
+    {
+      "char_no": 16,
+      "classification": "unchanged",
+      "requirement_revB": "3X Ø.157",
+      "snippet_center_revA": [384, 354],
+      "snippet_center_revB": [384, 354]
+    },
+    {
+      "char_no": 17,
+      "classification": "unchanged",
+      "requirement_revB": "THRU",
+      "snippet_center_revA": [428, 354],
+      "snippet_center_revB": [428, 354]
+    },
+    {
+      "char_no": 18,
+      "classification": "unchanged",
+      "requirement_revB": "10-24 UNC THRU 120° APART",
+      "snippet_center_revA": [404, 378],
+      "snippet_center_revB": [404, 378]
+    },
+    {
+      "char_no": 19,
+      "classification": "changed",
+      "requirement_revB": "NOTES\n1. QTY: 2\n2. ALL DIMS IN INCHES\n3. MATL: ALUMINUM\n4. FINISH NOTED SURFACE\n5. BREAK ALL EDGES",
+      "snippet_center_revA": [626, 370],
+      "snippet_center_revB": [626, 370]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⌵Ø.531",
+      "snippet_center_revA": [378, 440],
+      "snippet_center_revB": [378, 440]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "82.0°",
+      "snippet_center_revA": [428, 440],
+      "snippet_center_revB": [428, 440]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "FINISH TURN 1000 Ra",
+      "snippet_center_revA": [252, 58],
+      "snippet_center_revB": [252, 58]
+    }
+  ]
+}
