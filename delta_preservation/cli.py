@@ -24,6 +24,7 @@ import cv2
 from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords, TextSpan, join_text_spans
 import fitz
 from delta_preservation.evaluation import load_ground_truth_packet
+from delta_preservation.evaluation.conformance import evaluate_packet_against_truth
 from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.grid import infer_grid, parse_zone_from_reference_location
 from delta_preservation.vision.balloons import detect_balloons
@@ -846,7 +847,20 @@ def run_pipeline(
         stage_callback(7, "Output")
     print("[8/8] Writing delta packet...")
     truth_fixture_key = part_name
-    load_ground_truth_packet(part_name)
+    truth_packet = load_ground_truth_packet(part_name)
+
+    evaluated_items: List[DeltaItem] = []
+    for delta_item, evaluation in zip(
+        delta_items_pydantic,
+        evaluate_packet_against_truth(delta_items_pydantic, truth_packet),
+    ):
+        evaluated_items.append(
+            DeltaItem(
+                **delta_item.model_dump(exclude={"evaluation"}),
+                evaluation=evaluation,
+            )
+        )
+    delta_items_pydantic = evaluated_items
 
     packet = DeltaPacket(
         run_id=run_id,

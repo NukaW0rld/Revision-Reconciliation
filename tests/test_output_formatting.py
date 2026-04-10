@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 
 from delta_preservation.cli import _format_annotation_text, run_pipeline
+from delta_preservation.evaluation.contracts import GroundTruthPacket
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.match import GroupedSpan
 
@@ -74,6 +75,16 @@ def _span(text: str, *, x0: float, y0: float, width: float = 20.0, height: float
     )
 
 
+def _truth_packet(*characteristics: dict[str, object]) -> GroundTruthPacket:
+    return GroundTruthPacket.model_validate(
+        {
+            "part_name": "Formatting Fixture",
+            "general_notes": "",
+            "characteristics": list(characteristics),
+        }
+    )
+
+
 def test_format_annotation_text_moves_depth_symbol_before_value():
     spans = [
         _span("0.50", x0=20.0, y0=10.0, block_id=1, span_id=0),
@@ -123,6 +134,21 @@ def test_run_pipeline_omits_revA_evidence_for_added_characteristics(tmp_path):
     )
 
     render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+    truth_packet = _truth_packet(
+        {
+            "char_no": 3,
+            "classification": "unchanged",
+            "requirement_revB": "12.0",
+            "snippet_center_revA": [10.0, 10.0],
+            "snippet_center_revB": [12.0, 12.0],
+        },
+        {
+            "classification": "added",
+            "requirement_revB": "NEW DIM",
+            "snippet_center_revA": None,
+            "snippet_center_revB": [20.0, 20.0],
+        },
+    )
 
     def fake_extract_text_spans(pdf_path, page_index=0):
         name = Path(pdf_path).name
@@ -147,6 +173,7 @@ def test_run_pipeline_omits_revA_evidence_for_added_characteristics(tmp_path):
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png", "c.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=truth_packet), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -161,6 +188,7 @@ def test_run_pipeline_omits_revA_evidence_for_added_characteristics(tmp_path):
     assert added_row["status"] == "added"
     assert added_row.get("revA") is None
     assert added_row["revB"]["image_path"] == "snippets/c.png"
+    assert added_row["evaluation"]["matched_truth_char_no"] == "added:1"
 
 
 def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
@@ -186,6 +214,15 @@ def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
     )
 
     render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+    truth_packet = _truth_packet(
+        {
+            "char_no": 11,
+            "classification": "changed",
+            "requirement_revB": "NOTES: 1. FIRST NOTE 2. SECOND NOTE",
+            "snippet_center_revA": [10.0, 10.0],
+            "snippet_center_revB": [12.0, 12.0],
+        }
+    )
 
     def fake_extract_text_spans(pdf_path, page_index=0):
         name = Path(pdf_path).name
@@ -211,6 +248,7 @@ def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=truth_packet), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -223,6 +261,7 @@ def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
     packet = json.loads((run_dir / "delta_packet.json").read_text())
     row = packet["items"][0]
     assert row["requirement_revB"] == "NOTES: 1. FIRST NOTE 2. SECOND NOTE"
+    assert row["evaluation"]["status"] == "pending_snippet"
 
 
 def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_companions_arrive_out_of_order(tmp_path):
@@ -260,6 +299,15 @@ def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_comp
     )
 
     render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+    truth_packet = _truth_packet(
+        {
+            "char_no": 4,
+            "classification": "unchanged",
+            "requirement_revB": "⌖ ⌀.05 Ⓜ A B C",
+            "snippet_center_revA": [10.0, 10.0],
+            "snippet_center_revB": [12.0, 12.0],
+        }
+    )
 
     def fake_extract_text_spans(pdf_path, page_index=0):
         name = Path(pdf_path).name
@@ -284,6 +332,7 @@ def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_comp
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=truth_packet), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -299,3 +348,74 @@ def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_comp
         "Expected reviewer-facing requirement_revB to keep the full Part 6 FCF companions even when spans arrive out of order; "
         f"got {row['requirement_revB']}"
     )
+    assert row["evaluation"]["requirement_conforms"] is True
+
+
+def test_run_pipeline_serializes_evaluation_with_ordered_mismatch_codes(tmp_path):
+    revA = tmp_path / "revA.pdf"
+    revB = tmp_path / "revB.pdf"
+    form3 = tmp_path / "form3.xlsx"
+    revA.write_bytes(b"%PDF-1.4")
+    revB.write_bytes(b"%PDF-1.4")
+    form3.write_bytes(b"PK")
+
+    anchor = _FakeAnchor(char_no=7, requirement_raw="LENGTH 12.0")
+    matched_span = _span("LENGTH 8.0", x0=20.0, y0=14.0, block_id=1, span_id=0)
+    classified_item = _FakeInternalDeltaItem(
+        char_no=7,
+        status="unchanged",
+        confidence=0.82,
+        reasons=["Packet thinks the requirement is unchanged"],
+        component_scores={"location": 0.8, "text": 0.7, "context": 0.6},
+        match=_FakeMatch(matched_span),
+    )
+    render_stub = np.zeros((40, 40, 3), dtype=np.uint8)
+    truth_packet = _truth_packet(
+        {
+            "char_no": 7,
+            "classification": "changed",
+            "requirement_revB": "LENGTH 10.0",
+            "snippet_center_revA": [10.0, 10.0],
+            "snippet_center_revB": [12.0, 12.0],
+        }
+    )
+
+    def fake_extract_text_spans(pdf_path, page_index=0):
+        if Path(pdf_path).name == "revA.pdf":
+            return [_span("LENGTH 12.0", x0=10.0, y0=10.0, block_id=0, span_id=0)]
+        return [matched_span]
+
+    with patch("delta_preservation.cli.load_form3", return_value=[SimpleNamespace(char_no=7, requirement="LENGTH 12.0")]), \
+         patch("delta_preservation.cli.detect_balloons", return_value=[{"char_no": 7}]), \
+         patch("delta_preservation.cli.extract_text_spans", side_effect=fake_extract_text_spans), \
+         patch("delta_preservation.cli.build_revA_anchors", return_value=[anchor]), \
+         patch("delta_preservation.cli.render_page", return_value=render_stub), \
+         patch("delta_preservation.cli.estimate_transform", return_value=_FakeTransform()), \
+         patch("delta_preservation.cli.estimate_transform_from_text_spans", return_value=None), \
+         patch("delta_preservation.cli.estimate_transform_candidates_from_text_spans", return_value=[]), \
+         patch("delta_preservation.cli.generate_candidates", return_value=[_FakeCandidate(matched_span)]), \
+         patch("delta_preservation.cli.assign_matches", return_value={7: _FakeMatch(matched_span)}), \
+         patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
+         patch("delta_preservation.cli.classify_delta", return_value=classified_item), \
+         patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
+         patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
+         patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
+         patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=truth_packet), \
+         patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
+        run_dir = run_pipeline(
+            revA_pdf=str(revA),
+            revB_pdf=str(revB),
+            form3_xlsx=str(form3),
+            out_dir=str(tmp_path / "out"),
+            part_name="output-format-evaluation",
+        )
+
+    packet = json.loads((run_dir / "delta_packet.json").read_text())
+    row = packet["items"][0]
+    assert "evaluation" in row
+    assert [mismatch["code"] for mismatch in row["evaluation"]["mismatches"]] == [
+        "classification_mismatch",
+        "requirement_mismatch",
+    ]
