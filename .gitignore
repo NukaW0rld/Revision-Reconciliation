@@ -31,7 +31,6 @@ package-lock.json
 .gitignore
 
 # ── GSD baseline (auto-generated) ──
-.planning/
 .gsd/activity/
 .gsd/runtime/
 .gsd/worktrees/
