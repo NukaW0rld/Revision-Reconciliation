@@ -295,17 +295,17 @@ debug_export_ready = debug_submitted >= debug_total
 
 All claims in this research were verified from the repo, the phase context, or package registries during this session. No `[ASSUMED]` claims remain.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Legacy verdict compatibility**
-   - What we know: strict validation currently accepts only `correct`, `incorrect`, and `partially_correct`; malformed or unsupported payloads are ignored on render and fail on strict export/write paths. `[VERIFIED: repo grep]`
-   - What's unclear: whether existing persisted `debug_verdicts.json` files need migration support once Phase 2 changes the vocabulary. `[VERIFIED: repo grep]`
-   - Recommendation: make legacy-payload handling an explicit Wave 0 decision; either write a one-time compatibility mapper or deliberately invalidate old debug verdict files for regenerated runs. `[VERIFIED: repo grep]`
+   - Resolution: Phase 2 will **not** auto-migrate legacy `debug_verdicts.json` payloads that still use `correct`, `incorrect`, or `partially_correct`.
+   - Encoded behavior: best-effort render loaders may ignore unsupported legacy entries so stale runs remain viewable, but strict write/export paths must fail with a clear Phase 2 re-entry message instructing the reviewer to re-save the affected rows under `algorithm_error` / `acceptable_alternate`.
+   - Planning impact: Plan 02-02 should add regression coverage for stale legacy payload handling and implement explicit stale-payload rejection rather than a lossy mapper.
 
 2. **Meaning of `corrected_classification` for `algorithm_error`**
-   - What we know: Phase 2 requires corrected classification for `algorithm_error`, but some `review_needed` rows can be false-positive evaluator outcomes where the pipeline classification is still acceptable. `[CITED: .planning/phases/02-focused-debug-workflow/02-CONTEXT.md][VERIFIED: repo grep]`
-   - What's unclear: whether the corrected classification field must differ from the pipeline classification. `[CITED: .planning/phases/02-focused-debug-workflow/02-CONTEXT.md]`
-   - Recommendation: define it as the reviewer-accepted classification, not necessarily a changed value, so algorithm-error resolutions can cover evaluator false positives without inventing a third verdict family. `[CITED: .planning/phases/02-focused-debug-workflow/02-CONTEXT.md][VERIFIED: repo grep]`
+   - Resolution: `corrected_classification` is the reviewer-accepted classification and **may equal** the pipeline classification.
+   - Encoded behavior: validation must require the field for `algorithm_error` but must not require it to differ from the pipeline label, because `algorithm_error` can represent evaluator false positives or wrong queue/report semantics even when the classification itself was already acceptable.
+   - Planning impact: Plan 02-02 should add regression coverage proving matching pipeline/reviewer classifications are valid for `algorithm_error` and should document that semantics explicitly in the validator/report contract.
 
 ## Environment Availability
 
