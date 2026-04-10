@@ -524,6 +524,7 @@ def run_pipeline(
         # Initialize evidence objects
         revA_evidence = None
         revB_evidence = None
+        revA_annotation_spans: List[TextSpan] = []
 
         # Compute bboxes for both revA and revB to enable consistent sizing
         revA_bbox_pdf = None
@@ -561,6 +562,7 @@ def run_pipeline(
                         all_spans=revA_text_spans,
                         max_vertical_expansion=150.0
                     )
+                    revA_annotation_spans = _spans_in_bbox(revA_text_spans, expanded_bbox)
                     # Create a simple wrapper to match the expected structure
                     class ExpandedWrapper:
                         def __init__(self, bbox):
@@ -575,6 +577,7 @@ def run_pipeline(
                         vertical_tolerance=8.0,     # ~0.11 inch vertical tolerance
                         max_horizontal_expansion=150.0  # ~2 inch max expansion
                     )
+                    revA_annotation_spans = _spans_in_bbox(revA_text_spans, expanded.bbox)
 
                 # Compute annotation center (this will be the snippet center)
                 ann_x0, ann_y0, ann_x1, ann_y1 = expanded.bbox
@@ -821,6 +824,10 @@ def run_pipeline(
             elif delta_internal.added_span is not None:
                 requirement_revB = _format_annotation_text([delta_internal.added_span], fallback_text=delta_internal.added_span.text)
 
+        snippet_rule_family = "single_callout"
+        if is_notes_type_b or len(_dedupe_spans(revA_annotation_spans)) > 1 or len(_dedupe_spans(revB_annotation_spans)) > 1:
+            snippet_rule_family = "grouped_callout"
+
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
             char_no=delta_internal.char_no,
@@ -832,6 +839,7 @@ def run_pipeline(
             revB=revB_evidence,
             requirement_revB=requirement_revB,
             semantic_callout=semantic_callout,
+            snippet_rule_family=snippet_rule_family,
         )
         delta_items_pydantic.append(delta_pydantic)
 

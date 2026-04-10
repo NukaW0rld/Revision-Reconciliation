@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from delta_preservation.evaluation.contracts import GroundTruthCharacteristic, GroundTruthPacket
+from delta_preservation.evaluation.snippet_rules import evaluate_snippet_evidence
 from delta_preservation.reconcile.normalize import extract_semantic_callout, parse_requirement
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.types import DeltaItem, EvaluationMismatch, GroundTruthMatch, ItemEvaluation
 
 REVIEW_NEEDED = "review_needed"
-PENDING_SNIPPET = "pending_snippet"
+CONFORMING = "conforming"
 TRUTH_AMBIGUITY_CODE = "truth_ambiguity"
 ADDED_POOL_TOKEN_PREFIX = "added"
 
@@ -157,13 +158,13 @@ def select_truth_row_for_item(
 def _requirement_conforms(
     item: DeltaItem,
     truth_row: GroundTruthCharacteristic,
-    mismatches: list[EvaluationMismatch],
-) -> bool:
+    ) -> tuple[bool, list[EvaluationMismatch]]:
     """Compare packet-side requirement evidence against canonical truth."""
 
+    mismatches: list[EvaluationMismatch] = []
     truth_requirement = _normalize_requirement_text(truth_row.requirement_revB)
     if truth_requirement is None:
-        return True
+        return True, mismatches
 
     packet_requirement_raw = item.requirement_revB.strip() if item.requirement_revB is not None else ""
     packet_requirement = _normalize_requirement_text(packet_requirement_raw)
@@ -174,7 +175,7 @@ def _requirement_conforms(
                 message="truth expects Rev B requirement evidence but the packet row has none",
             )
         )
-        return False
+        return False, mismatches
 
     truth_semantic_callout = extract_semantic_callout(pdf_spans=[], form3_requirement=truth_row.requirement_revB)
     packet_semantic_callout = item.semantic_callout or extract_semantic_callout(
@@ -185,7 +186,7 @@ def _requirement_conforms(
 
     if semantic_result.comparable:
         if semantic_result.equal:
-            return True
+            return True, mismatches
 
         mismatches.append(
             EvaluationMismatch(
@@ -193,7 +194,7 @@ def _requirement_conforms(
                 message=semantic_result.reason_fragments[0] if semantic_result.reason_fragments else "semantic requirement mismatch",
             )
         )
-        return False
+        return False, mismatches
 
     if semantic_result.mode == "incompatible":
         mismatches.append(
@@ -204,10 +205,10 @@ def _requirement_conforms(
                 else "semantic requirement families are incompatible",
             )
         )
-        return False
+        return False, mismatches
 
     if truth_requirement == packet_requirement:
-        return True
+        return True, mismatches
 
     mismatch_detail = (
         semantic_result.reason_fragments[0]
@@ -220,7 +221,7 @@ def _requirement_conforms(
             message=f"{mismatch_detail}; normalized requirement mismatch: {truth_requirement} != {packet_requirement}",
         )
     )
-    return False
+    return False, mismatches
 
 
 def evaluate_item_against_truth(
@@ -238,7 +239,7 @@ def evaluate_item_against_truth(
             truth_match=None,
             classification_conforms=None,
             requirement_conforms=None,
-            snippet_conforms=None,
+            snippet_conforms=False,
             mismatches=[
                 EvaluationMismatch(
                     code=TRUTH_AMBIGUITY_CODE,
@@ -256,11 +257,11 @@ def evaluate_item_against_truth(
         classification=selection.truth_row.classification,
     )
 
-    mismatches: list[EvaluationMismatch] = []
+    classification_mismatches: list[EvaluationMismatch] = []
 
     classification_conforms = item.status == selection.truth_row.classification
     if not classification_conforms:
-        mismatches.append(
+        classification_mismatches.append(
             EvaluationMismatch(
                 code="classification_mismatch",
                 message=(
@@ -270,15 +271,18 @@ def evaluate_item_against_truth(
             )
         )
 
-    requirement_conforms = _requirement_conforms(item, selection.truth_row, mismatches)
+    requirement_conforms, requirement_mismatches = _requirement_conforms(item, selection.truth_row)
+    snippet_conforms, snippet_mismatches = evaluate_snippet_evidence(item, selection.truth_row)
+    mismatches = classification_mismatches + requirement_mismatches + snippet_mismatches
+    status = CONFORMING if classification_conforms and requirement_conforms and snippet_conforms else REVIEW_NEEDED
 
     return ItemEvaluation(
-        status=REVIEW_NEEDED if mismatches else PENDING_SNIPPET,
+        status=status,
         matched_truth_char_no=selection.matched_truth_char_no,
         truth_match=truth_match,
         classification_conforms=classification_conforms,
         requirement_conforms=requirement_conforms,
-        snippet_conforms=None,
+        snippet_conforms=snippet_conforms,
         mismatches=mismatches,
     )
 

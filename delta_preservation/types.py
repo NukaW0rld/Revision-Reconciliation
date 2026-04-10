@@ -161,9 +161,9 @@ class GroundTruthMatch(BaseModel):
 class ItemEvaluation(BaseModel):
     """Additive evaluation envelope describing packet conformance against immutable truth."""
 
-    status: Literal["pending_snippet", "review_needed", "conforming"] = Field(
+    status: Literal["review_needed", "conforming"] = Field(
         ...,
-        description="Evaluation lifecycle status before final snippet-based verdict resolution",
+        description="Final immutable-ground-truth conformance status for this packet row",
     )
     matched_truth_char_no: Optional[int | str] = Field(
         None,
@@ -181,9 +181,9 @@ class ItemEvaluation(BaseModel):
         None,
         description="Whether the Rev B requirement matches the canonical truth row",
     )
-    snippet_conforms: Optional[bool] = Field(
-        None,
-        description="Reserved snippet conformance slot populated in later evaluation phases",
+    snippet_conforms: bool = Field(
+        ...,
+        description="Whether the packet-side snippet evidence satisfies deterministic truth rules",
     )
     mismatches: List[EvaluationMismatch] = Field(
         default_factory=list,
@@ -217,6 +217,7 @@ class DeltaItem(BaseModel):
         - Reasons provide audit trail for regulatory compliance
         - Evidence enables visual verification of automated decisions
         - semantic_callout is additive and optional for backward compatibility
+        - snippet_rule_family selects the deterministic snippet evaluator path
         - evaluation is additive and remains null until the truth evaluator runs
     """
 
@@ -231,6 +232,10 @@ class DeltaItem(BaseModel):
     semantic_callout: Optional[SemanticCallout] = Field(
         None,
         description="Optional typed semantic callout envelope sourced from drawing/Form 3 text",
+    )
+    snippet_rule_family: Literal["single_callout", "grouped_callout"] = Field(
+        "single_callout",
+        description="Deterministic snippet-evaluation rule family for this packet row",
     )
     evaluation: Optional[ItemEvaluation] = Field(
         None,
