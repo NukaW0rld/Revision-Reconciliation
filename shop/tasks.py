@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from huey import SqliteHuey, crontab
+from delta_preservation.evaluation import GroundTruthContractError
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +269,20 @@ def run_pipeline_task(
         run.output_dir = str(out_dir)
         db.commit()
 
+    except GroundTruthContractError as exc:
+        logger.exception("run_pipeline_task failed ground truth evaluation for run %d", run_id)
+        print("HUEY TASK FAILED run_id=", run_id, "ground truth exc=", exc)
+        if run is not None and db is not None:
+            try:
+                run.status = "failed"
+                run.failure_stage = "Ground truth evaluation"
+                run.failure_message = str(exc)
+                db.commit()
+                _create_alert(db, run)
+            except Exception:
+                logger.exception(
+                    "run_pipeline_task: failed to persist ground truth failure state for run %d", run_id
+                )
     except Exception as exc:
         logger.exception("run_pipeline_task failed for run %d", run_id)
         print("HUEY TASK FAILED run_id=", run_id, "exc=", exc)

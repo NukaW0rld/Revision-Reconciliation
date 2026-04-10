@@ -17,6 +17,7 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
+from delta_preservation.evaluation import GroundTruthContractError
 from shop.database import Base
 from shop.models import Run, RunAlert, User
 
@@ -400,6 +401,60 @@ class TestExceptionFailurePath:
         db.expire_all()
         alerts = db.query(RunAlert).filter(RunAlert.run_id == run_record_no_reviewer.id).all()
         assert len(alerts) == 0
+
+
+class TestGroundTruthFailurePath:
+    """Ground truth fixture failures should surface as a dedicated failed stage."""
+
+    def test_missing_fixture_sets_ground_truth_failure_stage(self, db, SessionLocal, run_record) -> None:
+        from shop.tasks import run_pipeline_task
+
+        def fake_run_pipeline(**kwargs):
+            raise GroundTruthContractError("Ground truth fixture directory not found: /tmp/assets/PN-TEST")
+
+        with patch("shop.tasks.SessionLocal", SessionLocal), \
+             patch("shop.tasks.run_pipeline", fake_run_pipeline), \
+             patch("shop.tasks.OUT_DIR", "/tmp/out"):
+            run_pipeline_task.call_local(
+                run_id=run_record.id,
+                revA_path=run_record.revA_path,
+                revB_path=run_record.revB_path,
+                form3_path=run_record.form3_path,
+                part_name=run_record.part_number,
+            )
+
+        db.expire_all()
+        run = db.query(Run).filter(Run.id == run_record.id).first()
+        assert run.status == "failed"
+        assert run.failure_stage == "Ground truth evaluation"
+        assert run.failure_message == "Ground truth fixture directory not found: /tmp/assets/PN-TEST"
+
+    def test_malformed_ground_truth_sets_loader_error_message(self, db, SessionLocal, run_record) -> None:
+        from shop.tasks import run_pipeline_task
+
+        def fake_run_pipeline(**kwargs):
+            raise GroundTruthContractError(
+                "Ground truth JSON is malformed at /tmp/assets/PN-TEST/ground_truth.json: "
+                "Expecting value (line 1, column 1)"
+            )
+
+        with patch("shop.tasks.SessionLocal", SessionLocal), \
+             patch("shop.tasks.run_pipeline", fake_run_pipeline), \
+             patch("shop.tasks.OUT_DIR", "/tmp/out"):
+            run_pipeline_task.call_local(
+                run_id=run_record.id,
+                revA_path=run_record.revA_path,
+                revB_path=run_record.revB_path,
+                form3_path=run_record.form3_path,
+                part_name=run_record.part_number,
+            )
+
+        db.expire_all()
+        run = db.query(Run).filter(Run.id == run_record.id).first()
+        assert run.status == "failed"
+        assert run.failure_stage == "Ground truth evaluation"
+        assert "ground_truth.json" in run.failure_message
+        assert "malformed" in run.failure_message
 
 
 class TestOutDirResolution:

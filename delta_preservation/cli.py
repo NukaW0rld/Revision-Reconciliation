@@ -23,6 +23,7 @@ import cv2
 
 from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords, TextSpan, join_text_spans
 import fitz
+from delta_preservation.evaluation import load_ground_truth_packet
 from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.grid import infer_grid, parse_zone_from_reference_location
 from delta_preservation.vision.balloons import detect_balloons
@@ -844,13 +845,17 @@ def run_pipeline(
     if stage_callback:
         stage_callback(7, "Output")
     print("[8/8] Writing delta packet...")
+    truth_fixture_key = part_name
+    load_ground_truth_packet(part_name)
+
     packet = DeltaPacket(
         run_id=run_id,
         inputs={
             "revA_pdf": str(revA_path.absolute()),
             "revB_pdf": str(revB_path.absolute()),
             "form3_xlsx": str(form3_path.absolute()),
-            "dpi": str(dpi)
+            "dpi": str(dpi),
+            "truth_fixture_key": truth_fixture_key,
         },
         items=delta_items_pydantic
     )
