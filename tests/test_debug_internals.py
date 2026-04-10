@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from shop.models import Run
 from shop.services.auth import create_session
-from shop.services.review import debug_internals_by_char
+from shop.services.review import assemble_debug_report_payload, debug_internals_by_char, open_review_queue, save_debug_verdict
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -72,6 +72,8 @@ def test_debug_internals_returns_scores_and_centers(db_engine, tmp_path):
     assert entry["reasons"] == ["text differs", "location shifted"]
     assert entry["revA_center"] == (20.0, 30.0)
     assert entry["revB_center"] == (200.0, 300.0)
+    assert entry["evaluation"] is None
+    assert entry["mismatches"] == []
 
 
 # ── Unit: None bbox → None center ──────────────────────────────────────
@@ -97,6 +99,95 @@ def test_debug_internals_none_bbox(db_engine, tmp_path):
     assert entry["revA_center"] is None
     assert entry["revB_center"] is None
     assert entry["reasons"] == ["new item"]
+    assert entry["evaluation"] is None
+    assert entry["mismatches"] == []
+
+
+def test_debug_internals_exposes_evaluation_and_ordered_mismatches(db_engine, tmp_path):
+    items = [
+        {
+            "char_no": 9,
+            "status": "changed",
+            "confidence": 0.4,
+            "scores": {"location": 0.4},
+            "reasons": ["classification differs", "snippet missing"],
+            "revA": {"bbox": [10, 10, 20, 20], "image_path": None, "page": 0},
+            "revB": None,
+            "evaluation": {
+                "status": "review_needed",
+                "matched_truth_char_no": 9,
+                "truth_match": {
+                    "truth_index": 0,
+                    "matched_truth_char_no": 9,
+                    "classification": "unchanged",
+                },
+                "classification_conforms": False,
+                "requirement_conforms": True,
+                "snippet_conforms": False,
+                "mismatches": [
+                    {"code": "classification_mismatch", "message": "classification differs"},
+                    {"code": "snippet_missing_revB", "message": "snippet missing on revB"},
+                ],
+            },
+        }
+    ]
+    db, run = _make_run(db_engine, tmp_path, items)
+    result = debug_internals_by_char(run)
+    db.close()
+
+    entry = result[9]
+    assert entry["reasons"] == ["classification differs", "snippet missing"]
+    assert entry["evaluation"]["status"] == "review_needed"
+    assert [mismatch["code"] for mismatch in entry["mismatches"]] == [
+        "classification_mismatch",
+        "snippet_missing_revB",
+    ]
+
+
+def test_assemble_debug_report_payload_carries_packet_evaluation_and_ordered_mismatches(
+    db_engine, tmp_path
+):
+    items = [
+        {
+            "char_no": 10,
+            "status": "changed",
+            "confidence": 0.35,
+            "scores": {"location": 0.2},
+            "reasons": ["classification differs", "snippet missing"],
+            "revA": {"bbox": [0, 0, 10, 10], "image_path": None, "page": 0},
+            "revB": None,
+            "evaluation": {
+                "status": "review_needed",
+                "matched_truth_char_no": 10,
+                "truth_match": {
+                    "truth_index": 0,
+                    "matched_truth_char_no": 10,
+                    "classification": "unchanged",
+                },
+                "classification_conforms": False,
+                "requirement_conforms": True,
+                "snippet_conforms": False,
+                "mismatches": [
+                    {"code": "classification_mismatch", "message": "classification differs"},
+                    {"code": "snippet_missing_revB", "message": "snippet missing on revB"},
+                ],
+            },
+        }
+    ]
+    db, run = _make_run(db_engine, tmp_path, items)
+    queue = open_review_queue(db, run)
+    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+
+    payload = assemble_debug_report_payload(db, run)
+    db.close()
+
+    row = payload["items"][0]
+    assert row["reasons"] == ["classification differs", "snippet missing"]
+    assert row["evaluation"]["status"] == "review_needed"
+    assert [mismatch["code"] for mismatch in row["mismatches"]] == [
+        "classification_mismatch",
+        "snippet_missing_revB",
+    ]
 
 
 # ── Integration: admin GET /review/{id}?debug=1 returns 200 ───────────

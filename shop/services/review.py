@@ -259,12 +259,18 @@ def debug_internals_by_char(run: Run) -> dict[int | None, dict]:
         char_no = raw_item.get("char_no")
         scores = raw_item.get("scores") or {}
         reasons = raw_item.get("reasons") or []
+        evaluation = raw_item.get("evaluation")
+        mismatches = []
+        if isinstance(evaluation, dict):
+            mismatches = evaluation.get("mismatches") or []
 
         result[char_no] = {
             "scores": scores,
             "reasons": reasons,
             "revA_center": _bbox_center(raw_item.get("revA")),
             "revB_center": _bbox_center(raw_item.get("revB")),
+            "evaluation": evaluation,
+            "mismatches": mismatches,
         }
     return result
 
@@ -313,6 +319,8 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
         delta_item = DeltaItem.model_validate(raw_item)
         semantic_contract = shape_semantic_contract(delta_item)
         verdict_payload = verdicts_by_item_id[item.id]
+        evaluation = delta_item.evaluation.model_dump() if delta_item.evaluation is not None else None
+        mismatches = evaluation.get("mismatches", []) if evaluation is not None else []
         rows.append(
             {
                 "queue_index": queue_index,
@@ -333,6 +341,8 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
                 "explanation": verdict_payload.get("explanation"),
                 "scores": raw_item.get("scores") or {},
                 "reasons": raw_item.get("reasons") or [],
+                "evaluation": evaluation,
+                "mismatches": mismatches,
                 "semantic_callout": raw_item.get("semantic_callout"),
                 "semantic_contract": semantic_contract,
                 "revA_center": _bbox_center(raw_item.get("revA")),
