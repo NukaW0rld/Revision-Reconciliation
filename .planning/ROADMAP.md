@@ -12,7 +12,7 @@ This milestone turns the existing manual debug loop into a deterministic evaluat
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Evaluation Foundation** - Validate ground truth and auto-score completed runs against canonical truth
+- [x] **Phase 1: Evaluation Foundation** - Validate ground truth and auto-score completed runs against canonical truth
 - [ ] **Phase 2: Focused Debug Workflow** - Show only mismatches/ambiguity for manual review and enrich `debug_report.json`
 - [ ] **Phase 3: Exceptions History Layer** - Persist accepted alternate outcomes separately from `ground_truth.json`
 
@@ -30,9 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Define and validate ground-truth and evaluation contracts
-- [ ] 01-02: Implement automatic conformance evaluation for classification and requirement matching
-- [ ] 01-03: Implement tolerant snippet acceptance rules and structured mismatch reasons
+- [x] 01-01: Define and validate ground-truth and evaluation contracts
+- [x] 01-02: Implement automatic conformance evaluation for classification and requirement matching
+- [x] 01-03: Implement tolerant snippet acceptance rules and structured mismatch reasons
 
 ### Phase 2: Focused Debug Workflow
 **Goal**: The debug surface and exported report prioritize only nonconforming or ambiguous rows while still preserving visibility into auto-passed results.
@@ -46,9 +46,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Rework debug queue state around exception-only review
-- [ ] 02-02: Extend review/export payloads to represent auto-pass and review-needed outcomes
-- [ ] 02-03: Update admin debug UX for focused review and rationale capture
+- [ ] 02-01-PLAN.md — Rework debug queue state around exception-only review
+- [ ] 02-02-PLAN.md — Extend review/export payloads to represent auto-pass and review-needed outcomes
+- [ ] 02-03-PLAN.md — Update admin debug UX for focused review and rationale capture
 
 ### Phase 3: Exceptions History Layer
 **Goal**: Accepted alternate outcomes are stored in a separate history layer and can be reused for later runs of the same part and characteristic without changing canonical truth.
@@ -72,6 +72,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Evaluation Foundation | 0/3 | Not started | - |
-| 2. Focused Debug Workflow | 0/3 | Not started | - |
+| 1. Evaluation Foundation | 3/3 | Complete | 2026-04-10 |
+| 2. Focused Debug Workflow | 0/3 | Ready to discuss | - |
 | 3. Exceptions History Layer | 0/2 | Not started | - |
