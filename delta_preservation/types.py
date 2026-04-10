@@ -140,6 +140,57 @@ class SemanticCallout(BaseModel):
     )
 
 
+class EvaluationMismatch(BaseModel):
+    """Stable machine-readable mismatch entry attached to packet evaluation."""
+
+    code: str = Field(..., description="Stable mismatch code for downstream review/export consumers")
+    message: str = Field(..., description="Human-readable explanation of the mismatch")
+
+
+class GroundTruthMatch(BaseModel):
+    """Reference to the canonical truth row paired with a packet item."""
+
+    truth_index: int = Field(..., ge=0, description="Zero-based index into the canonical truth characteristics list")
+    matched_truth_char_no: Optional[int | str] = Field(
+        None,
+        description="Canonical truth char_no or an added-pool token when the truth row has no char_no",
+    )
+    classification: str = Field(..., description="Canonical truth classification for the matched row")
+
+
+class ItemEvaluation(BaseModel):
+    """Additive evaluation envelope describing packet conformance against immutable truth."""
+
+    status: Literal["pending_snippet", "review_needed", "conforming"] = Field(
+        ...,
+        description="Evaluation lifecycle status before final snippet-based verdict resolution",
+    )
+    matched_truth_char_no: Optional[int | str] = Field(
+        None,
+        description="Canonical truth char_no or added-pool token matched to this packet row",
+    )
+    truth_match: Optional[GroundTruthMatch] = Field(
+        None,
+        description="Structured reference to the matched canonical truth row",
+    )
+    classification_conforms: Optional[bool] = Field(
+        None,
+        description="Whether the packet classification matches the canonical truth row",
+    )
+    requirement_conforms: Optional[bool] = Field(
+        None,
+        description="Whether the Rev B requirement matches the canonical truth row",
+    )
+    snippet_conforms: Optional[bool] = Field(
+        None,
+        description="Reserved snippet conformance slot populated in later evaluation phases",
+    )
+    mismatches: List[EvaluationMismatch] = Field(
+        default_factory=list,
+        description="Ordered mismatch entries in deterministic family order",
+    )
+
+
 class DeltaItem(BaseModel):
     """
     Classification result for a single characteristic in the revision comparison.
@@ -158,6 +209,7 @@ class DeltaItem(BaseModel):
         revA: Visual evidence from Rev A PDF (None for added characteristics)
         revB: Visual evidence from Rev B PDF (None for removed characteristics)
         semantic_callout: Optional semantic envelope carrying typed drawing semantics
+        evaluation: Optional immutable-ground-truth evaluation envelope
 
     Notes:
         - Added characteristics receive new char_no values starting from max existing + 1
@@ -165,6 +217,7 @@ class DeltaItem(BaseModel):
         - Reasons provide audit trail for regulatory compliance
         - Evidence enables visual verification of automated decisions
         - semantic_callout is additive and optional for backward compatibility
+        - evaluation is additive and remains null until the truth evaluator runs
     """
 
     char_no: Optional[int] = Field(None, description="Characteristic number from AS9102 Form 3")
@@ -178,6 +231,10 @@ class DeltaItem(BaseModel):
     semantic_callout: Optional[SemanticCallout] = Field(
         None,
         description="Optional typed semantic callout envelope sourced from drawing/Form 3 text",
+    )
+    evaluation: Optional[ItemEvaluation] = Field(
+        None,
+        description="Optional immutable-ground-truth evaluation envelope for this packet row",
     )
 
 
