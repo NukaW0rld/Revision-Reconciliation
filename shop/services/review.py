@@ -9,7 +9,12 @@ from shop.utils import utcnow
 
 DEBUG_VERDICTS_FILENAME = "debug_verdicts.json"
 DEBUG_NOTES_FILENAME = "debug_notes.json"
-VALID_DEBUG_VERDICTS = {"correct", "incorrect", "partially_correct"}
+LEGACY_DEBUG_VERDICTS = {"correct", "incorrect", "partially_correct"}
+VALID_DEBUG_VERDICTS = {"algorithm_error", "acceptable_alternate"}
+PHASE2_REENTRY_MESSAGE = (
+    "Phase 2 re-entry required: re-save legacy debug verdicts with "
+    "`algorithm_error` or `acceptable_alternate`."
+)
 
 
 class DebugVerdictValidationError(ValueError):
@@ -89,8 +94,21 @@ def load_debug_verdicts(run: Run) -> dict[int, dict]:
             item_id = int(raw_key)
         except (TypeError, ValueError) as exc:
             raise DebugVerdictValidationError("Debug verdict keys must be ReviewItem ids.") from exc
-        if isinstance(payload, dict):
-            verdicts[item_id] = payload
+        if not isinstance(payload, dict):
+            continue
+        normalized = validate_debug_verdict_payload(
+            verdict=payload.get("verdict"),
+            corrected_classification=payload.get("corrected_classification"),
+            corrected_requirement_revA=payload.get("corrected_requirement_revA"),
+            corrected_requirement_revB=payload.get("corrected_requirement_revB"),
+            explanation=payload.get("explanation"),
+        )
+        verdicts[item_id] = {
+            **payload,
+            **normalized,
+            "item_id": payload.get("item_id", item_id),
+            "char_no": payload.get("char_no"),
+        }
     return verdicts
 
 
@@ -124,6 +142,8 @@ def load_debug_verdicts_for_render(run: Run) -> dict[int, dict]:
         if not isinstance(payload, dict):
             continue
         try:
+            if payload.get("verdict") in LEGACY_DEBUG_VERDICTS:
+                continue
             normalized = validate_debug_verdict_payload(
                 verdict=payload.get("verdict"),
                 corrected_classification=payload.get("corrected_classification"),
@@ -153,6 +173,8 @@ def validate_debug_verdict_payload(
     normalized_verdict = (verdict or "").strip()
     if not normalized_verdict:
         raise DebugVerdictValidationError("Verdict is required.")
+    if normalized_verdict in LEGACY_DEBUG_VERDICTS:
+        raise DebugVerdictValidationError(PHASE2_REENTRY_MESSAGE)
     if normalized_verdict not in VALID_DEBUG_VERDICTS:
         raise DebugVerdictValidationError("Unsupported debug verdict.")
 
@@ -164,17 +186,19 @@ def validate_debug_verdict_payload(
         "explanation": _normalize_optional_text(explanation),
     }
 
-    if normalized_verdict != "correct":
-        required_for_non_correct = {"corrected_classification", "explanation"}
+    if normalized_verdict == "algorithm_error":
+        required_for_algorithm_error = {"corrected_classification", "explanation"}
         missing = [
             field
             for field, value in optional_fields.items()
-            if field in required_for_non_correct and value is None
+            if field in required_for_algorithm_error and value is None
         ]
         if missing:
             raise DebugVerdictValidationError(
-                "Corrected classification and explanation are required for non-correct verdicts."
+                "Algorithm-error verdicts require corrected classification and explanation."
             )
+    elif optional_fields["explanation"] is None:
+        raise DebugVerdictValidationError("Acceptable-alternate verdicts require explanation.")
 
     for field, value in optional_fields.items():
         if value is not None:
@@ -283,49 +307,38 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
     ordering plus the packet ordering used when the queue was first seeded. This
     avoids collapsing rows by ``char_no`` when values are ``None`` or repeated.
     """
-    review_items = (
-        db.query(ReviewItem)
-        .filter(ReviewItem.run_id == run.id)
-        .order_by(ReviewItem.id)
-        .all()
-    )
+    queue_state = build_debug_queue_state(db, run)
+    review_items = queue_state["all_items"]
+    exception_item_ids = {item.id for item in queue_state["exception_items"]}
+    packet_items_by_item_id = queue_state["packet_items_by_item_id"]
+    raw_packet_items_by_item_id = queue_state["raw_packet_items_by_item_id"]
     verdicts_by_item_id = load_debug_verdicts(run)
-    missing_item_ids = [item.id for item in review_items if item.id not in verdicts_by_item_id]
-    if missing_item_ids:
-        raise DebugVerdictValidationError(
-            f"Debug export is incomplete: {len(missing_item_ids)} of {len(review_items)} review items are still missing verdicts."
-        )
-
-    try:
-        packet_data = _load_delta_packet(run)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise DebugVerdictValidationError("delta_packet.json could not be read for debug export.") from exc
-
-    raw_items = packet_data.get("items")
-    if not isinstance(raw_items, list):
-        raise DebugVerdictValidationError("delta_packet.json must contain an items array.")
-
-    ordered_packet_items = sorted(
-        raw_items,
-        key=lambda x: (x.get("char_no") is None, x.get("char_no") or 0),
-    )
-    if len(ordered_packet_items) != len(review_items):
-        raise DebugVerdictValidationError(
-            "Review queue and delta packet row counts do not align for debug export."
-        )
+    packet_data = _load_delta_packet(run)
 
     rows: list[dict] = []
-    for queue_index, (item, raw_item) in enumerate(zip(review_items, ordered_packet_items), start=1):
-        delta_item = DeltaItem.model_validate(raw_item)
+    debug_submitted = 0
+    for queue_index, item in enumerate(review_items, start=1):
+        delta_item = packet_items_by_item_id[item.id]
+        raw_item = raw_packet_items_by_item_id[item.id]
         semantic_contract = shape_semantic_contract(delta_item)
-        verdict_payload = verdicts_by_item_id[item.id]
+        verdict_payload = verdicts_by_item_id.get(item.id)
+        stored_verdict = verdict_payload or {}
         evaluation = delta_item.evaluation.model_dump() if delta_item.evaluation is not None else None
         mismatches = evaluation.get("mismatches", []) if evaluation is not None else []
+        if delta_item.evaluation is not None and delta_item.evaluation.status == "conforming":
+            row_state = "canonical_match"
+        elif verdict_payload is None:
+            row_state = "unresolved_review_needed"
+        else:
+            row_state = stored_verdict.get("verdict")
+            if item.id in exception_item_ids:
+                debug_submitted += 1
         rows.append(
             {
                 "queue_index": queue_index,
                 "review_item_id": item.id,
                 "char_no": item.char_no,
+                "row_state": row_state,
                 "pipeline_classification": item.pipeline_classification,
                 "confidence": item.confidence,
                 "requirement_revA": item.requirement_revA,
@@ -334,11 +347,12 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
                 "override_classification": item.override_classification,
                 "override_note": item.override_note,
                 "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
-                "debug_verdict": verdict_payload.get("verdict"),
-                "corrected_classification": verdict_payload.get("corrected_classification"),
-                "corrected_requirement_revA": verdict_payload.get("corrected_requirement_revA"),
-                "corrected_requirement_revB": verdict_payload.get("corrected_requirement_revB"),
-                "explanation": verdict_payload.get("explanation"),
+                "debug_verdict": stored_verdict.get("verdict"),
+                "corrected_classification": stored_verdict.get("corrected_classification"),
+                "corrected_requirement_revA": stored_verdict.get("corrected_requirement_revA"),
+                "corrected_requirement_revB": stored_verdict.get("corrected_requirement_revB"),
+                "explanation": stored_verdict.get("explanation"),
+                "history_reference": None,
                 "scores": raw_item.get("scores") or {},
                 "reasons": raw_item.get("reasons") or [],
                 "evaluation": evaluation,
@@ -355,8 +369,8 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
         "run_id": run.id,
         "run_status": run.status,
         "packet_run_id": packet_data.get("run_id"),
-        "debug_total": len(review_items),
-        "debug_submitted": len(rows),
+        "debug_total": len(exception_item_ids),
+        "debug_submitted": debug_submitted,
         "notes": load_debug_notes(run),
         "items": rows,
     }
@@ -387,11 +401,13 @@ def build_debug_queue_state(db: Session, run: Run) -> dict:
         )
 
     packet_items_by_item_id: dict[int, DeltaItem] = {}
+    raw_packet_items_by_item_id: dict[int, dict] = {}
     exception_items: list[ReviewItem] = []
     packet_rows: list[tuple[ReviewItem, DeltaItem]] = []
     for item, raw_item in zip(all_items, raw_items):
         delta_item = DeltaItem.model_validate(raw_item)
         packet_items_by_item_id[item.id] = delta_item
+        raw_packet_items_by_item_id[item.id] = raw_item
         packet_rows.append((item, delta_item))
         if delta_item.evaluation is not None and delta_item.evaluation.status == "review_needed":
             exception_items.append(item)
@@ -400,6 +416,7 @@ def build_debug_queue_state(db: Session, run: Run) -> dict:
         "all_items": all_items,
         "exception_items": exception_items,
         "packet_items_by_item_id": packet_items_by_item_id,
+        "raw_packet_items_by_item_id": raw_packet_items_by_item_id,
         "packet_rows": packet_rows,
         "debug_total": len(exception_items),
     }
