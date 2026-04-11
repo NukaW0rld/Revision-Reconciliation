@@ -212,6 +212,42 @@ def test_debug_report_rows_keep_ordered_mismatches_and_history_placeholder(db_en
     assert canonical_row["history_reference"] is None
 
 
+def test_debug_report_rows_show_history_backed_acceptable_alternate_state(db_engine, tmp_path):
+    items = [
+        {
+            "char_no": 12,
+            "status": "changed",
+            "confidence": 0.42,
+            "scores": {"location": 0.3},
+            "reasons": ["classification differs"],
+            "revA": {"bbox": [0, 0, 10, 10], "image_path": None, "page": 0},
+            "revB": {"bbox": [20, 20, 30, 30], "image_path": None, "page": 0},
+            "evaluation": {
+                "status": "conforming",
+                "matched_truth_char_no": "truth-12",
+                "classification_conforms": False,
+                "requirement_conforms": True,
+                "snippet_conforms": False,
+                "mismatches": [
+                    {"code": "classification_mismatch", "message": "classification differs"},
+                ],
+                "conformance_source": "accepted_alternate",
+                "history_reference": {"history_id": 17, "source_run_id": 4},
+            },
+        }
+    ]
+    db, run = _make_run(db_engine, tmp_path, items)
+    open_review_queue(db, run)
+
+    payload = assemble_debug_report_payload(db, run)
+    db.close()
+
+    row = payload["items"][0]
+    assert row["row_state"] == "acceptable_alternate"
+    assert row["evaluation"]["status"] == "conforming"
+    assert row["history_reference"] == {"history_id": 17, "source_run_id": 4}
+
+
 # ── Integration: admin GET /review/{id}?debug=1 returns 200 ───────────
 
 def test_admin_debug_review_returns_200(client: TestClient, admin_user, db_engine, tmp_path):
