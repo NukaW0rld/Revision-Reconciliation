@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Evaluation Foundation** - Validate ground truth and auto-score completed runs against canonical truth
 - [x] **Phase 2: Focused Debug Workflow** - Show only mismatches/ambiguity for manual review and enrich `debug_report.json` (completed 2026-04-11)
-- [ ] **Phase 3: Exceptions History Layer** - Persist accepted alternate outcomes separately from `ground_truth.json`
+- [x] **Phase 3: Exceptions History Layer** - Persist accepted alternate outcomes separately from `ground_truth.json` (completed 2026-04-11)
 
 ## Phase Details
 
@@ -62,8 +62,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Design and persist the exceptions/history model
-- [ ] 03-02: Integrate history-backed acceptable alternates into evaluation and reports
+- [x] 03-01: Design and persist the exceptions/history model
+- [x] 03-02: Integrate history-backed acceptable alternates into evaluation and reports
 
 ## Progress
 
@@ -74,4 +74,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Evaluation Foundation | 3/3 | Complete | 2026-04-10 |
 | 2. Focused Debug Workflow | 3/3 | Complete    | 2026-04-11 |
-| 3. Exceptions History Layer | 0/2 | Not started | - |
+| 3. Exceptions History Layer | 2/2 | Complete | 2026-04-11 |
