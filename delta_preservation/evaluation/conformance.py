@@ -9,7 +9,14 @@ from delta_preservation.evaluation.contracts import GroundTruthCharacteristic, G
 from delta_preservation.evaluation.snippet_rules import evaluate_snippet_evidence
 from delta_preservation.reconcile.normalize import extract_semantic_callout, parse_requirement
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
-from delta_preservation.types import DeltaItem, EvaluationMismatch, GroundTruthMatch, ItemEvaluation
+from delta_preservation.types import (
+    AcceptedAlternateHistoryRecord,
+    DeltaItem,
+    EvaluationMismatch,
+    GroundTruthMatch,
+    HistoryReference,
+    ItemEvaluation,
+)
 
 REVIEW_NEEDED = "review_needed"
 CONFORMING = "conforming"
@@ -298,3 +305,75 @@ def evaluate_packet_against_truth(
         evaluate_item_against_truth(item, truth_packet.characteristics, reserved_added_truth_indexes)
         for item in items
     ]
+
+
+def _current_mismatch_codes(evaluation: ItemEvaluation) -> set[str]:
+    return {mismatch.code for mismatch in evaluation.mismatches if mismatch.code}
+
+
+def _history_tokens_match(
+    item: DeltaItem,
+    evaluation: ItemEvaluation,
+    alternate: AcceptedAlternateHistoryRecord,
+) -> bool:
+    if evaluation.matched_truth_char_no is not None:
+        if alternate.matched_truth_char_no is None:
+            return False
+        return str(evaluation.matched_truth_char_no) == str(alternate.matched_truth_char_no)
+
+    if alternate.matched_truth_char_no is not None:
+        return False
+
+    return item.char_no == alternate.char_no
+
+
+def apply_accepted_alternate_history(
+    items: Sequence[DeltaItem],
+    evaluations: Sequence[ItemEvaluation],
+    approved_alternates: Sequence[AcceptedAlternateHistoryRecord],
+) -> list[ItemEvaluation]:
+    """Upgrade review-needed rows when an exact accepted alternate fingerprint exists."""
+
+    updated: list[ItemEvaluation] = []
+    for item, evaluation in zip(items, evaluations):
+        if evaluation.status != REVIEW_NEEDED:
+            updated.append(evaluation)
+            continue
+
+        current_requirement = _normalize_requirement_text(item.requirement_revB)
+        current_mismatch_codes = _current_mismatch_codes(evaluation)
+        matched_alternate = None
+        for alternate in approved_alternates:
+            if item.status != alternate.reviewed_classification:
+                continue
+            if not _history_tokens_match(item, evaluation, alternate):
+                continue
+
+            alternate_requirement = _normalize_requirement_text(alternate.reviewed_requirement_revB)
+            if alternate_requirement is not None and current_requirement != alternate_requirement:
+                continue
+
+            if current_mismatch_codes != set(alternate.mismatch_codes):
+                continue
+
+            matched_alternate = alternate
+            break
+
+        if matched_alternate is None:
+            updated.append(evaluation)
+            continue
+
+        updated.append(
+            evaluation.model_copy(
+                update={
+                    "status": CONFORMING,
+                    "conformance_source": "accepted_alternate",
+                    "history_reference": HistoryReference(
+                        history_id=matched_alternate.history_id,
+                        source_run_id=matched_alternate.source_run_id,
+                    ),
+                }
+            )
+        )
+
+    return updated

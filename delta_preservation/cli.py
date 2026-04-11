@@ -24,7 +24,10 @@ import cv2
 from delta_preservation.io.pdf import render_page, extract_text_spans, pdf_to_img_coords, TextSpan, join_text_spans
 import fitz
 from delta_preservation.evaluation import load_ground_truth_packet
-from delta_preservation.evaluation.conformance import evaluate_packet_against_truth
+from delta_preservation.evaluation.conformance import (
+    apply_accepted_alternate_history,
+    evaluate_packet_against_truth,
+)
 from delta_preservation.io.xlsx import load_form3
 from delta_preservation.vision.grid import infer_grid, parse_zone_from_reference_location
 from delta_preservation.vision.balloons import detect_balloons
@@ -49,7 +52,13 @@ from delta_preservation.reconcile.match import _group_candidate_spans, generate_
 from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
-from delta_preservation.types import DeltaPacket, DeltaItem, Evidence, SemanticCallout
+from delta_preservation.types import (
+    AcceptedAlternateHistoryRecord,
+    DeltaPacket,
+    DeltaItem,
+    Evidence,
+    SemanticCallout,
+)
 
 
 _REORDER_SYMBOLS = {"↧", "⌴", "⌵", "⏥", "⌓", "⟂", "⌖", "⌒", "∥", "∠", "⊙", "Ø", "R"}
@@ -188,6 +197,7 @@ def run_pipeline(
     out_dir="./out",
     dpi=300,
     part_name="part",
+    accepted_alternates: Optional[List[AcceptedAlternateHistoryRecord]] = None,
     stage_callback: Optional[Callable[[int, str], None]] = None,
 ) -> Path:
     """
@@ -857,11 +867,16 @@ def run_pipeline(
     truth_fixture_key = part_name
     truth_packet = load_ground_truth_packet(part_name)
 
+    evaluations = evaluate_packet_against_truth(delta_items_pydantic, truth_packet)
+    if accepted_alternates:
+        evaluations = apply_accepted_alternate_history(
+            delta_items_pydantic,
+            evaluations,
+            accepted_alternates,
+        )
+
     evaluated_items: List[DeltaItem] = []
-    for delta_item, evaluation in zip(
-        delta_items_pydantic,
-        evaluate_packet_against_truth(delta_items_pydantic, truth_packet),
-    ):
+    for delta_item, evaluation in zip(delta_items_pydantic, evaluations):
         evaluated_items.append(
             DeltaItem(
                 **delta_item.model_dump(exclude={"evaluation"}),

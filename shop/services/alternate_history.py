@@ -3,7 +3,8 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from delta_preservation.types import DeltaItem
+from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.types import AcceptedAlternateHistoryRecord, DeltaItem
 from shop.models import AcceptedAlternateHistory, ReviewItem, Run
 from shop.utils import utcnow
 
@@ -17,6 +18,13 @@ def _normalize_optional_text(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
+
+
+def _normalize_requirement_text(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    return parse_requirement(normalized).norm_text
 
 
 def _load_packet_row_for_item(db: Session, run: Run, item: ReviewItem) -> DeltaItem:
@@ -118,7 +126,7 @@ def sync_accepted_alternate_history(
         payload.get("corrected_classification")
         or item.pipeline_classification
     )
-    history_row.reviewed_requirement_revB = _normalize_optional_text(
+    history_row.reviewed_requirement_revB = _normalize_requirement_text(
         payload.get("corrected_requirement_revB") or item.requirement_revB
     )
     history_row.mismatch_codes = _ordered_mismatch_codes(delta_item)
@@ -130,3 +138,33 @@ def sync_accepted_alternate_history(
     db.commit()
     db.refresh(history_row)
     return history_row
+
+
+def load_active_accepted_alternates(
+    db: Session,
+    part_number: str,
+) -> list[AcceptedAlternateHistoryRecord]:
+    """Return active accepted alternates for a part as evaluator-safe pure data."""
+
+    rows = (
+        db.query(AcceptedAlternateHistory)
+        .filter(
+            AcceptedAlternateHistory.part_number == part_number,
+            AcceptedAlternateHistory.is_active.is_(True),
+        )
+        .order_by(AcceptedAlternateHistory.id.asc())
+        .all()
+    )
+    return [
+        AcceptedAlternateHistoryRecord(
+            history_id=row.id,
+            source_run_id=row.run_id,
+            part_number=row.part_number,
+            char_no=row.char_no,
+            matched_truth_char_no=row.matched_truth_char_no,
+            reviewed_classification=row.reviewed_classification,
+            reviewed_requirement_revB=row.reviewed_requirement_revB,
+            mismatch_codes=list(row.mismatch_codes or []),
+        )
+        for row in rows
+    ]

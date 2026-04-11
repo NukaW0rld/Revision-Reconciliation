@@ -204,6 +204,9 @@ def run_pipeline_task(
             # PIPE-02: update stage in DB so SSE / polling can observe progress
             _update_stage(db, run, stage_idx, stage_name)
 
+        from shop.services.alternate_history import load_active_accepted_alternates
+
+        accepted_alternates = load_active_accepted_alternates(db, run.part_number)
         out_dir = _run_pipeline(
             revA_pdf=revA_path,
             revB_pdf=revB_path,
@@ -211,6 +214,7 @@ def run_pipeline_task(
             out_dir=OUT_DIR,
             dpi=dpi,
             part_name=part_name,
+            accepted_alternates=accepted_alternates,
             stage_callback=stage_callback,
         )
 

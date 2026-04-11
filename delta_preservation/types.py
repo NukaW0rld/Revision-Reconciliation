@@ -158,6 +158,35 @@ class GroundTruthMatch(BaseModel):
     classification: str = Field(..., description="Canonical truth classification for the matched row")
 
 
+class HistoryReference(BaseModel):
+    """Pointer to the durable history record that justified alternate conformance."""
+
+    history_id: int = Field(..., ge=1, description="Primary key of the accepted alternate history record")
+    source_run_id: int = Field(..., ge=1, description="Run id that originally stored the accepted alternate")
+
+
+class AcceptedAlternateHistoryRecord(BaseModel):
+    """Pure-data accepted alternate history row used by the evaluator."""
+
+    history_id: int = Field(..., ge=1, description="Primary key of the accepted alternate history record")
+    source_run_id: int = Field(..., ge=1, description="Run id that originally stored the accepted alternate")
+    part_number: str = Field(..., description="Exact part number scope for this reusable alternate")
+    char_no: Optional[int] = Field(None, description="Display characteristic number when the packet row has no truth token")
+    matched_truth_char_no: Optional[int | str] = Field(
+        None,
+        description="Stored truth identity token for conservative alternate-history reuse",
+    )
+    reviewed_classification: str = Field(..., description="Reviewer-approved classification for the accepted alternate")
+    reviewed_requirement_revB: Optional[str] = Field(
+        None,
+        description="Reviewer-approved normalized Rev B requirement text when available",
+    )
+    mismatch_codes: List[str] = Field(
+        default_factory=list,
+        description="Stable mismatch-code fingerprint captured when the alternate was approved",
+    )
+
+
 class ItemEvaluation(BaseModel):
     """Additive evaluation envelope describing packet conformance against immutable truth."""
 
@@ -188,6 +217,14 @@ class ItemEvaluation(BaseModel):
     mismatches: List[EvaluationMismatch] = Field(
         default_factory=list,
         description="Ordered mismatch entries in deterministic family order",
+    )
+    conformance_source: Literal["ground_truth", "accepted_alternate"] = Field(
+        "ground_truth",
+        description="Whether conformance comes from canonical truth or an approved accepted alternate",
+    )
+    history_reference: Optional[HistoryReference] = Field(
+        None,
+        description="Durable history provenance when conformance comes from accepted alternate reuse",
     )
 
 

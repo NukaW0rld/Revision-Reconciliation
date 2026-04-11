@@ -325,8 +325,12 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
         stored_verdict = verdict_payload or {}
         evaluation = delta_item.evaluation.model_dump() if delta_item.evaluation is not None else None
         mismatches = evaluation.get("mismatches", []) if evaluation is not None else []
+        history_reference = evaluation.get("history_reference") if evaluation is not None else None
         if delta_item.evaluation is not None and delta_item.evaluation.status == "conforming":
-            row_state = "canonical_match"
+            if delta_item.evaluation.conformance_source == "accepted_alternate":
+                row_state = "acceptable_alternate"
+            else:
+                row_state = "canonical_match"
         elif verdict_payload is None:
             row_state = "unresolved_review_needed"
         else:
@@ -352,7 +356,7 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
                 "corrected_requirement_revA": stored_verdict.get("corrected_requirement_revA"),
                 "corrected_requirement_revB": stored_verdict.get("corrected_requirement_revB"),
                 "explanation": stored_verdict.get("explanation"),
-                "history_reference": None,
+                "history_reference": history_reference,
                 "scores": raw_item.get("scores") or {},
                 "reasons": raw_item.get("reasons") or [],
                 "evaluation": evaluation,
