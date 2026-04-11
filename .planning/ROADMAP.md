@@ -13,7 +13,7 @@ This milestone turns the existing manual debug loop into a deterministic evaluat
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Evaluation Foundation** - Validate ground truth and auto-score completed runs against canonical truth
-- [ ] **Phase 2: Focused Debug Workflow** - Show only mismatches/ambiguity for manual review and enrich `debug_report.json`
+- [x] **Phase 2: Focused Debug Workflow** - Show only mismatches/ambiguity for manual review and enrich `debug_report.json` (completed 2026-04-11)
 - [ ] **Phase 3: Exceptions History Layer** - Persist accepted alternate outcomes separately from `ground_truth.json`
 
 ## Phase Details
@@ -46,9 +46,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Rework debug queue state around exception-only review
-- [ ] 02-02-PLAN.md — Extend review/export payloads to represent auto-pass and review-needed outcomes
-- [ ] 02-03-PLAN.md — Update admin debug UX for focused review and rationale capture
+- [x] 02-01-PLAN.md — Rework debug queue state around exception-only review
+- [x] 02-02-PLAN.md — Extend review/export payloads to represent auto-pass and review-needed outcomes
+- [x] 02-03-PLAN.md — Update admin debug UX for focused review and rationale capture
 
 ### Phase 3: Exceptions History Layer
 **Goal**: Accepted alternate outcomes are stored in a separate history layer and can be reused for later runs of the same part and characteristic without changing canonical truth.
@@ -73,5 +73,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Evaluation Foundation | 3/3 | Complete | 2026-04-10 |
-| 2. Focused Debug Workflow | 0/3 | Ready to discuss | - |
+| 2. Focused Debug Workflow | 3/3 | Complete    | 2026-04-11 |
 | 3. Exceptions History Layer | 0/2 | Not started | - |
