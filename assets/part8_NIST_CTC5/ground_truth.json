@@ -1,0 +1,80 @@
+{
+  "part_name": "Part8",
+  "general_notes": "In rev B drawing, a new bottom view is introduced. Consequently, all the characteristic annotations have been significantly shifted from their original position on the drawing compared to rev A drawing.",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "changed",
+      "requirement_revB": "5.000±.01",
+      "snippet_center_revA": [188, 82],
+      "snippet_center_revB": [186, 72]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "⟂ .010 D",
+      "snippet_center_revA": [188, 240],
+      "snippet_center_revB": [186, 228]
+    },
+    {
+      "char_no": 3,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [530, 242],
+      "snippet_center_revB": [512, 236]
+    },
+    {
+      "char_no": 4,
+      "classification": "unchanged",
+      "requirement_revB": "↗ .025 A-B",
+      "snippet_center_revA": [212, 482],
+      "snippet_center_revB": [208, 418]
+    },
+    {
+      "char_no": 5,
+      "classification": "changed",
+      "requirement_revB": "⚪ .005",
+      "snippet_center_revA": [434, 396],
+      "snippet_center_revB": [428, 330]
+    },
+    {
+      "char_no": 6,
+      "classification": "changed",
+      "requirement_revB": "◎ ∅.045 A",
+      "snippet_center_revA": [484, 470],
+      "snippet_center_revB": [478, 406]
+    },
+    {
+      "char_no": 7,
+      "classification": "unchanged",
+      "requirement_revB": "↗ .035 A-B",
+      "snippet_center_revA": [698, 470],
+      "snippet_center_revB": [738, 406]
+    },
+    {
+      "char_no": 8,
+      "classification": "unchanged",
+      "requirement_revB": "⏤ .010 D",
+      "snippet_center_revA": [934, 434],
+      "snippet_center_revB": [972, 368]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "Ø10.000±.001",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [522, 528]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⌰ .015 B",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [202, 538]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⌰ .002 A",
+      "snippet_center_revA": null,
+      "snippet_center_revB": [202, 602]
+    }
+  ]
+}
