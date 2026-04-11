@@ -144,9 +144,7 @@ def test_debug_internals_exposes_evaluation_and_ordered_mismatches(db_engine, tm
     ]
 
 
-def test_assemble_debug_report_payload_carries_packet_evaluation_and_ordered_mismatches(
-    db_engine, tmp_path
-):
+def test_debug_report_rows_keep_ordered_mismatches_and_history_placeholder(db_engine, tmp_path):
     items = [
         {
             "char_no": 10,
@@ -172,22 +170,46 @@ def test_assemble_debug_report_payload_carries_packet_evaluation_and_ordered_mis
                     {"code": "snippet_missing_revB", "message": "snippet missing on revB"},
                 ],
             },
-        }
+        },
+        {
+            "char_no": 11,
+            "status": "unchanged",
+            "confidence": 0.97,
+            "scores": {"location": 0.9},
+            "reasons": ["canonical match"],
+            "revA": {"bbox": [20, 20, 30, 30], "image_path": None, "page": 0},
+            "revB": {"bbox": [40, 40, 50, 50], "image_path": None, "page": 0},
+            "evaluation": {
+                "status": "conforming",
+                "matched_truth_char_no": 11,
+                "snippet_conforms": True,
+                "mismatches": [],
+            },
+        },
     ]
     db, run = _make_run(db_engine, tmp_path, items)
     queue = open_review_queue(db, run)
-    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+    save_debug_verdict(
+        run,
+        queue[0],
+        {"verdict": "algorithm_error", "corrected_classification": "changed", "explanation": "reviewed"},
+    )
 
     payload = assemble_debug_report_payload(db, run)
     db.close()
 
-    row = payload["items"][0]
-    assert row["reasons"] == ["classification differs", "snippet missing"]
-    assert row["evaluation"]["status"] == "review_needed"
-    assert [mismatch["code"] for mismatch in row["mismatches"]] == [
+    reviewed_row = payload["items"][0]
+    canonical_row = payload["items"][1]
+    assert reviewed_row["row_state"] == "algorithm_error"
+    assert reviewed_row["history_reference"] is None
+    assert reviewed_row["reasons"] == ["classification differs", "snippet missing"]
+    assert reviewed_row["evaluation"]["status"] == "review_needed"
+    assert [mismatch["code"] for mismatch in reviewed_row["mismatches"]] == [
         "classification_mismatch",
         "snippet_missing_revB",
     ]
+    assert canonical_row["row_state"] == "canonical_match"
+    assert canonical_row["history_reference"] is None
 
 
 # ── Integration: admin GET /review/{id}?debug=1 returns 200 ───────────

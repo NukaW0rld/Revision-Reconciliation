@@ -9,6 +9,7 @@ from shop.services.auth import create_session
 from shop.services.review import (
     assemble_debug_report_payload,
     load_debug_verdicts,
+    load_debug_verdicts_for_render,
     open_review_queue,
     save_debug_verdict,
     validate_debug_verdict_payload,
@@ -28,7 +29,18 @@ def _seed_run(db_engine, tmp_path, *, items, status="completed"):
     db = Session()
     out_dir = tmp_path / f"run-{status}-{len(items)}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "delta_packet.json").write_text(json.dumps({"run_id": "dbg", "items": items}))
+    normalized_items = []
+    for item in items:
+        normalized_item = dict(item)
+        if "evaluation" not in normalized_item:
+            normalized_item["evaluation"] = {
+                "status": "review_needed",
+                "matched_truth_char_no": normalized_item.get("char_no"),
+                "snippet_conforms": False,
+                "mismatches": [],
+            }
+        normalized_items.append(normalized_item)
+    (out_dir / "delta_packet.json").write_text(json.dumps({"run_id": "dbg", "items": normalized_items}))
     run = Run(
         part_number="PN-DBG",
         rev_a_label="A",
@@ -88,6 +100,162 @@ def _assert_export_enabled(html: str, run_id: int):
     assert 'Export debug_report.json' in html
     assert f'href="/review/{run_id}/debug-report.json"' in html
     assert 'download="debug_report.json"' in html
+
+
+def test_algorithm_error_accepts_reviewer_accepted_classification_when_label_matches_pipeline(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 11,
+                "status": "changed",
+                "confidence": 0.77,
+                "scores": {"location": 0.2},
+                "reasons": ["classification differs"],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 11,
+                    "snippet_conforms": False,
+                    "mismatches": [
+                        {"code": "classification_mismatch", "message": "classification differs"}
+                    ],
+                },
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    resp = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "algorithm_error",
+            "corrected_classification": "changed",
+            "explanation": "Reviewer accepted the pipeline label but the row still belongs in the exception log.",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    raw = json.loads((out_dir / "debug_verdicts.json").read_text())
+    assert raw[str(item_id)]["verdict"] == "algorithm_error"
+    assert raw[str(item_id)]["corrected_classification"] == "changed"
+    assert raw[str(item_id)]["explanation"].startswith("Reviewer accepted")
+
+
+def test_load_debug_verdicts_for_render_ignores_legacy_verdict_entries(db_engine, tmp_path):
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 1,
+                "status": "changed",
+                "confidence": 0.61,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+            {
+                "char_no": 2,
+                "status": "removed",
+                "confidence": 0.52,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+            },
+        ],
+    )
+    first_item_id, second_item_id = _open_queue(db_engine, run_id)
+
+    (out_dir / "debug_verdicts.json").write_text(
+        json.dumps(
+            {
+                str(first_item_id): {
+                    "item_id": first_item_id,
+                    "char_no": 1,
+                    "verdict": "incorrect",
+                    "corrected_classification": "changed",
+                    "explanation": "legacy payload",
+                },
+                str(second_item_id): {
+                    "item_id": second_item_id,
+                    "char_no": 2,
+                    "verdict": "acceptable_alternate",
+                    "explanation": "alternate accepted",
+                },
+            }
+        )
+    )
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        verdicts = load_debug_verdicts_for_render(run)
+    finally:
+        db.close()
+
+    assert first_item_id not in verdicts
+    assert verdicts[second_item_id]["verdict"] == "acceptable_alternate"
+    assert verdicts[second_item_id]["explanation"] == "alternate accepted"
+
+
+def test_legacy_debug_verdicts_require_phase2_reentry_on_strict_paths(db_engine, tmp_path):
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 7,
+                "status": "changed",
+                "confidence": 0.61,
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 7,
+                    "snippet_conforms": False,
+                    "mismatches": [],
+                },
+            }
+        ],
+    )
+    item_id = _open_queue(db_engine, run_id)[0]
+    (out_dir / "debug_verdicts.json").write_text(
+        json.dumps(
+            {
+                str(item_id): {
+                    "item_id": item_id,
+                    "char_no": 7,
+                    "verdict": "partially_correct",
+                    "corrected_classification": "changed",
+                    "explanation": "legacy payload",
+                }
+            }
+        )
+    )
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+        import pytest
+
+        with pytest.raises(Exception, match="Phase 2 re-entry"):
+            load_debug_verdicts(run)
+        with pytest.raises(Exception, match="Phase 2 re-entry"):
+            assemble_debug_report_payload(db, run)
+    finally:
+        db.close()
 
 
 def test_save_debug_verdict_creates_file_keyed_by_item_id(db_engine, tmp_path):
