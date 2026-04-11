@@ -33,7 +33,7 @@ patterns-established:
   - "History-backed conformance is additive: truth evaluation runs first, alternate reuse only upgrades review_needed rows."
   - "Debug report rows use evaluation.conformance_source plus history_reference to distinguish acceptable alternates from canonical matches."
 requirements-completed: [HIST-03]
-duration: 1m
+duration: 2m
 completed: 2026-04-11
 ---
 
@@ -43,9 +43,9 @@ completed: 2026-04-11
 
 ## Performance
 
-- **Duration:** 1 min
+- **Duration:** 2 min
 - **Started:** 2026-04-11T17:33:25-05:00
-- **Completed:** 2026-04-11T17:33:39-05:00
+- **Completed:** 2026-04-11T17:35:56-05:00
 - **Tasks:** 2
 - **Files modified:** 8
 
@@ -83,11 +83,24 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None - plan executed as specified.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Missing Critical] Enforced part scoping at the pipeline boundary**
+- **Found during:** Post-wave code review
+- **Issue:** The task loader filtered alternate history by part, but `run_pipeline(...)` would still accept a mixed-part alternate list from any future non-task caller.
+- **Fix:** Added an exact `alternate.part_number == part_name` filter before applying accepted alternate history inside `delta_preservation/cli.py`.
+- **Files modified:** `delta_preservation/cli.py`
+- **Verification:** `uv run pytest -q tests/test_history_conformance.py tests/test_debug_internals.py tests/test_output_formatting.py tests/test_debug_history.py tests/test_pipeline_task.py -x`
+- **Committed in:** `b51a346` (post-review fix)
+
+---
+
+**Total deviations:** 1 auto-fixed (1 missing critical)
+**Impact on plan:** Tightened the same-part reuse contract without expanding scope.
 
 ## Issues Encountered
 
-None.
+- Advisory code review surfaced a part-scoping gap for alternate-history reuse at the pipeline boundary; it was fixed before phase verification.
 
 ## User Setup Required
 
