@@ -62,7 +62,9 @@ def review_queue(
     debug_queue_state = build_debug_queue_state(db, run) if debug else None
     all_items = debug_queue_state["all_items"] if debug_queue_state else open_review_queue(db, run)
     exception_items = debug_queue_state["exception_items"] if debug_queue_state else []
-    if debug and not exception_items:
+    if debug and not exception_items and (
+        all_items or debug_queue_state.get("packet_declares_items")
+    ):
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
     semantic_contracts = semantic_contracts_by_char(run)
     debug_semantic_contracts = semantic_contracts_by_item_id(db, run) if debug else {}

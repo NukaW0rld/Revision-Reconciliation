@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 
+from delta_preservation.evaluation.contracts import GroundTruthPacket
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.match import GroupedSpan
 
@@ -98,6 +99,16 @@ def _span(text: str, *, block_id: int, line_id: int, span_id: int, x0: float, y0
     )
 
 
+def _empty_truth_packet() -> GroundTruthPacket:
+    return GroundTruthPacket.model_validate(
+        {
+            "part_name": "Semantic Packet Fixture",
+            "general_notes": "",
+            "characteristics": [],
+        }
+    )
+
+
 def _run_pipeline_semantic_case(tmp_path, case: _PipelineTestCase):
     from delta_preservation.cli import run_pipeline
 
@@ -144,6 +155,7 @@ def _run_pipeline_semantic_case(tmp_path, case: _PipelineTestCase):
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -454,6 +466,7 @@ def test_run_pipeline_uses_pdf_span_inputs_for_matched_and_added_semantics(tmp_p
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png", "c.png", "d.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -521,6 +534,7 @@ def test_run_pipeline_persists_surface_finish_semantic_callouts_in_delta_packet(
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -614,6 +628,7 @@ def test_run_pipeline_persists_fit_semantic_callouts_in_delta_packet(tmp_path):
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -708,6 +723,7 @@ def test_run_pipeline_persists_weld_semantic_callouts_in_delta_packet(tmp_path):
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),
@@ -821,6 +837,7 @@ def test_run_pipeline_packet_keeps_full_part6_semantic_text_when_classification_
          patch("delta_preservation.cli.pdf_to_img_coords", return_value=(0, 0, 10, 10)), \
          patch("delta_preservation.cli.crop_with_padding", return_value=np.zeros((10, 10, 3), dtype=np.uint8)), \
          patch("delta_preservation.cli.save_snippet", side_effect=["a.png", "b.png"]), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", side_effect=[_FakeDoc(), _FakeDoc()]):
         run_dir = run_pipeline(
             revA_pdf=str(revA),

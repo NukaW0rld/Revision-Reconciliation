@@ -22,6 +22,8 @@ class DebugVerdictValidationError(ValueError):
 
 
 def _load_delta_packet(run: Run) -> dict:
+    if not run.output_dir:
+        raise DebugVerdictValidationError("Run output directory is not configured.")
     packet_path = Path(run.output_dir) / "delta_packet.json"
     return json.loads(packet_path.read_text())
 
@@ -444,14 +446,17 @@ def _review_items_in_packet_order(db: Session, run: Run, *, activate_review: boo
 
 def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = True) -> dict:
     """Return stable packet-to-review-item pairing for the admin debug queue."""
-    all_items = _review_items_in_packet_order(db, run, activate_review=activate_review)
-
     try:
+        all_items = _review_items_in_packet_order(db, run, activate_review=activate_review)
         packet_data = _load_delta_packet(run)
+    except DebugVerdictValidationError:
+        raise
     except (OSError, json.JSONDecodeError) as exc:
         raise DebugVerdictValidationError("delta_packet.json could not be read for debug queue.") from exc
 
     raw_items = packet_data.get("items")
+    if raw_items is None and packet_data.get("characters") == []:
+        raw_items = []
     if not isinstance(raw_items, list):
         raise DebugVerdictValidationError("delta_packet.json must contain an items array.")
     if len(raw_items) != len(all_items):
@@ -477,6 +482,7 @@ def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = Tr
         "packet_items_by_item_id": packet_items_by_item_id,
         "raw_packet_items_by_item_id": raw_packet_items_by_item_id,
         "packet_rows": packet_rows,
+        "packet_declares_items": "items" in packet_data,
         "debug_total": len(exception_items),
     }
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, RunAlert, ShopConfig
-from shop.services.review import build_run_debug_summary
+from shop.services.review import DebugVerdictValidationError, build_run_debug_summary
 
 router = APIRouter(redirect_slashes=False)
 logger = logging.getLogger(__name__)
@@ -304,7 +304,10 @@ def run_status(
     signed = request.query_params.get("signed") == "1"
     debug_summary = None
     if user.role == "admin" and run.status in ("completed", "reviewing", "warning", "signed_off"):
-        debug_summary = build_run_debug_summary(db, run)
+        try:
+            debug_summary = build_run_debug_summary(db, run)
+        except DebugVerdictValidationError:
+            debug_summary = None
     return templates.TemplateResponse(request, "runs/status.html", {
         "user": user,
         "run": run,

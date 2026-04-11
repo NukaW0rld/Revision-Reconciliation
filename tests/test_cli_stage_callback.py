@@ -8,6 +8,18 @@ import inspect
 import pytest
 from unittest.mock import MagicMock, patch
 
+from delta_preservation.evaluation.contracts import GroundTruthPacket
+
+
+def _empty_truth_packet() -> GroundTruthPacket:
+    return GroundTruthPacket.model_validate(
+        {
+            "part_name": "Test Fixture",
+            "general_notes": "",
+            "characteristics": [],
+        }
+    )
+
 
 def test_run_pipeline_signature_has_stage_callback():
     """run_pipeline() must accept stage_callback as an optional keyword argument."""
@@ -54,6 +66,7 @@ def test_stage_callback_called_8_times(tmp_path):
          patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
          patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
          patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", return_value=MagicMock()), \
          patch("delta_preservation.cli.DeltaPacket") as MockPacket:
         MockPacket.return_value.model_dump_json.return_value = "{}"
@@ -108,6 +121,7 @@ def test_stage_callback_called_with_correct_indices_and_names(tmp_path):
          patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
          patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
          patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", return_value=MagicMock()), \
          patch("delta_preservation.cli.DeltaPacket") as MockPacket:
         MockPacket.return_value.model_dump_json.return_value = "{}"
@@ -146,6 +160,7 @@ def test_stage_callback_none_still_works(tmp_path):
          patch("delta_preservation.cli.extract_tolerances_for_items", return_value={}), \
          patch("delta_preservation.cli.detect_added_characteristics", return_value=[]), \
          patch("delta_preservation.cli.export_run_tolerance_debug"), \
+         patch("delta_preservation.cli.load_ground_truth_packet", return_value=_empty_truth_packet()), \
          patch("delta_preservation.cli.fitz.open", return_value=MagicMock()), \
          patch("delta_preservation.cli.DeltaPacket") as MockPacket:
         MockPacket.return_value.model_dump_json.return_value = "{}"
