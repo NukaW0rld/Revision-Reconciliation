@@ -869,10 +869,14 @@ def run_pipeline(
 
     evaluations = evaluate_packet_against_truth(delta_items_pydantic, truth_packet)
     if accepted_alternates:
+        scoped_alternates = [
+            alternate for alternate in accepted_alternates
+            if alternate.part_number == part_name
+        ]
         evaluations = apply_accepted_alternate_history(
             delta_items_pydantic,
             evaluations,
-            accepted_alternates,
+            scoped_alternates,
         )
 
     evaluated_items: List[DeltaItem] = []
