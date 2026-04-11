@@ -9,6 +9,7 @@ from shop.utils import utcnow
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, ReviewItem
+from shop.services.alternate_history import sync_accepted_alternate_history
 from shop.services.review import (
     DebugVerdictValidationError,
     assemble_debug_report_payload,
@@ -227,6 +228,7 @@ def save_debug_item_verdict(
         )
 
     save_debug_verdict(run, item, payload)
+    sync_accepted_alternate_history(db, run, item, payload)
     db.refresh(item)
     return _render_debug_item_card(request=request, run=run, item=item, db=db, user=user)
 

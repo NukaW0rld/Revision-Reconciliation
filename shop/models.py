@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer, Float
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Integer, Float, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shop.database import Base
 from shop.utils import utcnow
@@ -125,3 +125,29 @@ class ReviewItem(Base):
 
     def __repr__(self) -> str:
         return f"<ReviewItem id={self.id} run_id={self.run_id} char_no={self.char_no} decision={self.reviewer_decision!r}>"
+
+
+class AcceptedAlternateHistory(Base):
+    __tablename__ = "accepted_alternate_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"), index=True)
+    review_item_id: Mapped[int] = mapped_column(ForeignKey("review_items.id"), index=True)
+    reviewed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    part_number: Mapped[str] = mapped_column(String)
+    char_no: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    matched_truth_char_no: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    reviewed_classification: Mapped[str] = mapped_column(String)
+    reviewed_requirement_revB: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    mismatch_codes: Mapped[list] = mapped_column(JSON, default=list)
+    rationale: Mapped[str] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    superseded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            "<AcceptedAlternateHistory "
+            f"id={self.id} run_id={self.run_id} review_item_id={self.review_item_id} "
+            f"part_number={self.part_number!r} is_active={self.is_active}>"
+        )

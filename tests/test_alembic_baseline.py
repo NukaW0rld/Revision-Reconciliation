@@ -4,6 +4,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,11 +17,16 @@ def _alembic_config(db_url: str) -> AlembicConfig:
     return cfg
 
 
+def _alembic_head(cfg: AlembicConfig) -> str:
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
 def test_baseline_upgrade_handles_repo_db_state(tmp_path, monkeypatch):
     src_db = ROOT / "data" / "shop.db"
     db_path = tmp_path / "legacy.db"
     shutil.copy(src_db, db_path)
     db_url = f"sqlite:///{db_path}"
+    cfg = _alembic_config(db_url)
     monkeypatch.setenv("DATABASE_URL", db_url)
 
     con = sqlite3.connect(db_path)
@@ -31,7 +37,7 @@ def test_baseline_upgrade_handles_repo_db_state(tmp_path, monkeypatch):
 
     assert before_rows in ([], [("0001",)])
 
-    command.upgrade(_alembic_config(db_url), "head")
+    command.upgrade(cfg, "head")
 
     con = sqlite3.connect(db_path)
     try:
@@ -42,5 +48,5 @@ def test_baseline_upgrade_handles_repo_db_state(tmp_path, monkeypatch):
     finally:
         con.close()
 
-    assert version_rows == [("0001",)]
+    assert version_rows == [(_alembic_head(cfg),)]
     assert user_table_exists == 1
