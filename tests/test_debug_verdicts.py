@@ -281,7 +281,10 @@ def test_save_debug_verdict_creates_file_keyed_by_item_id(db_engine, tmp_path):
     try:
         run = db.query(Run).filter(Run.id == run_id).first()
         item = db.query(ReviewItem).filter(ReviewItem.id == item_id).first()
-        payload = validate_debug_verdict_payload(verdict="correct")
+        payload = validate_debug_verdict_payload(
+            verdict="acceptable_alternate",
+            explanation="Reviewer accepted the alternate outcome.",
+        )
         verdicts = save_debug_verdict(run, item, payload)
     finally:
         db.close()
@@ -290,7 +293,7 @@ def test_save_debug_verdict_creates_file_keyed_by_item_id(db_engine, tmp_path):
     assert list(raw.keys()) == [str(item_id)]
     assert raw[str(item_id)]["item_id"] == item_id
     assert raw[str(item_id)]["char_no"] == 7
-    assert raw[str(item_id)]["verdict"] == "correct"
+    assert raw[str(item_id)]["verdict"] == "acceptable_alternate"
     assert item_id in verdicts
 
 
@@ -317,12 +320,19 @@ def test_save_debug_verdict_overwrites_existing_item_entry(db_engine, tmp_path):
     try:
         run = db.query(Run).filter(Run.id == run_id).first()
         item = db.query(ReviewItem).filter(ReviewItem.id == item_id).first()
-        save_debug_verdict(run, item, validate_debug_verdict_payload(verdict="correct"))
         save_debug_verdict(
             run,
             item,
             validate_debug_verdict_payload(
-                verdict="incorrect",
+                verdict="acceptable_alternate",
+                explanation="Initial alternate outcome.",
+            ),
+        )
+        save_debug_verdict(
+            run,
+            item,
+            validate_debug_verdict_payload(
+                verdict="algorithm_error",
                 corrected_classification="changed",
                 corrected_requirement_revA="A revised",
                 corrected_requirement_revB="B revised",
@@ -334,7 +344,7 @@ def test_save_debug_verdict_overwrites_existing_item_entry(db_engine, tmp_path):
 
     raw = json.loads((out_dir / "debug_verdicts.json").read_text())
     assert list(raw.keys()) == [str(item_id)]
-    assert raw[str(item_id)]["verdict"] == "incorrect"
+    assert raw[str(item_id)]["verdict"] == "algorithm_error"
     assert raw[str(item_id)]["corrected_classification"] == "changed"
     assert raw[str(item_id)]["explanation"] == "Pipeline classified the item incorrectly."
 
@@ -362,7 +372,14 @@ def test_char_no_none_persists_inside_payload(db_engine, tmp_path):
     try:
         run = db.query(Run).filter(Run.id == run_id).first()
         item = db.query(ReviewItem).filter(ReviewItem.id == item_id).first()
-        save_debug_verdict(run, item, validate_debug_verdict_payload(verdict="correct"))
+        save_debug_verdict(
+            run,
+            item,
+            validate_debug_verdict_payload(
+                verdict="acceptable_alternate",
+                explanation="Added row accepted as alternate.",
+            ),
+        )
         loaded = load_debug_verdicts(run)
     finally:
         db.close()
@@ -401,7 +418,7 @@ def test_signed_off_debug_post_succeeds_without_mutating_review_state(
     resp = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "partially_correct",
+            "verdict": "algorithm_error",
             "corrected_classification": "changed",
             "corrected_requirement_revA": "Original note",
             "corrected_requirement_revB": "Updated note",
@@ -424,7 +441,7 @@ def test_signed_off_debug_post_succeeds_without_mutating_review_state(
         db.close()
 
     raw = json.loads((out_dir / "debug_verdicts.json").read_text())
-    assert raw[str(item_id)]["verdict"] == "partially_correct"
+    assert raw[str(item_id)]["verdict"] == "algorithm_error"
     assert raw[str(item_id)]["char_no"] == 11
 
 
@@ -451,7 +468,7 @@ def test_non_admin_debug_post_is_rejected(
 
     resp = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
-        data={"verdict": "correct"},
+        data={"verdict": "acceptable_alternate", "explanation": "Admins only."},
     )
     assert resp.status_code == 403
 
@@ -479,7 +496,10 @@ def test_invalid_debug_post_does_not_overwrite_prior_saved_data(
 
     ok = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "Reviewer accepted the alternate outcome.",
+        },
     )
     assert ok.status_code == 200
     saved_before = json.loads((out_dir / "debug_verdicts.json").read_text())
@@ -488,21 +508,21 @@ def test_invalid_debug_post_does_not_overwrite_prior_saved_data(
     invalid = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_requirement_revA": "Some req",
             "corrected_requirement_revB": "Updated req",
             "explanation": "Missing classification should fail.",
         },
     )
     assert invalid.status_code == 422
-    assert "required for non-correct verdicts" in invalid.text
+    assert "Algorithm-error verdicts require corrected classification and explanation." in invalid.text
     assert json.loads((out_dir / "debug_verdicts.json").read_text()) == saved_before
 
     # Empty corrected req fields are now allowed — should succeed
     valid_with_empty_reqs = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_classification": "changed",
             "corrected_requirement_revA": "",
             "corrected_requirement_revB": "",
@@ -511,7 +531,7 @@ def test_invalid_debug_post_does_not_overwrite_prior_saved_data(
     )
     assert valid_with_empty_reqs.status_code == 200
     saved_after = json.loads((out_dir / "debug_verdicts.json").read_text())
-    assert saved_after[str(item_id)]["verdict"] == "incorrect"
+    assert saved_after[str(item_id)]["verdict"] == "algorithm_error"
     assert "corrected_requirement_revA" not in saved_after[str(item_id)]
     assert "corrected_requirement_revB" not in saved_after[str(item_id)]
 
@@ -540,7 +560,7 @@ def test_debug_post_accepts_excessive_classification(
     resp = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_classification": "excessive",
             "explanation": "Program flagged a characteristic that should not exist.",
         },
@@ -622,13 +642,22 @@ def test_debug_post_rejects_missing_run_item_and_cross_run_mismatch(
     item1_id = _open_queue(db_engine, run1_id)[0]
     item2_id = _open_queue(db_engine, run2_id)[0]
 
-    missing_run = client.post("/review/999/debug/items/999/verdict", data={"verdict": "correct"})
+    missing_run = client.post(
+        "/review/999/debug/items/999/verdict",
+        data={"verdict": "acceptable_alternate", "explanation": "missing run"},
+    )
     assert missing_run.status_code == 404
 
-    missing_item = client.post(f"/review/{run1_id}/debug/items/999/verdict", data={"verdict": "correct"})
+    missing_item = client.post(
+        f"/review/{run1_id}/debug/items/999/verdict",
+        data={"verdict": "acceptable_alternate", "explanation": "missing item"},
+    )
     assert missing_item.status_code == 404
 
-    mismatch = client.post(f"/review/{run1_id}/debug/items/{item2_id}/verdict", data={"verdict": "correct"})
+    mismatch = client.post(
+        f"/review/{run1_id}/debug/items/{item2_id}/verdict",
+        data={"verdict": "acceptable_alternate", "explanation": "cross-run mismatch"},
+    )
     assert mismatch.status_code == 404
     assert item1_id != item2_id
 
@@ -665,14 +694,14 @@ def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_
 
     initial = client.get(f"/review/{run_id}?debug=1")
     assert initial.status_code == 200
-    assert "Debug verdicts: 0 of 2 submitted" in initial.text
+    assert "Saved progress: 0 of 2 submitted" in initial.text
     assert f'/review/{run_id}/debug/items/{item_id}/verdict' in initial.text
     _assert_export_disabled(initial.text, run_id)
 
     saved = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_classification": "changed",
             "corrected_requirement_revA": "A legacy note",
             "corrected_requirement_revB": "B corrected note",
@@ -680,14 +709,14 @@ def test_debug_queue_rehydrates_saved_verdict_and_progress_after_post_and_fresh_
         },
     )
     assert saved.status_code == 200, saved.text
-    assert "Debug verdicts: 1 of 2 submitted" in saved.text
-    assert "Saved: incorrect" in saved.text
+    assert "Saved progress: 1 of 2 submitted" in saved.text
+    assert "Saved: algorithm_error" in saved.text
     _assert_export_disabled(saved.text, run_id)
 
     fresh = client.get(f"/review/{run_id}?debug=1")
     assert fresh.status_code == 200
-    assert "Debug verdicts: 1 of 2 submitted" in fresh.text
-    assert 'option value="incorrect" selected' in fresh.text
+    assert "Saved progress: 1 of 2 submitted" in fresh.text
+    assert 'option value="algorithm_error" selected' in fresh.text
     assert 'option value="changed" selected' in fresh.text
     assert "A legacy note" in fresh.text
     assert "B corrected note" in fresh.text
@@ -727,23 +756,29 @@ def test_debug_queue_enables_export_after_last_verdict_via_oob_and_fresh_get(
 
     first_saved = client.post(
         f"/review/{run_id}/debug/items/{first_item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "First exception is acceptable as-is.",
+        },
     )
     assert first_saved.status_code == 200
     _assert_export_disabled(first_saved.text, run_id)
 
     final_saved = client.post(
         f"/review/{run_id}/debug/items/{second_item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "Second exception is acceptable as-is.",
+        },
     )
     assert final_saved.status_code == 200
     assert 'hx-swap-oob="outerHTML"' in final_saved.text
-    assert "Debug verdicts: 2 of 2 submitted" in final_saved.text
+    assert "Saved progress: 2 of 2 submitted" in final_saved.text
     _assert_export_enabled(final_saved.text, run_id)
 
     fresh = client.get(f"/review/{run_id}?debug=1")
     assert fresh.status_code == 200
-    assert "Debug verdicts: 2 of 2 submitted" in fresh.text
+    assert "Saved progress: 2 of 2 submitted" in fresh.text
     _assert_export_enabled(fresh.text, run_id)
 
 
@@ -753,11 +788,9 @@ def test_debug_queue_with_zero_items_keeps_export_disabled(
     _login(client, db_engine, admin_user)
     run_id, _ = _seed_run(db_engine, tmp_path, items=[])
 
-    resp = client.get(f"/review/{run_id}?debug=1")
-    assert resp.status_code == 200
-    assert "No items match the selected filters." in resp.text
-    assert "Debug verdicts: 0 of 0 submitted" in resp.text
-    _assert_export_disabled(resp.text, run_id)
+    resp = client.get(f"/review/{run_id}?debug=1", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == f"/runs/{run_id}"
 
 
 def test_non_debug_queue_keeps_existing_signoff_footer_behavior_without_export(
@@ -811,16 +844,16 @@ def test_invalid_debug_submit_renders_inline_error_and_leaves_progress_unchanged
     invalid = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_requirement_revA": "Some req",
             "corrected_requirement_revB": "Updated req",
             "explanation": "Missing classification should fail.",
         },
     )
     assert invalid.status_code == 422
-    assert "required for non-correct verdicts" in invalid.text
-    assert "Debug verdicts: 0 of 1 submitted" in invalid.text
-    assert 'option value="incorrect" selected' in invalid.text
+    assert "Algorithm-error verdicts require corrected classification and explanation." in invalid.text
+    assert "Saved progress: 0 of 1 submitted" in invalid.text
+    assert 'option value="algorithm_error" selected' in invalid.text
     assert not (out_dir / "debug_verdicts.json").exists()
 
 
@@ -849,7 +882,7 @@ def test_debug_queue_ignores_malformed_saved_entries_on_fresh_get(
     (out_dir / "debug_verdicts.json").write_text(
         json.dumps(
             {
-                "bad-key": {"verdict": "correct"},
+                "bad-key": {"verdict": "acceptable_alternate"},
                 str(item_id): {
                     "item_id": item_id,
                     "char_no": 2,
@@ -862,7 +895,7 @@ def test_debug_queue_ignores_malformed_saved_entries_on_fresh_get(
 
     resp = client.get(f"/review/{run_id}?debug=1")
     assert resp.status_code == 200
-    assert "Debug verdicts: 0 of 1 submitted" in resp.text
+    assert "Saved progress: 0 of 1 submitted" in resp.text
     assert "Saved: incorrect" not in resp.text
     assert f'/review/{run_id}/debug/items/{item_id}/verdict' in resp.text
 
@@ -892,7 +925,10 @@ def test_signed_off_debug_queue_keeps_verdict_form_editable_while_review_control
 
     saved = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "Signed-off debug verdicts remain editable.",
+        },
     )
     assert saved.status_code == 200
 
@@ -951,12 +987,19 @@ def test_debug_export_payload_preserves_queue_order_for_duplicate_and_none_char_
     try:
         run = db.query(Run).filter(Run.id == run_id).first()
         items = [db.query(ReviewItem).filter(ReviewItem.id == item_id).first() for item_id in item_ids]
-        save_debug_verdict(run, items[0], validate_debug_verdict_payload(verdict="correct"))
+        save_debug_verdict(
+            run,
+            items[0],
+            validate_debug_verdict_payload(
+                verdict="acceptable_alternate",
+                explanation="First duplicate accepted as alternate.",
+            ),
+        )
         save_debug_verdict(
             run,
             items[1],
             validate_debug_verdict_payload(
-                verdict="incorrect",
+                verdict="algorithm_error",
                 corrected_classification="removed",
                 corrected_requirement_revA="Old duplicate",
                 corrected_requirement_revB="New duplicate",
@@ -967,7 +1010,7 @@ def test_debug_export_payload_preserves_queue_order_for_duplicate_and_none_char_
             run,
             items[2],
             validate_debug_verdict_payload(
-                verdict="partially_correct",
+                verdict="algorithm_error",
                 corrected_classification="added",
                 corrected_requirement_revA="No Rev A requirement for added row",
                 corrected_requirement_revB="Added requirement",
@@ -1024,7 +1067,10 @@ def test_debug_export_route_rejects_incomplete_coverage(
 
     ok = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "First exception accepted as alternate.",
+        },
     )
     assert ok.status_code == 200
 
@@ -1065,7 +1111,7 @@ def test_debug_export_route_returns_attachment_with_full_payload(
     saved = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
         data={
-            "verdict": "incorrect",
+            "verdict": "algorithm_error",
             "corrected_classification": "changed",
             "corrected_requirement_revA": "Old requirement",
             "corrected_requirement_revB": "Corrected requirement",
@@ -1087,7 +1133,8 @@ def test_debug_export_route_returns_attachment_with_full_payload(
     row = payload["items"][0]
     assert row["review_item_id"] == item_id
     assert row["char_no"] == 7
-    assert row["debug_verdict"] == "incorrect"
+    assert row["debug_verdict"] == "algorithm_error"
+    assert row["row_state"] == "algorithm_error"
     assert row["corrected_classification"] == "changed"
     assert row["corrected_requirement_revA"] == "Old requirement"
     assert row["corrected_requirement_revB"] == "Corrected requirement"
@@ -1125,7 +1172,10 @@ def test_signed_off_debug_export_route_still_allows_completed_attachment(
 
     saved = client.post(
         f"/review/{run_id}/debug/items/{item_id}/verdict",
-        data={"verdict": "correct"},
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "Signed-off row accepted as alternate.",
+        },
     )
     assert saved.status_code == 200
 
@@ -1133,7 +1183,7 @@ def test_signed_off_debug_export_route_still_allows_completed_attachment(
     assert export.status_code == 200
     payload = export.json()
     assert payload["run_status"] == "signed_off"
-    assert payload["items"][0]["debug_verdict"] == "correct"
+    assert payload["items"][0]["debug_verdict"] == "acceptable_alternate"
 
 
 
@@ -1211,7 +1261,14 @@ def test_debug_notes_in_export_payload(db_engine, tmp_path):
     run = db.query(Run).filter(Run.id == run_id).first()
 
     queue = open_review_queue(db, run)
-    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+    save_debug_verdict(
+        run,
+        queue[0],
+        validate_debug_verdict_payload(
+            verdict="acceptable_alternate",
+            explanation="Borderline but acceptable.",
+        ),
+    )
     save_debug_notes(run, "Char 1 was borderline.")
 
     payload = assemble_debug_report_payload(db, run)
@@ -1239,7 +1296,14 @@ def test_debug_notes_empty_when_not_saved(db_engine, tmp_path):
     run = db.query(Run).filter(Run.id == run_id).first()
 
     queue = open_review_queue(db, run)
-    save_debug_verdict(run, queue[0], {"verdict": "correct"})
+    save_debug_verdict(
+        run,
+        queue[0],
+        validate_debug_verdict_payload(
+            verdict="acceptable_alternate",
+            explanation="No notes were saved for this accepted alternate.",
+        ),
+    )
 
     payload = assemble_debug_report_payload(db, run)
     assert payload["notes"] == ""

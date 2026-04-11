@@ -224,6 +224,14 @@ def test_admin_debug_review_returns_200(client: TestClient, admin_user, db_engin
             "reasons": [],
             "revA": {"bbox": [0, 0, 10, 10], "image_path": None, "page": 1},
             "revB": {"bbox": [0, 0, 10, 10], "image_path": None, "page": 1},
+            "evaluation": {
+                "status": "review_needed",
+                "matched_truth_char_no": 5,
+                "snippet_conforms": False,
+                "mismatches": [
+                    {"code": "classification_mismatch", "message": "classification differs"}
+                ],
+            },
         }
     ]
     # Seed directly via helper

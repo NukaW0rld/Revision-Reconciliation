@@ -125,10 +125,20 @@ def test_admin_debug_queue_only_shows_review_needed_rows(
     conforming_item, exception_item_one, exception_item_two = review_items
 
     debug_html = debug_resp.text
-    assert "Debug export readiness: 0 of 2 verdicts saved" in debug_html
+    assert "Resolve all exception rows to export debug_report.json" in debug_html
     assert f'id="review-item-{conforming_item.id}"' not in debug_html
     assert f'id="review-item-{exception_item_one.id}"' in debug_html
     assert f'id="review-item-{exception_item_two.id}"' in debug_html
+    assert "classification_mismatch" in debug_html
+    assert "classification differs" in debug_html
+    assert debug_html.index("classification differs") < debug_html.index("Diagnostic Signals")
+    assert 'option value="algorithm_error"' in debug_html
+    assert 'option value="acceptable_alternate"' in debug_html
+    assert 'option value="correct"' not in debug_html
+    assert 'option value="incorrect"' not in debug_html
+    assert 'option value="partially_correct"' not in debug_html
+    assert "<details" in debug_html
+    assert "Rationale" in debug_html
 
     normal_resp = client.get(f"/review/{run_id}", follow_redirects=False)
     assert normal_resp.status_code == 200
