@@ -369,10 +369,46 @@ def semantic_contract_for_item(run: Run, item: ReviewItem) -> dict | None:
     return semantic_contracts_by_char(run).get(item.char_no)
 
 
+def build_debug_queue_state(db: Session, run: Run) -> dict:
+    """Return stable packet-to-review-item pairing for the admin debug queue."""
+    all_items = open_review_queue(db, run)
+
+    try:
+        packet_data = _load_delta_packet(run)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DebugVerdictValidationError("delta_packet.json could not be read for debug queue.") from exc
+
+    raw_items = packet_data.get("items")
+    if not isinstance(raw_items, list):
+        raise DebugVerdictValidationError("delta_packet.json must contain an items array.")
+    if len(raw_items) != len(all_items):
+        raise DebugVerdictValidationError(
+            "Review queue and delta packet row counts do not align for debug queue."
+        )
+
+    packet_items_by_item_id: dict[int, DeltaItem] = {}
+    exception_items: list[ReviewItem] = []
+    packet_rows: list[tuple[ReviewItem, DeltaItem]] = []
+    for item, raw_item in zip(all_items, raw_items):
+        delta_item = DeltaItem.model_validate(raw_item)
+        packet_items_by_item_id[item.id] = delta_item
+        packet_rows.append((item, delta_item))
+        if delta_item.evaluation is not None and delta_item.evaluation.status == "review_needed":
+            exception_items.append(item)
+
+    return {
+        "all_items": all_items,
+        "exception_items": exception_items,
+        "packet_items_by_item_id": packet_items_by_item_id,
+        "packet_rows": packet_rows,
+        "debug_total": len(exception_items),
+    }
+
+
 def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
     """Idempotent: create ReviewItems from delta_packet.json on first call.
 
-    Returns all ReviewItems for this run ordered by char_no ascending.
+    Returns all ReviewItems for this run ordered by ReviewItem.id.
     If ReviewItems already exist for this run, returns them without creating
     duplicates (idempotent for subsequent calls).
     """
@@ -381,7 +417,7 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
         return (
             db.query(ReviewItem)
             .filter(ReviewItem.run_id == run.id)
-            .order_by(ReviewItem.char_no)
+            .order_by(ReviewItem.id)
             .all()
         )
 
@@ -400,10 +436,7 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
                 req_map[int(cno)] = req
 
     items = []
-    for delta in sorted(
-        packet_data.get("items", []),
-        key=lambda x: (x.get("char_no") is None, x.get("char_no") or 0),
-    ):
+    for delta in packet_data.get("items", []):
         char_no = delta.get("char_no")
         revA = delta.get("revA") or {}
         revB = delta.get("revB") or {}

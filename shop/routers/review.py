@@ -13,6 +13,7 @@ from shop.services.review import (
     DebugVerdictValidationError,
     assemble_debug_report_payload,
     attempt_sign_off,
+    build_debug_queue_state,
     debug_internals_by_char,
     debug_verdict_state,
     load_debug_notes,
@@ -54,10 +55,18 @@ def review_queue(
     if debug and user.role != "admin":
         return RedirectResponse("/dashboard", status_code=302)
 
-    all_items = open_review_queue(db, run)
+    debug_queue_state = build_debug_queue_state(db, run) if debug else None
+    all_items = debug_queue_state["all_items"] if debug_queue_state else open_review_queue(db, run)
+    exception_items = debug_queue_state["exception_items"] if debug_queue_state else []
+    if debug and not exception_items:
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
     semantic_contracts = semantic_contracts_by_char(run)
     debug_internals = debug_internals_by_char(run) if debug else {}
-    debug_progress = _debug_queue_progress(run, all_items) if debug else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
+    debug_progress = (
+        _debug_queue_progress(run, exception_items)
+        if debug
+        else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
+    )
     debug_notes = load_debug_notes(run) if debug else ""
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
@@ -67,13 +76,13 @@ def review_queue(
     total = len(all_items)
 
     # Apply filters
-    visible_items = all_items
+    visible_items = exception_items if debug else all_items
     if status_filter == "pending":
-        visible_items = [i for i in all_items if i.reviewer_decision is None]
+        visible_items = [i for i in visible_items if i.reviewer_decision is None]
     elif status_filter == "approved":
-        visible_items = [i for i in all_items if i.reviewer_decision == "approved"]
+        visible_items = [i for i in visible_items if i.reviewer_decision == "approved"]
     elif status_filter == "overridden":
-        visible_items = [i for i in all_items if i.reviewer_decision == "overridden"]
+        visible_items = [i for i in visible_items if i.reviewer_decision == "overridden"]
 
     if classification_filter != "all":
         visible_items = [i for i in visible_items if i.pipeline_classification == classification_filter]
