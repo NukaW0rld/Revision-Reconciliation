@@ -14,7 +14,9 @@ from shop.services.review import (
     assemble_debug_report_payload,
     attempt_sign_off,
     build_debug_queue_state,
+    build_run_debug_summary,
     debug_internals_by_char,
+    debug_internals_by_item_id,
     debug_verdict_state,
     load_debug_notes,
     load_debug_verdicts_for_render,
@@ -22,6 +24,7 @@ from shop.services.review import (
     save_debug_notes,
     save_debug_verdict,
     semantic_contracts_by_char,
+    semantic_contracts_by_item_id,
     validate_debug_verdict_payload,
 )
 from shop.routers.runs import _get_nav_context
@@ -61,7 +64,8 @@ def review_queue(
     if debug and not exception_items:
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
     semantic_contracts = semantic_contracts_by_char(run)
-    debug_internals = debug_internals_by_char(run) if debug else {}
+    debug_semantic_contracts = semantic_contracts_by_item_id(db, run) if debug else {}
+    debug_internals = debug_internals_by_item_id(db, run) if debug else {}
     debug_progress = (
         _debug_queue_progress(run, exception_items)
         if debug
@@ -96,6 +100,7 @@ def review_queue(
         "run_id": run.id,
         "items": visible_items,
         "semantic_contracts": semantic_contracts,
+        "debug_semantic_contracts": debug_semantic_contracts,
         "user": user,
         "pending": pending,
         "approved": approved,
@@ -137,9 +142,10 @@ def _render_debug_item_card(
     oob_update: bool = True,
 ):
     all_items, pending, approved, overridden = _item_counts(db, run.id)
-    debug_progress = _debug_queue_progress(run, all_items)
-    semantic_contract = semantic_contracts_by_char(run).get(item.char_no)
-    debug_internal = debug_internals_by_char(run).get(item.char_no)
+    debug_queue_state = build_debug_queue_state(db, run, activate_review=False)
+    debug_progress = _debug_queue_progress(run, debug_queue_state["exception_items"])
+    semantic_contract = semantic_contracts_by_item_id(db, run).get(item.id)
+    debug_internal = debug_internals_by_item_id(db, run).get(item.id)
     saved_verdict = debug_progress["by_item_id"].get(item.id)
     debug_form = {**(saved_verdict or {}), **(form_values or {})}
     return templates.TemplateResponse(
@@ -237,6 +243,17 @@ def download_debug_report(
     run = db.query(Run).filter(Run.id == run_id).first()
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
+
+    summary = build_run_debug_summary(db, run)
+    if not summary["debug_report_ready"]:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Debug export is incomplete: "
+                f"{summary['resolved_exception_count']} of {len(summary['exception_rows'])} "
+                "exception rows are resolved."
+            ),
+        )
 
     try:
         payload = assemble_debug_report_payload(db, run)

@@ -80,6 +80,56 @@
       {% endif %}
     </div>
 
+    {% if debug_summary %}
+    <div class="border border-warning/30 bg-warning/5 p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="badge badge-warning badge-sm font-mono">DEBUG</span>
+        <h2 class="text-base font-semibold font-mono">Debug evaluation summary</h2>
+      </div>
+
+      {% if debug_summary.exception_rows %}
+      <div class="space-y-3">
+        <div class="grid gap-2 text-sm font-mono sm:grid-cols-2">
+          <p><span class="text-base-content/50">Conforming rows:</span> {{ debug_summary.conforming_rows | length }}</p>
+          <p><span class="text-base-content/50">Exception rows:</span> {{ debug_summary.exception_rows | length }}</p>
+          <p><span class="text-base-content/50">Resolved exceptions:</span> {{ debug_summary.resolved_exception_count }}</p>
+          <p><span class="text-base-content/50">Unresolved exceptions:</span> {{ debug_summary.unresolved_exception_count }}</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="/review/{{ run.id }}?debug=1" class="btn btn-warning btn-sm font-mono">Open Exception Queue</a>
+          {% if debug_summary.debug_report_ready %}
+          <a href="/review/{{ run.id }}/debug-report.json" class="btn btn-outline btn-sm font-mono" download="debug_report.json">Download debug_report.json</a>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="space-y-3">
+        <p class="font-mono font-semibold">All characteristics auto-passed</p>
+        <p class="text-sm font-mono text-base-content/60">Conforming rows: {{ debug_summary.conforming_rows | length }}</p>
+        {% if debug_summary.debug_report_ready %}
+        <a href="/review/{{ run.id }}/debug-report.json" class="btn btn-outline btn-sm font-mono" download="debug_report.json">Download debug_report.json</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if debug_summary.conforming_rows %}
+      <details class="mt-4 border border-base-300 bg-base-100/40 rounded p-3">
+        <summary class="font-mono text-xs font-semibold uppercase tracking-widest text-base-content/50 cursor-pointer">Canonical matches</summary>
+        <ul class="mt-3 space-y-2">
+          {% for row in debug_summary.conforming_rows %}
+          <li class="border border-base-300 rounded px-3 py-2 text-sm font-mono">
+            <span class="text-base-content/50">#{{ row.queue_index }}</span>
+            <span class="mx-2">Char {{ row.char_no if row.char_no is not none else '—' }}</span>
+            <span class="mx-2">{{ row.pipeline_classification }}</span>
+            <span class="text-base-content/60">{{ row.requirement_revB or "No Rev B requirement" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- SSE terminal banner injection slot (populated by JS before page reload) -->
     {% if run.status not in ["completed", "failed", "warning", "reviewing", "signing_off", "signed_off"] %}
     <div id="terminal-banner-slot"></div>

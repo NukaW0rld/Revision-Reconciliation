@@ -307,7 +307,7 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
     ordering plus the packet ordering used when the queue was first seeded. This
     avoids collapsing rows by ``char_no`` when values are ``None`` or repeated.
     """
-    queue_state = build_debug_queue_state(db, run)
+    queue_state = build_debug_queue_state(db, run, activate_review=False)
     review_items = queue_state["all_items"]
     exception_item_ids = {item.id for item in queue_state["exception_items"]}
     packet_items_by_item_id = queue_state["packet_items_by_item_id"]
@@ -383,9 +383,64 @@ def semantic_contract_for_item(run: Run, item: ReviewItem) -> dict | None:
     return semantic_contracts_by_char(run).get(item.char_no)
 
 
-def build_debug_queue_state(db: Session, run: Run) -> dict:
+def _review_items_in_packet_order(db: Session, run: Run, *, activate_review: bool) -> list[ReviewItem]:
+    existing_items = (
+        db.query(ReviewItem)
+        .filter(ReviewItem.run_id == run.id)
+        .order_by(ReviewItem.id)
+        .all()
+    )
+    if existing_items:
+        if activate_review and run.status in ("completed", "warning"):
+            run.status = "reviewing"
+            db.commit()
+        return existing_items
+
+    # Load delta_packet
+    packet_data = _load_delta_packet(run)
+
+    # Optionally load requirement text from form3_chars.json
+    req_map: dict[int, str] = {}
+    chars_path = Path(run.output_dir) / "debug" / "form3_chars.json"
+    if chars_path.exists():
+        chars_data = json.loads(chars_path.read_text())
+        for entry in chars_data:
+            cno = entry.get("char_no")
+            req = entry.get("requirement") or entry.get("req") or ""
+            if cno is not None:
+                req_map[int(cno)] = req
+
+    items: list[ReviewItem] = []
+    for delta in packet_data.get("items", []):
+        char_no = delta.get("char_no")
+        revA = delta.get("revA") or {}
+        revB = delta.get("revB") or {}
+        item = ReviewItem(
+            run_id=run.id,
+            char_no=char_no,
+            pipeline_classification=delta.get("status", "uncertain"),
+            confidence=delta.get("confidence", 0.0),
+            requirement_revA=req_map.get(char_no) if char_no is not None else None,
+            requirement_revB=delta.get("requirement_revB"),
+            revA_snippet_path=revA.get("image_path"),
+            revB_snippet_path=revB.get("image_path"),
+            revA_bbox=revA.get("bbox"),
+            revB_bbox=revB.get("bbox"),
+        )
+        db.add(item)
+        items.append(item)
+
+    if activate_review and run.status in ("completed", "warning"):
+        run.status = "reviewing"
+    db.commit()
+    for item in items:
+        db.refresh(item)
+    return items
+
+
+def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = True) -> dict:
     """Return stable packet-to-review-item pairing for the admin debug queue."""
-    all_items = open_review_queue(db, run)
+    all_items = _review_items_in_packet_order(db, run, activate_review=activate_review)
 
     try:
         packet_data = _load_delta_packet(run)
@@ -429,55 +484,76 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
     If ReviewItems already exist for this run, returns them without creating
     duplicates (idempotent for subsequent calls).
     """
-    existing_count = db.query(ReviewItem).filter(ReviewItem.run_id == run.id).count()
-    if existing_count > 0:
-        return (
-            db.query(ReviewItem)
-            .filter(ReviewItem.run_id == run.id)
-            .order_by(ReviewItem.id)
-            .all()
-        )
+    return _review_items_in_packet_order(db, run, activate_review=True)
 
-    # Load delta_packet
-    packet_data = _load_delta_packet(run)
 
-    # Optionally load requirement text from form3_chars.json
-    req_map: dict[int, str] = {}
-    chars_path = Path(run.output_dir) / "debug" / "form3_chars.json"
-    if chars_path.exists():
-        chars_data = json.loads(chars_path.read_text())
-        for entry in chars_data:
-            cno = entry.get("char_no")
-            req = entry.get("requirement") or entry.get("req") or ""
-            if cno is not None:
-                req_map[int(cno)] = req
+def semantic_contracts_by_item_id(db: Session, run: Run) -> dict[int, dict]:
+    """Return semantic summaries keyed by ReviewItem.id for debug UI rendering."""
+    queue_state = build_debug_queue_state(db, run, activate_review=False)
+    return {
+        item.id: shape_semantic_contract(delta_item)
+        for item, delta_item in queue_state["packet_rows"]
+    }
 
-    items = []
-    for delta in packet_data.get("items", []):
-        char_no = delta.get("char_no")
-        revA = delta.get("revA") or {}
-        revB = delta.get("revB") or {}
-        item = ReviewItem(
-            run_id=run.id,
-            char_no=char_no,
-            pipeline_classification=delta.get("status", "uncertain"),
-            confidence=delta.get("confidence", 0.0),
-            requirement_revA=req_map.get(char_no) if char_no is not None else None,
-            requirement_revB=delta.get("requirement_revB"),
-            revA_snippet_path=revA.get("image_path"),
-            revB_snippet_path=revB.get("image_path"),
-            revA_bbox=revA.get("bbox"),
-            revB_bbox=revB.get("bbox"),
-        )
-        db.add(item)
-        items.append(item)
 
-    if run.status in ("completed", "warning"):
-        run.status = "reviewing"
-    db.commit()
-    for item in items:
-        db.refresh(item)
-    return items
+def debug_internals_by_item_id(db: Session, run: Run) -> dict[int, dict]:
+    """Return debug internals keyed by ReviewItem.id for stable debug UI rendering."""
+    queue_state = build_debug_queue_state(db, run, activate_review=False)
+    result: dict[int, dict] = {}
+    for item, delta_item in queue_state["packet_rows"]:
+        raw_item = queue_state["raw_packet_items_by_item_id"][item.id]
+        evaluation = delta_item.evaluation.model_dump() if delta_item.evaluation is not None else None
+        mismatches = evaluation.get("mismatches", []) if evaluation is not None else []
+        result[item.id] = {
+            "scores": raw_item.get("scores") or {},
+            "reasons": raw_item.get("reasons") or [],
+            "revA_center": _bbox_center(raw_item.get("revA")),
+            "revB_center": _bbox_center(raw_item.get("revB")),
+            "evaluation": evaluation,
+            "mismatches": mismatches,
+        }
+    return result
+
+
+def build_run_debug_summary(db: Session, run: Run) -> dict:
+    """Return status-page debug summary grouped into conforming and exception rows."""
+    queue_state = build_debug_queue_state(db, run, activate_review=False)
+    verdicts_by_item_id = load_debug_verdicts_for_render(run)
+    conforming_rows: list[dict] = []
+    exception_rows: list[dict] = []
+    resolved_exception_count = 0
+
+    for queue_index, (item, delta_item) in enumerate(queue_state["packet_rows"], start=1):
+        raw_item = queue_state["raw_packet_items_by_item_id"][item.id]
+        mismatches = []
+        evaluation = delta_item.evaluation.model_dump() if delta_item.evaluation is not None else None
+        if evaluation is not None:
+            mismatches = evaluation.get("mismatches", [])
+        row = {
+            "queue_index": queue_index,
+            "review_item_id": item.id,
+            "char_no": item.char_no,
+            "pipeline_classification": item.pipeline_classification,
+            "requirement_revB": item.requirement_revB,
+            "saved_verdict": verdicts_by_item_id.get(item.id, {}).get("verdict"),
+            "mismatches": mismatches,
+            "packet_item": raw_item,
+        }
+        if delta_item.evaluation is not None and delta_item.evaluation.status == "conforming":
+            conforming_rows.append(row)
+            continue
+        if row["saved_verdict"] is not None:
+            resolved_exception_count += 1
+        exception_rows.append(row)
+
+    unresolved_exception_count = len(exception_rows) - resolved_exception_count
+    return {
+        "conforming_rows": conforming_rows,
+        "exception_rows": exception_rows,
+        "resolved_exception_count": resolved_exception_count,
+        "unresolved_exception_count": unresolved_exception_count,
+        "debug_report_ready": unresolved_exception_count == 0,
+    }
 
 
 def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:

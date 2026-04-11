@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from shop.app import templates
 from shop.dependencies import get_db, get_current_user
 from shop.models import User, Run, RunAlert, ShopConfig
+from shop.services.review import build_run_debug_summary
 
 router = APIRouter(redirect_slashes=False)
 logger = logging.getLogger(__name__)
@@ -301,12 +302,16 @@ def run_status(
     stages = [{"index": i, "name": n} for i, n in enumerate(STAGE_NAMES)]
     engineers = db.query(User).filter(User.is_active == True, User.role == "engineer").all()  # noqa: E712
     signed = request.query_params.get("signed") == "1"
+    debug_summary = None
+    if user.role == "admin" and run.status in ("completed", "reviewing", "warning", "signed_off"):
+        debug_summary = build_run_debug_summary(db, run)
     return templates.TemplateResponse(request, "runs/status.html", {
         "user": user,
         "run": run,
         "stages": stages,
         "engineers": engineers,
         "signed": signed,
+        "debug_summary": debug_summary,
         **nav,
     })
 
