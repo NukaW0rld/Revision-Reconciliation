@@ -28,7 +28,10 @@ def load_ground_truth_packet(truth_fixture_key: str, repo_root: Path | None = No
     """Load the exact ``assets/{truth_fixture_key}/ground_truth.json`` fixture."""
 
     repo_base = (repo_root or _default_repo_root()).resolve()
-    fixture_dir = repo_base / "assets" / truth_fixture_key
+
+    # Normalize key: lowercase and strip spaces so "Part 1" resolves to "part1"
+    normalized_key = truth_fixture_key.lower().replace(" ", "")
+    fixture_dir = repo_base / "assets" / normalized_key
     truth_path = fixture_dir / "ground_truth.json"
 
     if not fixture_dir.is_dir():

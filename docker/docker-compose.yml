@@ -11,6 +11,8 @@ services:
       # Persistent data: mount directory (not file) so Docker doesn't create shop.db as a dir
       - ../data:/app/data
       - ../out:/app/out
+      # Ground truth fixtures for evaluation (read-only)
+      - ../assets:/app/assets:ro
     environment:
       # Default admin credentials — CHANGE IN PRODUCTION via .env or env override
       ADMIN_EMAIL: admin@shop.local
