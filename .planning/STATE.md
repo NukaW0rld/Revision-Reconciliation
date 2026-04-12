@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 03 complete; milestone ready for close-out
-last_updated: "2026-04-11T22:48:58Z"
-last_activity: 2026-04-11 -- Phase 03 verification passed
+status: archived
+stopped_at: Milestone v1.0 archived; ready for next milestone definition
+last_updated: "2026-04-12T14:36:05.446Z"
+last_activity: 2026-04-12 -- v1.0 milestone archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-10)
+See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Milestone wrap-up and next milestone planning
+**Current focus:** Define the next milestone and refresh requirements
 
 ## Current Position
 
-Phase: 03 (exceptions-history-layer) — COMPLETE
-Plan: 2 of 2 complete
-Status: Phase 03 complete — ready for milestone close-out
-Last activity: 2026-04-11 -- Phase 03 verification passed
+Phase: none — v1.0 archived
+Plan: n/a
+Status: v1.0 archived; next milestone not yet defined
+Last activity: 2026-04-12 -- v1.0 milestone archived
 
 Progress: [██████████] 100%
 
@@ -61,8 +61,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - Resolve truth fixtures only from `assets/{truth_fixture_key}/ground_truth.json` with no aliasing or fallback
-- Resolve packet rows directly to `conforming` or `review_needed` using additive evaluation data
-- Apply deterministic single-callout and grouped-callout snippet rules instead of pixel-exact center matching
+- Reuse debug queue identity from packet order plus `ReviewItem.id` instead of `char_no` sorting
+- Reuse accepted alternates only for exact same-part reviewed fingerprints
 
 ### Pending Todos
 
@@ -75,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-10T21:47:39.105Z
-Stopped at: Phase 03 complete; milestone ready for close-out
+Stopped at: Milestone v1.0 archived; ready for next milestone definition
 Resume file: .planning/ROADMAP.md
