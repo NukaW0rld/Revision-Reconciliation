@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 Phase: none — v1.0 archived
 Plan: n/a
 Status: v1.0 archived; next milestone not yet defined
-Last activity: 2026-04-12 -- v1.0 milestone archived
+Last activity: 2026-04-12 - Completed quick task 260412-las: Fix ground truth evaluation failure in Docker: mount assets volume and normalize fixture key
 
 Progress: [██████████] 100%
 
@@ -71,6 +71,12 @@ None yet.
 ### Blockers/Concerns
 
 - None currently recorded.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260412-las | Fix ground truth evaluation failure in Docker: mount assets volume and normalize fixture key | 2026-04-12 | df8bcd3 | [260412-las-fix-ground-truth-evaluation-failure-in-d](./quick/260412-las-fix-ground-truth-evaluation-failure-in-d/) |
 
 ## Session Continuity
 
