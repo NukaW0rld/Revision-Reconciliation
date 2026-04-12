@@ -261,7 +261,7 @@ def test_run_pipeline_aggregates_full_notes_text_for_requirement_revb(tmp_path):
     packet = json.loads((run_dir / "delta_packet.json").read_text())
     row = packet["items"][0]
     assert row["requirement_revB"] == "NOTES: 1. FIRST NOTE 2. SECOND NOTE"
-    assert row["evaluation"]["status"] == "pending_snippet"
+    assert row["evaluation"]["status"] == "conforming"
 
 
 def test_run_pipeline_requirement_revb_keeps_full_part6_position_frame_when_companions_arrive_out_of_order(tmp_path):

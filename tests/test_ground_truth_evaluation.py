@@ -36,7 +36,7 @@ def _packet_item(
     )
 
 
-def test_matching_unchanged_row_is_pending_snippet_when_classification_and_requirement_align() -> None:
+def test_matching_unchanged_row_stays_review_needed_until_snippet_evidence_exists() -> None:
     truth_packet = _truth_packet(
         {
             "char_no": 1,
@@ -52,11 +52,14 @@ def test_matching_unchanged_row_is_pending_snippet_when_classification_and_requi
         truth_packet,
     )[0]
 
-    assert evaluation.status == "pending_snippet"
+    assert evaluation.status == "review_needed"
     assert evaluation.matched_truth_char_no == 1
     assert evaluation.classification_conforms is True
     assert evaluation.requirement_conforms is True
-    assert evaluation.mismatches == []
+    assert [mismatch.code for mismatch in evaluation.mismatches] == [
+        "snippet_missing_revA",
+        "snippet_missing_revB",
+    ]
 
 
 def test_classification_mismatch_marks_row_review_needed() -> None:
@@ -80,7 +83,7 @@ def test_classification_mismatch_marks_row_review_needed() -> None:
     assert evaluation.mismatches[0].code == "classification_mismatch"
 
 
-def test_removed_rows_allow_null_truth_requirement_without_requirement_mismatch() -> None:
+def test_removed_rows_allow_null_truth_requirement_but_still_require_revA_snippet_evidence() -> None:
     truth_packet = _truth_packet(
         {
             "char_no": 3,
@@ -96,10 +99,10 @@ def test_removed_rows_allow_null_truth_requirement_without_requirement_mismatch(
         truth_packet,
     )[0]
 
-    assert evaluation.status == "pending_snippet"
+    assert evaluation.status == "review_needed"
     assert evaluation.classification_conforms is True
     assert evaluation.requirement_conforms is True
-    assert evaluation.mismatches == []
+    assert [mismatch.code for mismatch in evaluation.mismatches] == ["snippet_missing_revA"]
 
 
 def test_added_truth_rows_are_matched_as_unordered_pool() -> None:
@@ -127,8 +130,11 @@ def test_added_truth_rows_are_matched_as_unordered_pool() -> None:
     )
 
     assert [evaluation.matched_truth_char_no for evaluation in evaluations] == ["added:1", "added:0"]
-    assert [evaluation.status for evaluation in evaluations] == ["pending_snippet", "pending_snippet"]
-    assert all(not evaluation.mismatches for evaluation in evaluations)
+    assert [evaluation.status for evaluation in evaluations] == ["review_needed", "review_needed"]
+    assert [[mismatch.code for mismatch in evaluation.mismatches] for evaluation in evaluations] == [
+        ["snippet_missing_revB"],
+        ["snippet_missing_revB"],
+    ]
 
 
 def test_semantic_equivalence_precedes_text_fallback_for_requirement_matching() -> None:
@@ -156,9 +162,12 @@ def test_semantic_equivalence_precedes_text_fallback_for_requirement_matching() 
         truth_packet,
     )[0]
 
-    assert evaluation.status == "pending_snippet"
+    assert evaluation.status == "review_needed"
     assert evaluation.requirement_conforms is True
-    assert evaluation.mismatches == []
+    assert [mismatch.code for mismatch in evaluation.mismatches] == [
+        "snippet_missing_revA",
+        "snippet_missing_revB",
+    ]
 
 
 def test_normalized_text_fallback_allows_equivalent_requirement_when_semantics_unavailable() -> None:
@@ -177,9 +186,12 @@ def test_normalized_text_fallback_allows_equivalent_requirement_when_semantics_u
         truth_packet,
     )[0]
 
-    assert evaluation.status == "pending_snippet"
+    assert evaluation.status == "review_needed"
     assert evaluation.requirement_conforms is True
-    assert evaluation.mismatches == []
+    assert [mismatch.code for mismatch in evaluation.mismatches] == [
+        "snippet_missing_revA",
+        "snippet_missing_revB",
+    ]
 
 
 def test_missing_requirement_evidence_emits_requirement_missing_and_blocks_auto_pass() -> None:
@@ -200,4 +212,8 @@ def test_missing_requirement_evidence_emits_requirement_missing_and_blocks_auto_
 
     assert evaluation.status == "review_needed"
     assert evaluation.requirement_conforms is False
-    assert [mismatch.code for mismatch in evaluation.mismatches] == ["requirement_missing"]
+    assert [mismatch.code for mismatch in evaluation.mismatches] == [
+        "requirement_missing",
+        "snippet_missing_revA",
+        "snippet_missing_revB",
+    ]
