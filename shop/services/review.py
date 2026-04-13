@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from sqlalchemy.orm import Session
+from delta_preservation.evaluation import load_ground_truth_packet
+from delta_preservation.evaluation.conformance import ADDED_POOL_TOKEN_PREFIX
+from delta_preservation.evaluation.contracts import GroundTruthContractError
 from delta_preservation.types import DeltaItem
 from shop.models import Run, ReviewItem, User
 from shop.services.semantics import shape_semantic_contract
@@ -377,6 +380,7 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
         "packet_run_id": packet_data.get("run_id"),
         "debug_total": len(exception_item_ids),
         "debug_submitted": debug_submitted,
+        "missing_added_truth_indexes": queue_state.get("missing_added_truth_indexes", []),
         "notes": load_debug_notes(run),
         "items": rows,
     }
@@ -444,6 +448,46 @@ def _review_items_in_packet_order(db: Session, run: Run, *, activate_review: boo
     return items
 
 
+def _load_missing_added_truth_indexes(run: Run, packet_data: dict, packet_rows: list) -> list[int]:
+    """Return truth added row indexes not claimed by any packet row.
+
+    Silently returns [] when the ground truth fixture is unavailable.
+    """
+    inputs = packet_data.get("inputs") or {}
+    truth_fixture_key = inputs.get("truth_fixture_key") or run.part_number
+    if not truth_fixture_key:
+        return []
+    try:
+        truth_packet = load_ground_truth_packet(truth_fixture_key)
+    except (GroundTruthContractError, Exception):
+        return []
+
+    # Collect truth added row indexes
+    truth_added_indexes = {
+        i for i, ch in enumerate(truth_packet.characteristics)
+        if ch.classification == "added"
+    }
+    if not truth_added_indexes:
+        return []
+
+    # Collect matched added token indexes from packet evaluations
+    claimed: set[int] = set()
+    for _item, delta_item in packet_rows:
+        if delta_item.evaluation is None:
+            continue
+        token = delta_item.evaluation.matched_truth_char_no
+        if not isinstance(token, str):
+            continue
+        if token.startswith(f"{ADDED_POOL_TOKEN_PREFIX}:"):
+            try:
+                idx = int(token.split(":", 1)[1])
+                claimed.add(idx)
+            except (ValueError, IndexError):
+                pass
+
+    return sorted(truth_added_indexes - claimed)
+
+
 def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = True) -> dict:
     """Return stable packet-to-review-item pairing for the admin debug queue."""
     try:
@@ -476,14 +520,17 @@ def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = Tr
         if delta_item.evaluation is not None and delta_item.evaluation.status == "review_needed":
             exception_items.append(item)
 
+    missing_added_truth_indexes = _load_missing_added_truth_indexes(run, packet_data, packet_rows)
+
     return {
         "all_items": all_items,
         "exception_items": exception_items,
+        "missing_added_truth_indexes": missing_added_truth_indexes,
         "packet_items_by_item_id": packet_items_by_item_id,
         "raw_packet_items_by_item_id": raw_packet_items_by_item_id,
         "packet_rows": packet_rows,
         "packet_declares_items": "items" in packet_data,
-        "debug_total": len(exception_items),
+        "debug_total": len(exception_items) + len(missing_added_truth_indexes),
     }
 
 
@@ -555,6 +602,20 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
         if row["saved_verdict"] is not None:
             resolved_exception_count += 1
         exception_rows.append(row)
+
+    for truth_index in queue_state.get("missing_added_truth_indexes", []):
+        queue_index = len(conforming_rows) + len(exception_rows) + 1
+        exception_rows.append({
+            "queue_index": queue_index,
+            "review_item_id": None,
+            "char_no": None,
+            "pipeline_classification": None,
+            "requirement_revB": None,
+            "saved_verdict": None,
+            "mismatches": [{"code": "missing_added_characteristic", "message": f"ground truth added row {truth_index} was not captured by the algorithm"}],
+            "packet_item": None,
+            "row_state": "missing_added_truth",
+        })
 
     unresolved_exception_count = len(exception_rows) - resolved_exception_count
     return {
