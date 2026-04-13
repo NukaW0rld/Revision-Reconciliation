@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 Phase: none — v1.0 archived
 Plan: n/a
 Status: v1.0 archived; next milestone not yet defined
-Last activity: 2026-04-12 - Completed quick task 260412-las: Fix ground truth evaluation failure in Docker: mount assets volume and normalize fixture key
+Last activity: 2026-04-13 - Completed quick task 260413-hfc: Add missing added characteristics check to exception review queue using ground truth
 
 Progress: [██████████] 100%
 
@@ -77,6 +77,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260412-las | Fix ground truth evaluation failure in Docker: mount assets volume and normalize fixture key | 2026-04-12 | df8bcd3 | [260412-las-fix-ground-truth-evaluation-failure-in-d](./quick/260412-las-fix-ground-truth-evaluation-failure-in-d/) |
+| 260413-hfc | Add missing added characteristics check to debug exception queue | 2026-04-13 | 33f27f4 | [260413-hfc-add-missing-added-characteristics-check-](./quick/260413-hfc-add-missing-added-characteristics-check-/) |
 
 ## Session Continuity
 
