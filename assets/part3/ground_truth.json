@@ -137,15 +137,9 @@
     },
     {
       "classification": "added",
-      "requirement_revB": "⌵Ø.531",
-      "snippet_center_revA": [378, 440],
-      "snippet_center_revB": [378, 440]
-    },
-    {
-      "classification": "added",
-      "requirement_revB": "82.0°",
-      "snippet_center_revA": [428, 440],
-      "snippet_center_revB": [428, 440]
+      "requirement_revB": "⌵ Ø.531 X 82.0°",
+      "snippet_center_revA": [398, 440],
+      "snippet_center_revB": [398, 440]
     },
     {
       "classification": "added",

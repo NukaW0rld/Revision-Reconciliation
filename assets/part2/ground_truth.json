@@ -19,14 +19,14 @@
     {
       "char_no": 3,
       "classification": "unchanged",
-      "requirement_revB": ".160 .140",
+      "requirement_revB": ".160 / .140",
       "snippet_center_revA": [654, 216],
       "snippet_center_revB": [1016, 234]
     },
     {
       "char_no": 4,
       "classification": "unchanged",
-      "requirement_revB": ".160 .140",
+      "requirement_revB": ".160 / .140",
       "snippet_center_revA": [266, 410],
       "snippet_center_revB": [628, 426]
     },
@@ -54,7 +54,7 @@
     {
       "char_no": 8,
       "classification": "unchanged",
-      "requirement_revB": ".160 .140",
+      "requirement_revB": ".160 / .140",
       "snippet_center_revA": [1216, 832],
       "snippet_center_revB": [1426, 800]
     },
@@ -154,7 +154,7 @@
     },
     {
       "classification": "added",
-      "requirement_revB": ".635 .615",
+      "requirement_revB": ".635 / .615",
       "snippet_center_revA": null,
       "snippet_center_revB": [214, 568]
     }

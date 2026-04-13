@@ -5,21 +5,21 @@
     {
       "char_no": 1,
       "classification": "unchanged",
-      "requirement_revB": "Ø35.2 34.8",
+      "requirement_revB": "Ø35.2 / Ø34.8",
       "snippet_center_revA": [280, 78],
       "snippet_center_revB": [496, 76]
     },
     {
       "char_no": 2,
       "classification": "unchanged",
-      "requirement_revB": "Ø35.2 34.8",
+      "requirement_revB": "Ø35.2 / Ø34.8",
       "snippet_center_revA": [656, 78],
       "snippet_center_revB": [726, 60]
     },
     {
       "char_no": 3,
       "classification": "unchanged",
-      "requirement_revB": "Ø35 +0.2 -0",
+      "requirement_revB": "Ø35 +0.2 / -0",
       "snippet_center_revA": [660, 270],
       "snippet_center_revB": [860, 378]
     },
@@ -47,14 +47,14 @@
     {
       "char_no": 7,
       "classification": "unchanged",
-      "requirement_revB": "Ø20 +0.05 -0.1",
+      "requirement_revB": "Ø20 +0.05 / -0.1",
       "snippet_center_revA": [272, 598],
       "snippet_center_revB": [682, 420]
     },
     {
       "char_no": 8,
       "classification": "unchanged",
-      "requirement_revB": "Ø20 +0.1 -0.05",
+      "requirement_revB": "Ø20 +0.1 / -0.05",
       "snippet_center_revA": [300, 640],
       "snippet_center_revB": [690, 462]
     },

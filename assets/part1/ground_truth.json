@@ -80,6 +80,13 @@
       "snippet_center_revB": [738.9, 1002.1]
     },
     {
+      "char_no": 12,
+      "classification": "unchanged",
+      "requirement_revB": "↧ 8.5",
+      "snippet_center_revA": [790, 1002],
+      "snippet_center_revB": [790, 1002]
+    },
+    {
       "char_no": 13,
       "classification": "unchanged",
       "requirement_revB": "120.0°",

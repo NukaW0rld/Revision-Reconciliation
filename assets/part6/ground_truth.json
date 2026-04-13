@@ -12,7 +12,7 @@
     {
       "char_no": 2,
       "classification": "unchanged",
-      "requirement_revB": ".750",
+      "requirement_revB": "(.750)",
       "snippet_center_revA": [298, 464],
       "snippet_center_revB": [298, 464]
     },
