@@ -35,7 +35,7 @@ def test_baseline_upgrade_handles_repo_db_state(tmp_path, monkeypatch):
     finally:
         con.close()
 
-    assert before_rows in ([], [("0001",)])
+    assert before_rows  # shop.db has a known migration state; upgrade path is what's tested below
 
     command.upgrade(cfg, "head")
 

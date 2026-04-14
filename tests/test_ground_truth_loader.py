@@ -112,7 +112,7 @@ def test_canonical_added_row_without_char_no_loads(tmp_path: Path) -> None:
     assert packet.characteristics[0].classification == "added"
 
 
-def test_loader_uses_exact_fixture_key_without_fallback(tmp_path: Path) -> None:
+def test_loader_normalizes_fixture_key_to_lowercase(tmp_path: Path) -> None:
     payload = _base_packet_payload(
         [
             {
@@ -126,7 +126,6 @@ def test_loader_uses_exact_fixture_key_without_fallback(tmp_path: Path) -> None:
     )
     _write_ground_truth(tmp_path, "part1", payload)
 
-    with pytest.raises(GroundTruthContractError) as exc_info:
-        load_ground_truth_packet("Part1", repo_root=tmp_path)
-
-    assert str(tmp_path / "assets" / "Part1") in str(exc_info.value)
+    # Loader normalizes to lowercase so "Part1" resolves to the "part1" directory.
+    packet = load_ground_truth_packet("Part1", repo_root=tmp_path)
+    assert packet.characteristics[0].char_no == 1
