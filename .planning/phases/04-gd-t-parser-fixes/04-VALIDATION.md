@@ -1,10 +1,11 @@
 ---
 phase: 04
 slug: gd-t-parser-fixes
-status: ready
+status: complete
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-04-14
+audited: 2026-04-14
 ---
 
 # Phase 04 - Validation Strategy
@@ -49,21 +50,21 @@ created: 2026-04-14
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 04-01 | 1 | GDT-02 | T-04-01, T-04-02 | Word-form controls normalize inside `normalize.py` before GD&T parsing and compare semantically to symbol-form annotations. | unit | `uv run pytest -q tests/test_semantic_extraction.py tests/test_semantic_comparison.py -x` | ✅ existing files extended by task | ⬜ pending |
-| 04-01-02 | 04-01 | 1 | GDT-01 | T-04-01, T-04-03 | Compact control-symbol-leading tokens split into tolerance and datum refs only inside the GD&T parser path and preserve malformed-frame errors for bad inputs. | unit | `uv run pytest -q tests/test_semantic_extraction.py -x` | ✅ existing file extended by task | ⬜ pending |
-| 04-02-01 | 04-02 | 2 | GDT-03 | T-04-01, T-04-02 | Composite `/`-separated GD&T frames populate structured `compartments` data without stealing weld or fit slash inputs. | unit | `uv run pytest -q tests/test_semantic_extraction.py tests/test_semantic_types.py -x` | ✅ existing files extended by task | ⬜ pending |
-| 04-02-02 | 04-02 | 2 | GDT-03 | T-04-02, T-04-03 | `_compare_gdt` treats compartment mismatches as semantic changes while single-compartment equality remains stable. | unit + integration | `uv run pytest -q tests/test_semantic_comparison.py tests/test_semantic_types.py tests/test_reconcile_semantic_integration.py tests/test_pipeline_semantic_packet.py -x` | ✅ existing files extended by task | ⬜ pending |
+| 04-01-01 | 04-01 | 1 | GDT-02 | T-04-01, T-04-02 | Word-form controls normalize inside `normalize.py` before GD&T parsing and compare semantically to symbol-form annotations. | unit | `uv run pytest -q tests/test_semantic_extraction.py tests/test_semantic_comparison.py -x` | ✅ existing files extended by task | ✅ green |
+| 04-01-02 | 04-01 | 1 | GDT-01 | T-04-01, T-04-03 | Compact control-symbol-leading tokens split into tolerance and datum refs only inside the GD&T parser path and preserve malformed-frame errors for bad inputs. | unit | `uv run pytest -q tests/test_semantic_extraction.py -x` | ✅ existing file extended by task | ✅ green |
+| 04-02-01 | 04-02 | 2 | GDT-03 | T-04-01, T-04-02 | Composite `/`-separated GD&T frames populate structured `compartments` data without stealing weld or fit slash inputs. | unit | `uv run pytest -q tests/test_semantic_extraction.py tests/test_semantic_types.py -x` | ✅ existing files extended by task | ✅ green |
+| 04-02-02 | 04-02 | 2 | GDT-03 | T-04-02, T-04-03 | `_compare_gdt` treats compartment mismatches as semantic changes while single-compartment equality remains stable. | unit + integration | `uv run pytest -q tests/test_semantic_comparison.py tests/test_semantic_types.py tests/test_reconcile_semantic_integration.py tests/test_pipeline_semantic_packet.py -x` | ✅ existing files extended by task | ✅ green |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: ✅ green · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] Extend `tests/test_semantic_extraction.py` with parametrized coverage for compact-token forms (`⌖∅0.35ABC`, `⌓0.5A`, `⏥0.2`).
-- [ ] Extend `tests/test_semantic_extraction.py` with parametrized coverage for word-name forms (`circularity`, `runout`, `total runout`, `perpendicularity`) including at least one case-variation check.
-- [ ] Extend `tests/test_semantic_extraction.py` with composite-frame coverage for `/`-separated GD&T compartments plus slash-family guards for `1/8 FILLET` and `H7/p6`.
-- [ ] Extend `tests/test_semantic_comparison.py` and `tests/test_semantic_types.py` with compartment-aware equality/change coverage.
+- [x] Extend `tests/test_semantic_extraction.py` with parametrized coverage for compact-token forms (`⌖∅0.35ABC`, `⌓0.5A`, `⏥0.2`).
+- [x] Extend `tests/test_semantic_extraction.py` with parametrized coverage for word-name forms (`circularity`, `runout`, `total runout`, `perpendicularity`) including at least one case-variation check.
+- [x] Extend `tests/test_semantic_extraction.py` with composite-frame coverage for `/`-separated GD&T compartments plus slash-family guards for `1/8 FILLET` and `H7/p6`.
+- [x] Extend `tests/test_semantic_comparison.py` and `tests/test_semantic_types.py` with compartment-aware equality/change coverage.
 - [x] Existing `uv run pytest` infrastructure already satisfies the Nyquist baseline; no new framework install is required.
 
 ---
@@ -96,4 +97,16 @@ created: 2026-04-14
 - [x] Task-level feedback latency targets under 25 seconds
 - [x] `nyquist_compliant: true` is set in frontmatter
 
-**Approval:** pending
+**Approval:** 2026-04-14 — all tasks green, Wave 0 complete, 68 tests pass.
+
+---
+
+## Validation Audit 2026-04-14
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 1 |
+| Resolved | 1 |
+| Escalated | 0 |
+
+**Gap resolved:** Added case-variation case (`"Circularity .05 A"`) to `test_extract_semantic_callout_gdt_parsed_word_name_controls` — Wave 0 required at least one case-variation check; normalization uses `.lower()` at line 372 of `normalize.py`, confirmed working.
