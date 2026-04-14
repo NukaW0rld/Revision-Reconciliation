@@ -355,22 +355,21 @@ _GDT_WORD_CONTROL_MAP: list[tuple[str, str]] = [
 ]
 
 
+_GDT_WORD_RE = re.compile(
+    r"\b(" + "|".join(re.escape(word) for word, _ in _GDT_WORD_CONTROL_MAP) + r")\b",
+    re.IGNORECASE,
+)
+
+
 def _normalize_gdt_word_controls(text: str) -> str:
     """Replace spelled-out GD&T control names with their Unicode symbols.
 
-    Substitution is case-insensitive and longest-first so "total runout" is
-    replaced before the shorter "runout" entry can match. All occurrences of
-    each word are replaced (handles composite frames with the same word repeated).
+    Substitution uses word boundaries so substrings inside unrelated words
+    (e.g. "positioning") are not rewritten. The map is ordered longest-first
+    so "total runout" is matched before the shorter "runout" entry.
     """
-    lowered = text.lower()
-    for word, symbol in _GDT_WORD_CONTROL_MAP:
-        while True:
-            idx = lowered.find(word)
-            if idx == -1:
-                break
-            text = text[:idx] + symbol + text[idx + len(word):]
-            lowered = text.lower()
-    return text
+    _lookup = {word: symbol for word, symbol in _GDT_WORD_CONTROL_MAP}
+    return _GDT_WORD_RE.sub(lambda m: _lookup[m.group(1).lower()], text)
 
 _GDT_MODIFIER_MAP = {
     "M": "MMC",
@@ -403,13 +402,17 @@ _GDT_COMPACT_REMAINDER_RE = re.compile(
     r"^([⌀∅])?((?:\d+(?:\.\d+)?|\.\d+))([A-Z](?:-[A-Z])?(?:[A-Z](?:-[A-Z])?)*)?$"
 )
 
+# Matches individual datum refs within a compact datum suffix, preserving dashed
+# compound refs such as "A-B" as a single token (e.g. "A-BC" → ["A-B", "C"]).
+_COMPACT_DATUM_RE = re.compile(r"[A-Z](?:-[A-Z])?")
+
 
 def _split_compact_gdt_remainder(remainder: str):
     """Split a compact GD&T remainder into (diameter_prefix, tolerance, datum_suffix).
 
-    Returns a tuple (diam_prefix, tolerance_str, datum_chars) where datum_chars is a
-    list of individual datum-ref strings extracted from the suffix, or None if the
-    remainder does not match the compact form.
+    Returns a tuple (diam_prefix, tolerance_str, datum_refs) where datum_refs is a
+    list of datum-ref strings extracted from the suffix (dashed refs like "A-B" are
+    kept as a single token), or None if the remainder does not match the compact form.
     """
     m = _GDT_COMPACT_REMAINDER_RE.fullmatch(remainder)
     if m is None:
@@ -417,10 +420,9 @@ def _split_compact_gdt_remainder(remainder: str):
     diam_prefix = m.group(1) or ""
     tolerance_str = m.group(2)
     datum_suffix = m.group(3) or ""
-    # Split datum suffix into individual uppercase letter tokens (e.g. "ABC" → ["A","B","C"])
-    # Each letter is a separate datum reference per _GDT_DATUM_RE.
-    datum_chars = [ch for ch in datum_suffix if ch.isupper()]
-    return diam_prefix, tolerance_str, datum_chars
+    # Use regex to extract datum refs, preserving dashed compound refs (e.g. "A-B").
+    datum_refs = _COMPACT_DATUM_RE.findall(datum_suffix)
+    return diam_prefix, tolerance_str, datum_refs
 
 _WELD_PROCESS_PATTERNS = (
     (re.compile(r"\bFILLET\b"), "fillet"),

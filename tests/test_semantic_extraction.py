@@ -457,6 +457,68 @@ def test_extract_semantic_callout_gdt_parsed_composite_frame_word_normalized_var
     assert semantic.gdt.compartments[1].tolerance_text == "0.01"
 
 
+# WR-01 regression: compact single-token dashed datum refs must be preserved as
+# compound tokens, not split into individual letters.
+
+def test_extract_semantic_callout_gdt_compact_dashed_datum_preserved():
+    """Compact "⌖∅0.35A-B" must produce datum_refs ["A-B"], not ["A", "B"]."""
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("⌖∅0.35A-B", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.state == "parsed", (
+        f"Expected parsed, got state={semantic.status.state!r} "
+        f"reason_code={semantic.status.reason_code!r}"
+    )
+    assert semantic.gdt is not None
+    assert semantic.gdt.datum_refs == ["A-B"], (
+        f"Expected ['A-B'], got {semantic.gdt.datum_refs!r}"
+    )
+
+
+def test_extract_semantic_callout_gdt_compact_vs_whitespace_dashed_datum_match():
+    """Compact '⌖∅0.35A-B' and whitespace '⌖ ∅0.35 A-B' must produce identical datum_refs."""
+    compact = extract_semantic_callout(
+        pdf_spans=[_span("⌖∅0.35A-B", span_id=0, x0=10.0)],
+    )
+    whitespace = extract_semantic_callout(
+        pdf_spans=[
+            _span("⌖", span_id=0, x0=10.0),
+            _span("∅0.35", span_id=1, x0=20.0),
+            _span("A-B", span_id=2, x0=30.0),
+        ],
+    )
+    assert compact.status.state == "parsed"
+    assert whitespace.status.state == "parsed"
+    assert compact.gdt is not None and whitespace.gdt is not None
+    assert compact.gdt.datum_refs == whitespace.gdt.datum_refs, (
+        f"compact datum_refs {compact.gdt.datum_refs!r} != whitespace {whitespace.gdt.datum_refs!r}"
+    )
+
+
+# WR-02 regression: word-form normalization must not rewrite substrings inside
+# unrelated words (e.g. "positioning" contains "position", "flatnessness" is a
+# doubled word — neither should produce gdt_malformed_frame).
+
+def test_extract_semantic_callout_positioning_hole_not_gdt_malformed():
+    """'positioning hole' contains 'position' as a substring but must not produce a GD&T error."""
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("positioning hole", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.reason_code != "gdt_malformed_frame", (
+        f"False positive: 'positioning hole' produced gdt_malformed_frame"
+    )
+
+
+def test_extract_semantic_callout_flatnessness_not_gdt_malformed():
+    """Misspelled 'flatnessness 0.1' must not produce gdt_malformed_frame."""
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("flatnessness 0.1", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.reason_code != "gdt_malformed_frame", (
+        f"False positive: 'flatnessness 0.1' produced gdt_malformed_frame"
+    )
+
+
 # Slash-family regression guards: weld and fit inputs containing '/' must not be
 # captured by the composite GD&T parser path.
 
