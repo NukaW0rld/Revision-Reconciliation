@@ -77,6 +77,15 @@ class SemanticParserStatus(BaseModel):
     )
 
 
+class GdtCompartment(BaseModel):
+    """A single compartment from a composite GD&T feature control frame."""
+
+    control_type: Optional[str] = Field(None, description="GD&T control type for this compartment")
+    tolerance_text: Optional[str] = Field(None, description="Tolerance segment text for this compartment")
+    datum_refs: List[str] = Field(default_factory=list, description="Referenced datums for this compartment")
+    modifiers: List[str] = Field(default_factory=list, description="Applied modifiers for this compartment")
+
+
 class GdtSemanticPayload(BaseModel):
     """GD&T-specific semantic payload slot for future parser output."""
 
@@ -85,6 +94,10 @@ class GdtSemanticPayload(BaseModel):
     tolerance_text: Optional[str] = Field(None, description="Tolerance segment text captured from the frame")
     datum_refs: List[str] = Field(default_factory=list, description="Referenced datums in order")
     modifiers: List[str] = Field(default_factory=list, description="Applied GD&T modifiers")
+    compartments: List[GdtCompartment] = Field(
+        default_factory=list,
+        description="Ordered GD&T compartments captured from a composite frame (empty for single-compartment frames)",
+    )
 
 
 class WeldSemanticPayload(BaseModel):

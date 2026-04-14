@@ -414,3 +414,44 @@ def test_extract_semantic_callout_gdt_parsed_compact_token_variants():
     )
     assert malformed.status.state == "error"
     assert malformed.status.reason_code == "gdt_malformed_frame"
+
+
+# GD&T composite frame capture (GDT-03)
+
+def test_extract_semantic_callout_gdt_parsed_composite_frame_preserves_all_compartments():
+    # Standard symbol-form composite: two profile-of-a-surface compartments separated by '/'
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("⌓ .05 D B C / ⌓ .01 D", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.state == "parsed", (
+        f"Expected parsed, got {semantic.status.state!r} — {semantic.status.detail!r}"
+    )
+    assert semantic.status.parser_family == "gdt"
+    assert semantic.gdt is not None
+    # Primary compartment fields
+    assert semantic.gdt.control_type == "profile_of_a_surface"
+    assert semantic.gdt.tolerance_text == "0.05"
+    assert semantic.gdt.datum_refs == ["D", "B", "C"]
+    # Compartments list — both segments captured
+    assert len(semantic.gdt.compartments) == 2
+    assert semantic.gdt.compartments[0].control_type == "profile_of_a_surface"
+    assert semantic.gdt.compartments[0].tolerance_text == "0.05"
+    assert semantic.gdt.compartments[0].datum_refs == ["D", "B", "C"]
+    assert semantic.gdt.compartments[1].control_type == "profile_of_a_surface"
+    assert semantic.gdt.compartments[1].tolerance_text == "0.01"
+    assert semantic.gdt.compartments[1].datum_refs == ["D"]
+
+
+def test_extract_semantic_callout_gdt_parsed_composite_frame_word_normalized_variant():
+    # Word-normalized composite: "flatness 0.05 / flatness 0.01" normalizes both segments
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("flatness 0.05 / flatness 0.01", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.state == "parsed", (
+        f"Expected parsed, got {semantic.status.state!r} — {semantic.status.detail!r}"
+    )
+    assert semantic.gdt is not None
+    assert semantic.gdt.control_type == "flatness"
+    assert len(semantic.gdt.compartments) == 2
+    assert semantic.gdt.compartments[1].control_type == "flatness"
+    assert semantic.gdt.compartments[1].tolerance_text == "0.01"

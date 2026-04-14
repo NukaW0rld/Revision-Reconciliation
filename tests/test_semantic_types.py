@@ -319,3 +319,18 @@ def test_semantic_callout_empty_surface_finish_status_is_explicit_and_json_stabl
     assert reparsed.semantic_callout.status.state == "empty"
     assert reparsed.semantic_callout.status.reason_code == "surface_finish_no_match"
     assert reparsed.semantic_callout.metadata["inspection_surface"] == "delta_packet.json"
+
+
+# GdtSemanticPayload compartments default-factory (GDT-03)
+
+def test_gdt_semantic_payload_compartments_default_factory():
+    payload = GdtSemanticPayload(
+        frame_text="⌖ | ⌀0.10 | M | A",
+        control_type="position",
+        tolerance_text="⌀0.10",
+        datum_refs=["A"],
+        modifiers=["MMC"],
+    )
+    assert payload.compartments == []
+    serialized = payload.model_dump()
+    assert serialized["compartments"] == []

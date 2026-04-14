@@ -1,10 +1,11 @@
 import re
 from typing import List, Tuple, Optional, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from delta_preservation.io.pdf import TextSpan, join_text_spans
 from delta_preservation.types import (
     FitSemanticPayload,
+    GdtCompartment,
     GdtSemanticPayload,
     SemanticCallout,
     SemanticParserStatus,
@@ -33,6 +34,7 @@ class ParsedGdtFrame:
     tolerance_text: str
     datum_refs: List[str]
     modifiers: List[str]
+    compartments: List[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -357,15 +359,16 @@ def _normalize_gdt_word_controls(text: str) -> str:
     """Replace spelled-out GD&T control names with their Unicode symbols.
 
     Substitution is case-insensitive and longest-first so "total runout" is
-    replaced before the shorter "runout" entry can match.
+    replaced before the shorter "runout" entry can match. All occurrences of
+    each word are replaced (handles composite frames with the same word repeated).
     """
     lowered = text.lower()
     for word, symbol in _GDT_WORD_CONTROL_MAP:
-        idx = lowered.find(word)
-        if idx != -1:
+        while True:
+            idx = lowered.find(word)
+            if idx == -1:
+                break
             text = text[:idx] + symbol + text[idx + len(word):]
-            # Recompute lowered after substitution so subsequent entries work
-            # on the updated string (only matters if two words appear in one text).
             lowered = text.lower()
     return text
 
@@ -610,6 +613,7 @@ def _extract_semantic_payload(
                 tolerance_text=gdt_result.tolerance_text,
                 datum_refs=gdt_result.datum_refs,
                 modifiers=gdt_result.modifiers,
+                compartments=[GdtCompartment(**c) for c in gdt_result.compartments],
             ),
             None,
             None,
@@ -752,7 +756,42 @@ def _extract_semantic_payload(
     )
 
 
-def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
+def _parse_gdt_frame(normalized_text: str, *, _allow_composite: bool = True) -> Optional[ParsedGdtFrame | str]:
+    # Composite frame detection: split on '/' only when every non-empty segment begins
+    # with a recognized GD&T control symbol. This deliberately excludes weld fractions
+    # like "1/8 FILLET" (first segment "1" has no control symbol) and fit classes like
+    # "H7/p6" (first segment "H7" has no control symbol).
+    if _allow_composite and "/" in normalized_text:
+        raw_segments = normalized_text.split("/")
+        stripped = [s.strip() for s in raw_segments if s.strip()]
+        if stripped and all(_GDT_CONTROL_MAP.get(s[0]) is not None for s in stripped):
+            compartments: List[dict] = []
+            primary: Optional[ParsedGdtFrame] = None
+            valid = True
+            for seg in stripped:
+                seg_result = _parse_gdt_frame(seg, _allow_composite=False)
+                if not isinstance(seg_result, ParsedGdtFrame):
+                    valid = False
+                    break
+                compartments.append({
+                    "control_type": seg_result.control_type,
+                    "tolerance_text": seg_result.tolerance_text,
+                    "datum_refs": seg_result.datum_refs,
+                    "modifiers": seg_result.modifiers,
+                })
+                if primary is None:
+                    primary = seg_result
+            if valid and primary is not None:
+                return ParsedGdtFrame(
+                    control_type=primary.control_type,
+                    frame_text=primary.frame_text,
+                    tolerance_text=primary.tolerance_text,
+                    datum_refs=primary.datum_refs,
+                    modifiers=primary.modifiers,
+                    compartments=compartments,
+                )
+            # If composite parsing failed, fall through to the single-compartment path
+
     tokens = normalized_text.split()
     # Strip pipe separators used in Form3 notation (e.g., "⌖ ∅.050 Ⓜ | A | B")
     tokens = [t for t in tokens if t != "|"]
