@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from sqlalchemy.orm import Session
@@ -22,6 +23,40 @@ PHASE2_REENTRY_MESSAGE = (
 
 class DebugVerdictValidationError(ValueError):
     """Raised when a debug verdict payload is malformed."""
+
+
+@dataclass(frozen=True)
+class MissingAddedTruthItem:
+    """Synthetic debug-queue row for an added ground-truth characteristic missing from the packet."""
+
+    id: int
+    truth_index: int
+    requirement_revB: str | None
+    snippet_center_revA: tuple[float, float] | None
+    snippet_center_revB: tuple[float, float] | None
+    char_no: int | None = None
+    pipeline_classification: str = "added"
+    confidence: float | None = None
+    requirement_revA: str | None = None
+    revA_snippet_path: str | None = None
+    revB_snippet_path: str | None = None
+    reviewer_decision: str | None = None
+    override_classification: str | None = None
+    override_note: str | None = None
+    reviewed_at: object | None = None
+    is_missing_truth: bool = True
+
+
+def missing_added_truth_item_id(truth_index: int) -> int:
+    """Return a stable negative pseudo-id for a synthetic missing-added row."""
+    return -(truth_index + 1)
+
+
+def truth_index_from_missing_added_item_id(item_id: int) -> int:
+    """Invert ``missing_added_truth_item_id`` for router/save-path handling."""
+    if item_id >= 0:
+        raise DebugVerdictValidationError("Synthetic missing-added rows use negative pseudo ids.")
+    return abs(item_id) - 1
 
 
 def _load_delta_packet(run: Run) -> dict:
@@ -244,13 +279,27 @@ def save_debug_verdict(run: Run, item: ReviewItem, payload: dict) -> dict[int, d
     return verdicts_by_item_id
 
 
-def debug_verdict_state(items: list[ReviewItem], verdicts_by_item_id: dict[int, dict]) -> dict:
+def save_missing_added_truth_verdict(run: Run, truth_index: int, payload: dict) -> dict[int, dict]:
+    """Persist one synthetic missing-added resolution alongside normal debug verdicts."""
+    verdicts_by_item_id = load_debug_verdicts(run)
+    verdicts_by_item_id[missing_added_truth_item_id(truth_index)] = {
+        **payload,
+        "item_id": None,
+        "truth_index": truth_index,
+        "char_no": None,
+    }
+    write_debug_verdicts(run, verdicts_by_item_id)
+    return verdicts_by_item_id
+
+
+def debug_verdict_state(items: list, verdicts_by_item_id: dict[int, dict]) -> dict:
     """Return template-friendly per-item verdict map and submitted-progress counters."""
     item_ids = {item.id for item in items}
     filtered = {item_id: payload for item_id, payload in verdicts_by_item_id.items() if item_id in item_ids}
+    submitted = sum(1 for item in items if item.id in filtered)
     return {
         "by_item_id": filtered,
-        "submitted": len(filtered),
+        "submitted": submitted,
         "total": len(items),
     }
 
@@ -275,6 +324,13 @@ def _bbox_center(raw_evidence: dict | None) -> tuple[float, float] | None:
     if not bbox or len(bbox) != 4:
         return None
     return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+
+
+def _missing_added_mismatch(truth_index: int) -> dict:
+    return {
+        "code": "missing_added_characteristic",
+        "message": f"ground truth added row {truth_index} was not captured by the algorithm",
+    }
 
 
 
@@ -317,6 +373,7 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
     exception_item_ids = {item.id for item in queue_state["exception_items"]}
     packet_items_by_item_id = queue_state["packet_items_by_item_id"]
     raw_packet_items_by_item_id = queue_state["raw_packet_items_by_item_id"]
+    missing_added_truth_items = queue_state.get("missing_added_truth_items", [])
     verdicts_by_item_id = load_debug_verdicts(run)
     packet_data = _load_delta_packet(run)
 
@@ -374,11 +431,52 @@ def assemble_debug_report_payload(db: Session, run: Run) -> dict:
             }
         )
 
+    for missing_item in missing_added_truth_items:
+        verdict_payload = verdicts_by_item_id.get(missing_item.id)
+        stored_verdict = verdict_payload or {}
+        if verdict_payload is None:
+            row_state = "unresolved_review_needed"
+        else:
+            row_state = stored_verdict.get("verdict")
+            debug_submitted += 1
+        rows.append(
+            {
+                "queue_index": len(rows) + 1,
+                "review_item_id": None,
+                "truth_index": missing_item.truth_index,
+                "char_no": None,
+                "row_state": row_state,
+                "pipeline_classification": "added",
+                "confidence": None,
+                "requirement_revA": None,
+                "requirement_revB": missing_item.requirement_revB,
+                "reviewer_decision": None,
+                "override_classification": None,
+                "override_note": None,
+                "reviewed_at": None,
+                "debug_verdict": stored_verdict.get("verdict"),
+                "corrected_classification": stored_verdict.get("corrected_classification"),
+                "corrected_requirement_revA": None,
+                "corrected_requirement_revB": stored_verdict.get("corrected_requirement_revB"),
+                "explanation": stored_verdict.get("explanation"),
+                "history_reference": None,
+                "scores": {},
+                "reasons": [],
+                "evaluation": None,
+                "mismatches": [_missing_added_mismatch(missing_item.truth_index)],
+                "semantic_callout": None,
+                "semantic_contract": None,
+                "revA_center": missing_item.snippet_center_revA,
+                "revB_center": missing_item.snippet_center_revB,
+                "packet_item": None,
+            }
+        )
+
     return {
         "run_id": run.id,
         "run_status": run.status,
         "packet_run_id": packet_data.get("run_id"),
-        "debug_total": len(exception_item_ids),
+        "debug_total": len(exception_item_ids) + len(missing_added_truth_items),
         "debug_submitted": debug_submitted,
         "missing_added_truth_indexes": queue_state.get("missing_added_truth_indexes", []),
         "notes": load_debug_notes(run),
@@ -448,11 +546,12 @@ def _review_items_in_packet_order(db: Session, run: Run, *, activate_review: boo
     return items
 
 
-def _load_missing_added_truth_indexes(run: Run, packet_data: dict, packet_rows: list) -> list[int]:
-    """Return truth added row indexes not claimed by any packet row.
-
-    Silently returns [] when the ground truth fixture is unavailable.
-    """
+def _load_missing_added_truth_items(
+    run: Run,
+    packet_data: dict,
+    packet_rows: list,
+) -> list[MissingAddedTruthItem]:
+    """Return synthetic rows for truth added characteristics not claimed by any packet row."""
     inputs = packet_data.get("inputs") or {}
     truth_fixture_key = inputs.get("truth_fixture_key") or run.part_number
     if not truth_fixture_key:
@@ -463,11 +562,12 @@ def _load_missing_added_truth_indexes(run: Run, packet_data: dict, packet_rows: 
         return []
 
     # Collect truth added row indexes
-    truth_added_indexes = {
-        i for i, ch in enumerate(truth_packet.characteristics)
+    truth_added_rows = [
+        (i, ch)
+        for i, ch in enumerate(truth_packet.characteristics)
         if ch.classification == "added"
-    }
-    if not truth_added_indexes:
+    ]
+    if not truth_added_rows:
         return []
 
     # Collect matched added token indexes from packet evaluations
@@ -485,7 +585,20 @@ def _load_missing_added_truth_indexes(run: Run, packet_data: dict, packet_rows: 
             except (ValueError, IndexError):
                 pass
 
-    return sorted(truth_added_indexes - claimed)
+    rows: list[MissingAddedTruthItem] = []
+    for truth_index, truth_row in truth_added_rows:
+        if truth_index in claimed:
+            continue
+        rows.append(
+            MissingAddedTruthItem(
+                id=missing_added_truth_item_id(truth_index),
+                truth_index=truth_index,
+                requirement_revB=truth_row.requirement_revB,
+                snippet_center_revA=truth_row.snippet_center_revA,
+                snippet_center_revB=truth_row.snippet_center_revB,
+            )
+        )
+    return rows
 
 
 def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = True) -> dict:
@@ -520,11 +633,13 @@ def build_debug_queue_state(db: Session, run: Run, *, activate_review: bool = Tr
         if delta_item.evaluation is not None and delta_item.evaluation.status == "review_needed":
             exception_items.append(item)
 
-    missing_added_truth_indexes = _load_missing_added_truth_indexes(run, packet_data, packet_rows)
+    missing_added_truth_items = _load_missing_added_truth_items(run, packet_data, packet_rows)
+    missing_added_truth_indexes = [item.truth_index for item in missing_added_truth_items]
 
     return {
         "all_items": all_items,
         "exception_items": exception_items,
+        "missing_added_truth_items": missing_added_truth_items,
         "missing_added_truth_indexes": missing_added_truth_indexes,
         "packet_items_by_item_id": packet_items_by_item_id,
         "raw_packet_items_by_item_id": raw_packet_items_by_item_id,
@@ -569,6 +684,15 @@ def debug_internals_by_item_id(db: Session, run: Run) -> dict[int, dict]:
             "evaluation": evaluation,
             "mismatches": mismatches,
         }
+    for missing_item in queue_state.get("missing_added_truth_items", []):
+        result[missing_item.id] = {
+            "scores": {},
+            "reasons": [],
+            "revA_center": missing_item.snippet_center_revA,
+            "revB_center": missing_item.snippet_center_revB,
+            "evaluation": None,
+            "mismatches": [_missing_added_mismatch(missing_item.truth_index)],
+        }
     return result
 
 
@@ -579,7 +703,8 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
     conforming_rows: list[dict] = []
     exception_rows: list[dict] = []
     resolved_exception_count = 0
-    missing_added_truth_indexes = queue_state.get("missing_added_truth_indexes", [])
+    missing_added_truth_items = queue_state.get("missing_added_truth_items", [])
+    missing_added_truth_indexes = [item.truth_index for item in missing_added_truth_items]
 
     for queue_index, (item, delta_item) in enumerate(queue_state["packet_rows"], start=1):
         raw_item = queue_state["raw_packet_items_by_item_id"][item.id]
@@ -604,16 +729,20 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
             resolved_exception_count += 1
         exception_rows.append(row)
 
-    for truth_index in missing_added_truth_indexes:
+    for missing_item in missing_added_truth_items:
         queue_index = len(conforming_rows) + len(exception_rows) + 1
+        saved_verdict = verdicts_by_item_id.get(missing_item.id, {}).get("verdict")
+        if saved_verdict is not None:
+            resolved_exception_count += 1
         exception_rows.append({
             "queue_index": queue_index,
             "review_item_id": None,
+            "truth_index": missing_item.truth_index,
             "char_no": None,
             "pipeline_classification": None,
-            "requirement_revB": None,
-            "saved_verdict": None,
-            "mismatches": [{"code": "missing_added_characteristic", "message": f"ground truth added row {truth_index} was not captured by the algorithm"}],
+            "requirement_revB": missing_item.requirement_revB,
+            "saved_verdict": saved_verdict,
+            "mismatches": [_missing_added_mismatch(missing_item.truth_index)],
             "packet_item": None,
             "row_state": "missing_added_truth",
         })

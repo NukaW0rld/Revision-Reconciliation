@@ -21,9 +21,11 @@ from shop.services.review import (
     debug_verdict_state,
     load_debug_notes,
     load_debug_verdicts_for_render,
+    missing_added_truth_item_id,
     open_review_queue,
     save_debug_notes,
     save_debug_verdict,
+    save_missing_added_truth_verdict,
     semantic_contracts_by_char,
     semantic_contracts_by_item_id,
     validate_debug_verdict_payload,
@@ -33,7 +35,7 @@ from shop.routers.runs import _get_nav_context
 router = APIRouter(redirect_slashes=False)
 
 
-def _debug_queue_progress(run: Run, items: list[ReviewItem]) -> dict:
+def _debug_queue_progress(run: Run, items: list) -> dict:
     debug_verdicts = load_debug_verdicts_for_render(run)
     return debug_verdict_state(items, debug_verdicts)
 
@@ -62,10 +64,13 @@ def review_queue(
     debug_queue_state = build_debug_queue_state(db, run) if debug else None
     all_items = debug_queue_state["all_items"] if debug_queue_state else open_review_queue(db, run)
     exception_items = debug_queue_state["exception_items"] if debug_queue_state else []
+    missing_added_truth_items = (
+        debug_queue_state.get("missing_added_truth_items", []) if debug_queue_state else []
+    )
     missing_added_truth_indexes = (
         debug_queue_state.get("missing_added_truth_indexes", []) if debug_queue_state else []
     )
-    if debug and not exception_items and (
+    if debug and not exception_items and not missing_added_truth_items and (
         all_items or debug_queue_state.get("packet_declares_items")
     ):
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
@@ -73,7 +78,7 @@ def review_queue(
     debug_semantic_contracts = semantic_contracts_by_item_id(db, run) if debug else {}
     debug_internals = debug_internals_by_item_id(db, run) if debug else {}
     debug_progress = (
-        _debug_queue_progress(run, exception_items)
+        _debug_queue_progress(run, [*exception_items, *missing_added_truth_items])
         if debug
         else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
     )
@@ -87,7 +92,7 @@ def review_queue(
     total = len(all_items)
 
     # Apply filters
-    visible_items = exception_items if debug else all_items
+    visible_items = [*exception_items, *missing_added_truth_items] if debug else all_items
     if status_filter == "pending":
         visible_items = [i for i in visible_items if i.reviewer_decision is None]
     elif status_filter == "approved":
@@ -184,6 +189,59 @@ def _render_debug_item_card(
     )
 
 
+def _render_missing_added_truth_card(
+    *,
+    request: Request,
+    run: Run,
+    item,
+    db: Session,
+    user: User,
+    error: str | None = None,
+    status_code: int = 200,
+    form_values: dict | None = None,
+    oob_update: bool = True,
+):
+    all_items, pending, approved, overridden = _item_counts(db, run.id)
+    debug_queue_state = build_debug_queue_state(db, run, activate_review=False)
+    debug_items = [
+        *debug_queue_state["exception_items"],
+        *debug_queue_state.get("missing_added_truth_items", []),
+    ]
+    debug_progress = _debug_queue_progress(run, debug_items)
+    debug_internal = debug_internals_by_item_id(db, run).get(item.id)
+    saved_verdict = debug_progress["by_item_id"].get(item.id)
+    debug_form = {
+        "corrected_requirement_revB": item.requirement_revB or "",
+        **(saved_verdict or {}),
+        **(form_values or {}),
+    }
+    return templates.TemplateResponse(
+        request,
+        "review/_item_card_missing_added.html",
+        {
+            "item": item,
+            "run": run,
+            "run_id": run.id,
+            "user": user,
+            "debug_internal": debug_internal,
+            "debug_verdict": saved_verdict,
+            "debug_form": debug_form,
+            "debug_submitted": debug_progress["submitted"],
+            "debug_total": debug_queue_state["debug_total"],
+            "pending": pending,
+            "approved": approved,
+            "overridden": overridden,
+            "total": len(all_items),
+            "read_only": run.status == "signed_off",
+            "is_amendment": bool(run.parent_run_id),
+            "error": error,
+            "debug_mode": True,
+            "oob_update": oob_update,
+        },
+        status_code=status_code,
+    )
+
+
 @router.post("/{run_id}/debug/items/{item_id}/verdict", response_class=HTMLResponse)
 def save_debug_item_verdict(
     run_id: int,
@@ -238,6 +296,76 @@ def save_debug_item_verdict(
     sync_accepted_alternate_history(db, run, item, payload)
     db.refresh(item)
     return _render_debug_item_card(request=request, run=run, item=item, db=db, user=user)
+
+
+@router.post("/{run_id}/debug/missing-added/{truth_index}/verdict", response_class=HTMLResponse)
+def save_missing_added_truth_item_verdict(
+    run_id: int,
+    truth_index: int,
+    request: Request,
+    corrected_requirement_revB: str = Form(""),
+    explanation: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if run is None:
+        raise HTTPException(status_code=404)
+
+    debug_queue_state = build_debug_queue_state(db, run, activate_review=False)
+    item = next(
+        (
+            candidate
+            for candidate in debug_queue_state.get("missing_added_truth_items", [])
+            if candidate.truth_index == truth_index
+        ),
+        None,
+    )
+    if item is None:
+        raise HTTPException(status_code=404)
+
+    try:
+        payload = validate_debug_verdict_payload(
+            verdict="algorithm_error",
+            corrected_classification="added",
+            corrected_requirement_revB=corrected_requirement_revB,
+            explanation=explanation,
+        )
+    except DebugVerdictValidationError as exc:
+        return _render_missing_added_truth_card(
+            request=request,
+            run=run,
+            item=item,
+            db=db,
+            user=user,
+            error=str(exc),
+            status_code=422,
+            form_values={
+                "corrected_requirement_revB": corrected_requirement_revB,
+                "explanation": explanation,
+            },
+        )
+
+    save_missing_added_truth_verdict(run, truth_index, payload)
+    refreshed_state = build_debug_queue_state(db, run, activate_review=False)
+    refreshed_item = next(
+        (
+            candidate
+            for candidate in refreshed_state.get("missing_added_truth_items", [])
+            if candidate.truth_index == truth_index
+        ),
+        item,
+    )
+    return _render_missing_added_truth_card(
+        request=request,
+        run=run,
+        item=refreshed_item,
+        db=db,
+        user=user,
+    )
 
 
 @router.get("/{run_id}/debug-report.json")

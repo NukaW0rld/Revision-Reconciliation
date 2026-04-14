@@ -25,7 +25,7 @@
     "ai_integration_phase": true,
     "text_mode": false,
     "research_before_questions": true,
-    "discuss_mode": "discuss",
+    "discuss_mode": "assumptions",
     "skip_discuss": false,
     "use_worktrees": false,
     "code_review": true,

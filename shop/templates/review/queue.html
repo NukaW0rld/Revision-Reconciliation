@@ -116,7 +116,7 @@
       <p class="text-xs font-mono text-base-content/60 mt-1">
         Missing truth row index{{ 'es' if missing_added_truth_indexes | length != 1 else '' }}:
         {{ missing_added_truth_indexes | join(', ') }}.
-        These blockers count toward the unresolved exception total but do not appear as normal review cards.
+        These blockers are rendered below as dedicated missing-added cards and must be resolved before export.
       </p>
     </div>
     {% endif %}
@@ -147,7 +147,15 @@
       {% endif %}
       {% set debug_verdict = debug_verdicts.get(item.id) if debug_verdicts is defined else none %}
       {% set debug_form = debug_verdict if debug_verdict is defined and debug_verdict else {} %}
-      {% if debug_mode %}{% include "review/_item_card_debug.html" %}{% else %}{% include "review/_item_card.html" %}{% endif %}
+      {% if debug_mode %}
+        {% if item.is_missing_truth %}
+          {% include "review/_item_card_missing_added.html" %}
+        {% else %}
+          {% include "review/_item_card_debug.html" %}
+        {% endif %}
+      {% else %}
+        {% include "review/_item_card.html" %}
+      {% endif %}
     {% else %}
     <div class="flex items-center justify-center h-full text-base-content/40 font-mono text-sm">
       No items match the selected filters.

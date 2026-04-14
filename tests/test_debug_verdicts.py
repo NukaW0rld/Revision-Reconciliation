@@ -5,6 +5,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from delta_preservation.evaluation.contracts import GroundTruthCharacteristic, GroundTruthPacket
 from shop.models import ReviewItem, Run
 from shop.services.auth import create_session
 from shop.services.review import (
@@ -101,6 +102,21 @@ def _assert_export_enabled(html: str, run_id: int):
     assert 'Export debug_report.json' in html
     assert f'href="/review/{run_id}/debug-report.json"' in html
     assert 'download="debug_report.json"' in html
+
+
+def _make_truth_packet(*classifications):
+    chars = []
+    for i, classification in enumerate(classifications):
+        chars.append(
+            GroundTruthCharacteristic(
+                char_no=None if classification == "added" else i + 1,
+                classification=classification,
+                requirement_revB=None if classification == "removed" else f"req-{i}",
+                snippet_center_revA=(0.0, 0.0),
+                snippet_center_revB=(10.0 + i, 20.0 + i) if classification != "removed" else None,
+            )
+        )
+    return GroundTruthPacket(part_name="debug-verdicts", general_notes="", characteristics=chars)
 
 
 def test_algorithm_error_accepts_reviewer_accepted_classification_when_label_matches_pipeline(
@@ -1257,13 +1273,6 @@ def test_debug_queue_export_stays_disabled_when_missing_truth_added_rows_exist(
         ],
     )
 
-    class _TruthPacket:
-        def __init__(self):
-            self.characteristics = [
-                type("TruthChar", (), {"classification": "added"})(),
-                type("TruthChar", (), {"classification": "added"})(),
-                ]
-
     item_id = _open_queue(db_engine, run_id)[0]
 
     saved = client.post(
@@ -1275,16 +1284,98 @@ def test_debug_queue_export_stays_disabled_when_missing_truth_added_rows_exist(
     )
     assert saved.status_code == 200
 
-    with patch("shop.services.review.load_ground_truth_packet", return_value=_TruthPacket()):
+    with patch("shop.services.review.load_ground_truth_packet", return_value=_make_truth_packet("added", "added")):
         resp = client.get(f"/review/{run_id}?debug=1", follow_redirects=False)
 
     assert resp.status_code == 200
     _assert_export_disabled(resp.text, run_id)
     assert "Export debug_report.json (1/2)" in resp.text
-    assert "Ground truth contains 1 added characteristic" in resp.text
-    assert "the algorithm did not emit." in resp.text
-    assert "Missing truth row index" in resp.text
-    assert "1." in resp.text
+    assert f'/review/{run_id}/debug/missing-added/1/verdict' in resp.text
+    assert "Resolve Missing Added Row" in resp.text
+    assert "Missing Added #1" in resp.text
+
+
+def test_missing_added_truth_row_can_be_resolved_and_exported(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 41,
+                "status": "changed",
+                "confidence": 0.61,
+                "requirement_revB": "Needs review",
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 41,
+                    "snippet_conforms": False,
+                    "mismatches": [{"code": "classification_mismatch", "message": "needs review"}],
+                },
+            },
+            {
+                "char_no": None,
+                "status": "added",
+                "confidence": 0.80,
+                "requirement_revB": "Packet added row",
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "conforming",
+                    "matched_truth_char_no": "added:0",
+                    "snippet_conforms": True,
+                    "mismatches": [],
+                },
+            }
+        ],
+    )
+
+    item_id = _open_queue(db_engine, run_id)[0]
+    truth_packet = _make_truth_packet("added", "added")
+
+    with patch("shop.services.review.load_ground_truth_packet", return_value=truth_packet):
+        saved = client.post(
+            f"/review/{run_id}/debug/items/{item_id}/verdict",
+            data={
+                "verdict": "acceptable_alternate",
+                "explanation": "Visible exception row resolved.",
+            },
+        )
+        assert saved.status_code == 200
+
+        missing_saved = client.post(
+            f"/review/{run_id}/debug/missing-added/1/verdict",
+            data={
+                "corrected_requirement_revB": "req-1",
+                "explanation": "Algorithm missed the added characteristic entirely.",
+            },
+        )
+        assert missing_saved.status_code == 200
+
+        export = client.get(f"/review/{run_id}/debug-report.json")
+
+    assert export.status_code == 200
+    payload = export.json()
+    assert payload["debug_total"] == 2
+    assert payload["debug_submitted"] == 2
+    synthetic_row = payload["items"][-1]
+    assert synthetic_row["review_item_id"] is None
+    assert synthetic_row["truth_index"] == 1
+    assert synthetic_row["row_state"] == "algorithm_error"
+    assert synthetic_row["pipeline_classification"] == "added"
+    assert synthetic_row["requirement_revB"] == "req-1"
+    assert synthetic_row["debug_verdict"] == "algorithm_error"
+    assert synthetic_row["corrected_classification"] == "added"
+    assert synthetic_row["corrected_requirement_revB"] == "req-1"
+    assert synthetic_row["explanation"] == "Algorithm missed the added characteristic entirely."
 
 
 # ── Debug Notes ───────────────────────────────────────────────────────────────
