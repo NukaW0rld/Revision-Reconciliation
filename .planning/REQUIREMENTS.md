@@ -91,15 +91,15 @@ canonical and must never be edited by the pipeline.
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| GDT-01 | — | — |
-| GDT-02 | — | — |
-| GDT-03 | — | — |
-| CLS-01 | — | — |
-| CLS-02 | — | — |
-| CLS-03 | — | — |
-| ADD-01 | — | — |
-| ADD-02 | — | — |
-| SNP-01 | — | — |
-| TST-01 | — | — |
-| TST-02 | — | — |
-| VER-01 | — | — |
+| GDT-01 | Phase 4 | — |
+| GDT-02 | Phase 4 | — |
+| GDT-03 | Phase 4 | — |
+| CLS-01 | Phase 5 | — |
+| CLS-02 | Phase 5 | — |
+| CLS-03 | Phase 5 | — |
+| ADD-01 | Phase 6 | — |
+| ADD-02 | Phase 6 | — |
+| SNP-01 | Phase 6 | — |
+| TST-01 | Phase 7 | — |
+| TST-02 | Phase 7 | — |
+| VER-01 | Phase 7 | — |

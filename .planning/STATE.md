@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: defining_requirements
-stopped_at: Milestone v1.1 started; defining requirements
+status: ready_to_plan
+stopped_at: Roadmap created; Phase 4 ready to plan
 last_updated: "2026-04-13T00:00:00.000Z"
-last_activity: 2026-04-13 -- Milestone v1.1 started
+last_activity: 2026-04-13 -- Milestone v1.1 roadmap created (Phases 4-7)
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-12)
+See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Define the next milestone and refresh requirements
+**Current focus:** Phase 4 — GD&T Parser Fixes
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-13 — Milestone v1.1 started
+Phase: 4 of 7 (GD&T Parser Fixes) — v1.1 first phase
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-04-13 — Roadmap created for v1.1 (Phases 4-7)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -60,9 +60,9 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Resolve truth fixtures only from `assets/{truth_fixture_key}/ground_truth.json` with no aliasing or fallback
-- Reuse debug queue identity from packet order plus `ReviewItem.id` instead of `char_no` sorting
-- Reuse accepted alternates only for exact same-part reviewed fingerprints
+- Every algorithm fix must generalize across all 9 debug-corpus parts — no per-part hacks
+- Ground truth files are canonical references and must never be auto-edited by the pipeline
+- Phases 4-6 fix concrete algorithm errors; Phase 7 locks in regression coverage before close
 
 ### Pending Todos
 
@@ -81,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T21:47:39.105Z
-Stopped at: Milestone v1.0 archived; ready for next milestone definition
+Last session: 2026-04-13
+Stopped at: v1.1 roadmap created; ready to plan Phase 4
 Resume file: .planning/ROADMAP.md
