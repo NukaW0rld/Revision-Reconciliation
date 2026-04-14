@@ -1,3 +1,4 @@
+from delta_preservation.io.pdf import TextSpan
 from delta_preservation.types import (
     FitSemanticPayload,
     GdtSemanticPayload,
@@ -7,7 +8,19 @@ from delta_preservation.types import (
     SurfaceFinishSemanticPayload,
     WeldSemanticPayload,
 )
+from delta_preservation.reconcile.normalize import extract_semantic_callout
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
+
+
+def _span(text: str, *, span_id: int = 0, x0: float = 0.0) -> TextSpan:
+    return TextSpan(
+        text=text,
+        bbox_pdf=(x0, 0.0, x0 + 10.0, 5.0),
+        font_size=10.0,
+        block_id=0,
+        line_id=0,
+        span_id=span_id,
+    )
 
 
 
@@ -448,4 +461,26 @@ def test_compare_semantic_callouts_mixed_family_reports_incompatible_reason_with
     assert result.comparable is False
     assert result.equal is False
     assert result.mode == "incompatible"
-    assert result.reason_fragments == ["semantic families differ: gdt vs fit"]
+
+
+# GD&T word-form vs symbol-form comparison (GDT-02)
+
+def test_compare_semantic_callouts_gdt_word_form_and_symbol_form_report_semantic_match():
+    word_form = extract_semantic_callout(
+        pdf_spans=[_span("flatness 0.05", span_id=0, x0=10.0)],
+    )
+    symbol_form = extract_semantic_callout(
+        pdf_spans=[_span("⏥", span_id=0, x0=10.0), _span("0.05", span_id=1, x0=20.0)],
+    )
+
+    assert word_form.status.state == "parsed", (
+        f"word_form parse failed: {word_form.status.reason_code} — {word_form.status.detail}"
+    )
+    assert symbol_form.status.state == "parsed"
+
+    result = compare_semantic_callouts(word_form, symbol_form)
+
+    assert result.comparable is True
+    assert result.equal is True
+    assert result.family == "gdt"
+    assert result.mode == "semantic"

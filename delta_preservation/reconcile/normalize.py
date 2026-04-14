@@ -337,7 +337,37 @@ _GDT_CONTROL_MAP = {
     "∠": "angularity",
     "∥": "parallelism",
     "⊙": "concentricity",
+    "○": "circularity",
+    "⌿": "circular_runout",
+    "⟃": "total_runout",
 }
+
+# Word-form GD&T control names (longest-first to prevent partial matches, e.g. "total runout" before "runout")
+_GDT_WORD_CONTROL_MAP: list[tuple[str, str]] = [
+    ("total runout", "⟃"),
+    ("runout", "⌿"),
+    ("circularity", "○"),
+    ("position", "⌖"),
+    ("flatness", "⏥"),
+    ("perpendicularity", "⟂"),
+]
+
+
+def _normalize_gdt_word_controls(text: str) -> str:
+    """Replace spelled-out GD&T control names with their Unicode symbols.
+
+    Substitution is case-insensitive and longest-first so "total runout" is
+    replaced before the shorter "runout" entry can match.
+    """
+    lowered = text.lower()
+    for word, symbol in _GDT_WORD_CONTROL_MAP:
+        idx = lowered.find(word)
+        if idx != -1:
+            text = text[:idx] + symbol + text[idx + len(word):]
+            # Recompute lowered after substitution so subsequent entries work
+            # on the updated string (only matters if two words appear in one text).
+            lowered = text.lower()
+    return text
 
 _GDT_MODIFIER_MAP = {
     "M": "MMC",
@@ -539,7 +569,7 @@ def _extract_semantic_payload(
             None,
         )
 
-    gdt_result = _parse_gdt_frame(normalized_text)
+    gdt_result = _parse_gdt_frame(_normalize_gdt_word_controls(normalized_text))
     if isinstance(gdt_result, ParsedGdtFrame):
         return (
             SemanticParserStatus(

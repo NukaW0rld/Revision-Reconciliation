@@ -343,4 +343,28 @@ def test_extract_semantic_callout_fit_error_malformed_designation():
     assert semantic.status.parser_family == "fit"
     assert semantic.status.reason_code == "fit_malformed"
     assert semantic.status.detail == "recognized fit designator but missing a complete paired hole/shaft class"
+
+
+# GD&T word-form control name normalization (GDT-02)
+
+def test_extract_semantic_callout_gdt_parsed_word_name_controls():
+    cases = [
+        ("circularity .05 A", "circularity", "0.05", ["A"]),
+        ("runout 0.10 A", "circular_runout", "0.10", ["A"]),
+        ("total runout 0.05 A B", "total_runout", "0.05", ["A", "B"]),
+        ("perpendicularity ⌀0.10 A", "perpendicularity", "⌀0.10", ["A"]),
+    ]
+    for text, expected_control, expected_tol, expected_datums in cases:
+        semantic = extract_semantic_callout(
+            pdf_spans=[_span(text, span_id=0, x0=10.0)],
+        )
+        assert semantic.status.state == "parsed", (
+            f"Expected parsed for {text!r}, got state={semantic.status.state!r} "
+            f"reason_code={semantic.status.reason_code!r} detail={semantic.status.detail!r}"
+        )
+        assert semantic.status.parser_family == "gdt"
+        assert semantic.gdt is not None
+        assert semantic.gdt.control_type == expected_control, f"control_type mismatch for {text!r}"
+        assert semantic.gdt.tolerance_text == expected_tol, f"tolerance_text mismatch for {text!r}"
+        assert semantic.gdt.datum_refs == expected_datums, f"datum_refs mismatch for {text!r}"
     assert semantic.fit is None
