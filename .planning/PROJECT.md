@@ -28,9 +28,13 @@ Improve reconciliation accuracy across many parts through a consistent, evidence
 
 ### Active
 
-- [ ] Detect contradiction risk across accepted outcomes before a reviewer approves a new alternate
-- [ ] Surface benchmark-wide trend summaries across parts and runs so algorithm changes can be judged against stable history
-- [ ] Flag potential overfitting patterns when a locally accepted fix does not generalize across parts
+- [ ] GD&T compact token parser correctly handles concatenated frames (e.g. `⌖∅0.35ABC`) without malformed-frame fallback
+- [ ] Adjacency bleed detection suppresses false count_added classification signal and surfaces a confidence flag
+- [ ] Added characteristics are generated for all ground-truth-added rows across all 9 parts
+- [ ] Removed+unmatched-added pairs at close spatial proximity are resolved as a single changed characteristic
+- [ ] Spelled-out GD&T names (circularity, runout, total runout) are normalized to symbol equivalents before semantic comparison
+- [ ] Asymmetric tolerance change (±T → +a/−b) is correctly detected as changed
+- [ ] Title block region is reliably excluded from characteristic search windows
 
 ### Out of Scope
 
@@ -63,11 +67,18 @@ Shipped `v1.0` across 3 phases, 8 plans, and 17 tasks between 2026-04-10 and 202
 | Reuse history only for exact same-part reviewed fingerprints | Broader reuse would risk overfitting and false auto-conformance across parts | Shipped in v1.0 |
 | Stop short of automatic learning/self-correction | The immediate goal remains better debugging evidence and consistency, not training the algorithm from review history | Confirmed for v1.0 |
 
-## Next Milestone Goals
+## Current Milestone: v1.1 Cross-part Characteristic Matching Refinement
 
-- Detect contradictions between accepted outcomes across parts and runs.
-- Warn on potential overfitting before a reviewer accepts a new alternate outcome.
-- Summarize benchmark performance trends across many runs so algorithm changes can be judged against stable ground truth.
+**Goal:** Fix the concrete algorithm errors discovered across all 9 debug parts to improve aggregate classification accuracy, using the exported debug corpus as ground truth. No per-part hacks — every fix must generalize.
+
+**Target features:**
+- GD&T compact token parser: split concatenated frames like `⌖∅0.35ABC` into control symbol + tolerance + datum refs
+- Adjacency bleed detection: detect multi-balloon `/`-merged spans; suppress false `count_added` signal; surface confidence flag
+- Missing added characteristics: fix part 8 and 9 failure to generate rows for ground-truth-added chars
+- Removed+Added → Changed resolution: pair close-proximity removed/unmatched-added as a single changed characteristic
+- GD&T word name normalization: map spelled-out names (circularity, runout, total runout) to symbol equivalents
+- Asymmetric tolerance comparison: detect ±T → +a/−b form as a tolerance change
+- Title block exclusion guard: strengthen exclusion zone to prevent title block capture
 
 ## Evolution
 
@@ -87,4 +98,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-12 after v1.0 milestone*
+*Last updated: 2026-04-13 — Milestone v1.1 started*

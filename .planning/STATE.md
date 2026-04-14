@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: archived
-stopped_at: Milestone v1.0 archived; ready for next milestone definition
-last_updated: "2026-04-12T14:36:05.446Z"
-last_activity: 2026-04-12 -- v1.0 milestone archived
+milestone: v1.1
+milestone_name: Cross-part Characteristic Matching Refinement
+status: defining_requirements
+stopped_at: Milestone v1.1 started; defining requirements
+last_updated: "2026-04-13T00:00:00.000Z"
+last_activity: 2026-04-13 -- Milestone v1.1 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 
 ## Current Position
 
-Phase: none — v1.0 archived
-Plan: n/a
-Status: v1.0 archived; next milestone not yet defined
-Last activity: 2026-04-13 - Completed quick task 260413-hfc: Add missing added characteristics check to exception review queue using ground truth
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-13 — Milestone v1.1 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
