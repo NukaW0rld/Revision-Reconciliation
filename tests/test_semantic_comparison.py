@@ -484,3 +484,112 @@ def test_compare_semantic_callouts_gdt_word_form_and_symbol_form_report_semantic
     assert result.equal is True
     assert result.family == "gdt"
     assert result.mode == "semantic"
+
+
+# GD&T compartment-aware comparison (GDT-03)
+
+def test_compare_semantic_callouts_gdt_compartment_count_mismatch_reports_change():
+    from delta_preservation.types import GdtCompartment
+    left = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌓ | 0.05 | D | B | C",
+            control_type="profile_of_a_surface",
+            tolerance_text="0.05",
+            datum_refs=["D", "B", "C"],
+            modifiers=[],
+            compartments=[
+                GdtCompartment(control_type="profile_of_a_surface", tolerance_text="0.05", datum_refs=["D", "B", "C"], modifiers=[]),
+                GdtCompartment(control_type="profile_of_a_surface", tolerance_text="0.01", datum_refs=["D"], modifiers=[]),
+            ],
+        ),
+    )
+    right = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌓ | 0.05 | D | B | C",
+            control_type="profile_of_a_surface",
+            tolerance_text="0.05",
+            datum_refs=["D", "B", "C"],
+            modifiers=[],
+            compartments=[
+                GdtCompartment(control_type="profile_of_a_surface", tolerance_text="0.05", datum_refs=["D", "B", "C"], modifiers=[]),
+            ],
+        ),
+    )
+
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is True
+    assert result.equal is False
+    assert result.family == "gdt"
+    assert result.mode == "semantic"
+    assert any("semantic GD&T changed: compartments" in f for f in result.reason_fragments)
+
+
+def test_compare_semantic_callouts_gdt_identical_composite_payloads_report_semantic_match():
+    from delta_preservation.types import GdtCompartment
+    compartments = [
+        GdtCompartment(control_type="profile_of_a_surface", tolerance_text="0.05", datum_refs=["D", "B", "C"], modifiers=[]),
+        GdtCompartment(control_type="profile_of_a_surface", tolerance_text="0.01", datum_refs=["D"], modifiers=[]),
+    ]
+    left = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌓ | 0.05 | D | B | C",
+            control_type="profile_of_a_surface",
+            tolerance_text="0.05",
+            datum_refs=["D", "B", "C"],
+            modifiers=[],
+            compartments=compartments,
+        ),
+    )
+    right = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌓ | 0.05 | D | B | C",
+            control_type="profile_of_a_surface",
+            tolerance_text="0.05",
+            datum_refs=["D", "B", "C"],
+            modifiers=[],
+            compartments=compartments,
+        ),
+    )
+
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is True
+    assert result.equal is True
+    assert result.family == "gdt"
+    assert result.mode == "semantic"
+
+
+def test_compare_semantic_callouts_gdt_single_compartment_unchanged_still_reports_semantic_match():
+    # Regression: existing single-compartment equality is unaffected by compartments field
+    left = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌖ | ⌀0.10 | M | A | B | C",
+            control_type="position",
+            tolerance_text="⌀0.10",
+            datum_refs=["A", "B", "C"],
+            modifiers=["MMC"],
+        ),
+    )
+    right = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌖ | ⌀0.10 | M | A | B | C",
+            control_type="position",
+            tolerance_text="⌀0.10",
+            datum_refs=["A", "B", "C"],
+            modifiers=["MMC"],
+        ),
+    )
+
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is True
+    assert result.equal is True
+    assert result.family == "gdt"
+    assert result.mode == "semantic"

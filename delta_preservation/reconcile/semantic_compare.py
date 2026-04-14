@@ -121,11 +121,24 @@ def _compare_gdt(
     left_tolerance_normalized = _normalize_gdt_tolerance_text(left.tolerance_text)
     right_tolerance_normalized = _normalize_gdt_tolerance_text(right.tolerance_text)
 
+    def _compartment_key(c) -> tuple:
+        return (
+            c.control_type,
+            _normalize_gdt_tolerance_text(c.tolerance_text),
+            tuple(c.datum_refs),
+            tuple(c.modifiers),
+        )
+
+    left_compartment_keys = [_compartment_key(c) for c in left.compartments]
+    right_compartment_keys = [_compartment_key(c) for c in right.compartments]
+    compartments_match = (left_compartment_keys == right_compartment_keys)
+
     if (
         left.control_type == right.control_type
         and left_tolerance_normalized == right_tolerance_normalized
         and left.datum_refs == right.datum_refs
         and left.modifiers == right.modifiers
+        and compartments_match
     ):
         return SemanticCompareResult(
             comparable=True,
@@ -137,6 +150,32 @@ def _compare_gdt(
                 f"{left.control_type} {left.tolerance_text} datums {_join_tokens(left.datum_refs)} modifiers {_join_tokens(left.modifiers)}"
             ],
         )
+
+    # Compartment count mismatch is the highest-priority compartment signal.
+    if len(left.compartments) != len(right.compartments):
+        return SemanticCompareResult(
+            comparable=True,
+            equal=False,
+            family="gdt",
+            mode="semantic",
+            reason_fragments=[
+                f"semantic GD&T changed: compartments {len(left.compartments)} → {len(right.compartments)}"
+            ],
+        )
+
+    # Field-level compartment difference (same count but content differs).
+    if not compartments_match and left.compartments:
+        for i, (lc, rc) in enumerate(zip(left.compartments, right.compartments)):
+            if _compartment_key(lc) != _compartment_key(rc):
+                return SemanticCompareResult(
+                    comparable=True,
+                    equal=False,
+                    family="gdt",
+                    mode="semantic",
+                    reason_fragments=[
+                        f"semantic GD&T changed: compartments compartment {i + 1} differs"
+                    ],
+                )
 
     for label, left_value, right_value in (
         ("control", left.control_type, right.control_type),

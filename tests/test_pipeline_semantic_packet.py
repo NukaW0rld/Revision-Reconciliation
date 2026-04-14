@@ -220,6 +220,7 @@ def test_run_pipeline_persists_semantic_callouts_in_delta_packet(tmp_path):
         "tolerance_text": "⌀0.05",
         "datum_refs": ["A", "B"],
         "modifiers": ["MMC"],
+        "compartments": [],
     }
     assert "weld" not in semantic
     assert "surface_finish" not in semantic
@@ -244,6 +245,7 @@ def test_run_pipeline_packet_surfaces_semantic_equivalence_status_and_reason(tmp
             "tolerance_text": "⌀0.10",
             "datum_refs": ["A", "B", "C"],
             "modifiers": ["MMC"],
+            "compartments": [],
         },
     )
 

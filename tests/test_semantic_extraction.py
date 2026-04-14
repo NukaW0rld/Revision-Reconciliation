@@ -455,3 +455,29 @@ def test_extract_semantic_callout_gdt_parsed_composite_frame_word_normalized_var
     assert len(semantic.gdt.compartments) == 2
     assert semantic.gdt.compartments[1].control_type == "flatness"
     assert semantic.gdt.compartments[1].tolerance_text == "0.01"
+
+
+# Slash-family regression guards: weld and fit inputs containing '/' must not be
+# captured by the composite GD&T parser path.
+
+def test_extract_semantic_callout_weld_fraction_slash_still_parses_as_weld():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("1/8 FILLET BOTH SIDES", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "weld"
+    assert semantic.weld is not None
+    assert semantic.weld.process == "fillet"
+    assert semantic.gdt is None
+
+
+def test_extract_semantic_callout_fit_slash_still_parses_as_fit():
+    semantic = extract_semantic_callout(
+        pdf_spans=[_span("H7/p6", span_id=0, x0=10.0)],
+    )
+    assert semantic.status.state == "parsed"
+    assert semantic.status.parser_family == "fit"
+    assert semantic.fit is not None
+    assert semantic.fit.hole_class == "H7"
+    assert semantic.fit.shaft_class == "p6"
+    assert semantic.gdt is None
