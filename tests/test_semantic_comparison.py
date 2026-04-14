@@ -593,3 +593,44 @@ def test_compare_semantic_callouts_gdt_single_compartment_unchanged_still_report
     assert result.equal is True
     assert result.family == "gdt"
     assert result.mode == "semantic"
+
+
+# WR-03 regression: GdtCompartment.tolerance_text is Optional[str]; _compare_gdt()
+# must not crash when it is None.
+
+def test_compare_semantic_callouts_gdt_compartment_with_null_tolerance_does_not_crash():
+    """Schema-valid GdtCompartment(tolerance_text=None) must not raise AttributeError."""
+    from delta_preservation.types import GdtCompartment
+
+    left = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌖ | ⌀0.10 | A",
+            control_type="position",
+            tolerance_text=None,
+            datum_refs=["A"],
+            modifiers=[],
+            compartments=[
+                GdtCompartment(control_type="position", tolerance_text=None, datum_refs=["A"], modifiers=[]),
+            ],
+        ),
+    )
+    right = _semantic_callout(
+        family="gdt",
+        gdt=GdtSemanticPayload(
+            frame_text="⌖ | ⌀0.10 | A",
+            control_type="position",
+            tolerance_text=None,
+            datum_refs=["A"],
+            modifiers=[],
+            compartments=[
+                GdtCompartment(control_type="position", tolerance_text=None, datum_refs=["A"], modifiers=[]),
+            ],
+        ),
+    )
+
+    # Must not raise AttributeError: 'NoneType' object has no attribute 'startswith'
+    result = compare_semantic_callouts(left, right)
+
+    assert result.comparable is True
+    assert result.family == "gdt"

@@ -324,7 +324,9 @@ def _compare_fit(
     return _generic_changed_result("fit", left.canonical_text, right.canonical_text)
 
 
-def _normalize_gdt_tolerance_text(value: str) -> str:
+def _normalize_gdt_tolerance_text(value: str | None) -> str | None:
+    if value is None:
+        return None
     prefix = ""
     numeric = value
     if value.startswith(("⌀", "∅")):
