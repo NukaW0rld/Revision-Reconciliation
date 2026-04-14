@@ -353,6 +353,8 @@ def test_extract_semantic_callout_gdt_parsed_word_name_controls():
         ("runout 0.10 A", "circular_runout", "0.10", ["A"]),
         ("total runout 0.05 A B", "total_runout", "0.05", ["A", "B"]),
         ("perpendicularity ⌀0.10 A", "perpendicularity", "⌀0.10", ["A"]),
+        # Case-variation: normalization must be case-insensitive (mixed case from PDF extractors)
+        ("Circularity .05 A", "circularity", "0.05", ["A"]),
     ]
     for text, expected_control, expected_tol, expected_datums in cases:
         semantic = extract_semantic_callout(
