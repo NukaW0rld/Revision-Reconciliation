@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
@@ -1211,6 +1212,79 @@ def test_non_admin_debug_export_route_is_rejected(
     resp = client.get(f"/review/{run_id}/debug-report.json")
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Admin only"
+
+
+def test_debug_queue_export_stays_disabled_when_missing_truth_added_rows_exist(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id, _ = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 41,
+                "status": "changed",
+                "confidence": 0.61,
+                "requirement_revB": "Needs review",
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 41,
+                    "snippet_conforms": False,
+                    "mismatches": [{"code": "classification_mismatch", "message": "needs review"}],
+                },
+            },
+            {
+                "char_no": None,
+                "status": "added",
+                "confidence": 0.80,
+                "requirement_revB": "Packet added row",
+                "scores": {},
+                "reasons": [],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "conforming",
+                    "matched_truth_char_no": "added:0",
+                    "snippet_conforms": True,
+                    "mismatches": [],
+                },
+            }
+        ],
+    )
+
+    class _TruthPacket:
+        def __init__(self):
+            self.characteristics = [
+                type("TruthChar", (), {"classification": "added"})(),
+                type("TruthChar", (), {"classification": "added"})(),
+                ]
+
+    item_id = _open_queue(db_engine, run_id)[0]
+
+    saved = client.post(
+        f"/review/{run_id}/debug/items/{item_id}/verdict",
+        data={
+            "verdict": "acceptable_alternate",
+            "explanation": "Visible exception row resolved.",
+        },
+    )
+    assert saved.status_code == 200
+
+    with patch("shop.services.review.load_ground_truth_packet", return_value=_TruthPacket()):
+        resp = client.get(f"/review/{run_id}?debug=1", follow_redirects=False)
+
+    assert resp.status_code == 200
+    _assert_export_disabled(resp.text, run_id)
+    assert "Export debug_report.json (1/2)" in resp.text
+    assert "Ground truth contains 1 added characteristic" in resp.text
+    assert "the algorithm did not emit." in resp.text
+    assert "Missing truth row index" in resp.text
+    assert "1." in resp.text
 
 
 # ── Debug Notes ───────────────────────────────────────────────────────────────

@@ -107,6 +107,20 @@
     </div>
     {% endif %}
 
+    {% if debug_mode and missing_added_truth_indexes %}
+    <div class="border-l-4 border-error bg-error/10 p-3 mt-3">
+      <p class="text-sm font-mono">
+        Ground truth contains {{ missing_added_truth_indexes | length }} added characteristic{{ 's' if missing_added_truth_indexes | length != 1 else '' }}
+        the algorithm did not emit.
+      </p>
+      <p class="text-xs font-mono text-base-content/60 mt-1">
+        Missing truth row index{{ 'es' if missing_added_truth_indexes | length != 1 else '' }}:
+        {{ missing_added_truth_indexes | join(', ') }}.
+        These blockers count toward the unresolved exception total but do not appear as normal review cards.
+      </p>
+    </div>
+    {% endif %}
+
     {% if error %}
     <div class="border-l-4 border-error bg-base-300/30 p-3 mt-3 font-mono text-sm">
       {% if error == 'pending_items' %}

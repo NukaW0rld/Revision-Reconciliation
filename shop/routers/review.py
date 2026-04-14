@@ -62,6 +62,9 @@ def review_queue(
     debug_queue_state = build_debug_queue_state(db, run) if debug else None
     all_items = debug_queue_state["all_items"] if debug_queue_state else open_review_queue(db, run)
     exception_items = debug_queue_state["exception_items"] if debug_queue_state else []
+    missing_added_truth_indexes = (
+        debug_queue_state.get("missing_added_truth_indexes", []) if debug_queue_state else []
+    )
     if debug and not exception_items and (
         all_items or debug_queue_state.get("packet_declares_items")
     ):
@@ -74,6 +77,7 @@ def review_queue(
         if debug
         else {"by_item_id": {}, "submitted": 0, "total": len(all_items)}
     )
+    debug_total = debug_queue_state["debug_total"] if debug_queue_state else debug_progress["total"]
     debug_notes = load_debug_notes(run) if debug else ""
 
     # Counts (unfiltered — sign-off gate counts all regardless of filter)
@@ -118,7 +122,8 @@ def review_queue(
         "debug_internals": debug_internals,
         "debug_verdicts": debug_progress["by_item_id"],
         "debug_submitted": debug_progress["submitted"],
-        "debug_total": debug_progress["total"],
+        "debug_total": debug_total,
+        "missing_added_truth_indexes": missing_added_truth_indexes,
         "debug_notes": debug_notes,
         **nav,
     })
@@ -164,7 +169,7 @@ def _render_debug_item_card(
             "debug_verdict": saved_verdict,
             "debug_form": debug_form,
             "debug_submitted": debug_progress["submitted"],
-            "debug_total": debug_progress["total"],
+            "debug_total": debug_queue_state["debug_total"],
             "pending": pending,
             "approved": approved,
             "overridden": overridden,

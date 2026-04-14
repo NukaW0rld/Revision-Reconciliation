@@ -95,6 +95,14 @@
           <p><span class="text-base-content/50">Resolved exceptions:</span> {{ debug_summary.resolved_exception_count }}</p>
           <p><span class="text-base-content/50">Unresolved exceptions:</span> {{ debug_summary.unresolved_exception_count }}</p>
         </div>
+        {% if debug_summary.missing_added_truth_count %}
+        <div class="rounded border border-error/30 bg-error/5 p-3 text-sm font-mono">
+          Ground truth includes {{ debug_summary.missing_added_truth_count }} added characteristic{{ 's' if debug_summary.missing_added_truth_count != 1 else '' }}
+          this run did not capture.
+          Missing truth row index{{ 'es' if debug_summary.missing_added_truth_count != 1 else '' }}:
+          {{ debug_summary.missing_added_truth_indexes | join(', ') }}.
+        </div>
+        {% endif %}
         <div class="flex flex-wrap gap-3">
           <a href="/review/{{ run.id }}?debug=1" class="btn btn-warning btn-sm font-mono">Open Exception Queue</a>
           {% if debug_summary.debug_report_ready %}

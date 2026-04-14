@@ -579,6 +579,7 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
     conforming_rows: list[dict] = []
     exception_rows: list[dict] = []
     resolved_exception_count = 0
+    missing_added_truth_indexes = queue_state.get("missing_added_truth_indexes", [])
 
     for queue_index, (item, delta_item) in enumerate(queue_state["packet_rows"], start=1):
         raw_item = queue_state["raw_packet_items_by_item_id"][item.id]
@@ -603,7 +604,7 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
             resolved_exception_count += 1
         exception_rows.append(row)
 
-    for truth_index in queue_state.get("missing_added_truth_indexes", []):
+    for truth_index in missing_added_truth_indexes:
         queue_index = len(conforming_rows) + len(exception_rows) + 1
         exception_rows.append({
             "queue_index": queue_index,
@@ -623,6 +624,8 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
         "exception_rows": exception_rows,
         "resolved_exception_count": resolved_exception_count,
         "unresolved_exception_count": unresolved_exception_count,
+        "missing_added_truth_indexes": missing_added_truth_indexes,
+        "missing_added_truth_count": len(missing_added_truth_indexes),
         "debug_report_ready": unresolved_exception_count == 0,
     }
 

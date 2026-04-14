@@ -1,8 +1,10 @@
 import json
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from delta_preservation.evaluation.contracts import GroundTruthCharacteristic, GroundTruthPacket
 from shop.models import ReviewItem, Run
 from shop.services.auth import create_session
 from shop.services.review import open_review_queue, save_debug_verdict, validate_debug_verdict_payload
@@ -59,6 +61,21 @@ def _resolve_all_exception_rows(db_engine, run_id):
             )
     finally:
         db.close()
+
+
+def _make_truth_packet(*classifications):
+    chars = []
+    for i, classification in enumerate(classifications):
+        chars.append(
+            GroundTruthCharacteristic(
+                char_no=None if classification == "added" else i + 1,
+                classification=classification,
+                requirement_revB=None if classification == "removed" else f"req-{i}",
+                snippet_center_revA=None if classification == "added" else (0.0, 0.0),
+                snippet_center_revB=None if classification == "removed" else (0.0, 0.0),
+            )
+        )
+    return GroundTruthPacket(part_name="status-debug", general_notes="", characteristics=chars)
 
 
 def test_all_conforming_admin_run_stays_on_status_page(
@@ -210,3 +227,44 @@ def test_resolved_exception_run_shows_download_link_on_status_page(
     assert "Open Exception Queue" in resp.text
     assert 'href="/review/' in resp.text
     assert "Download debug_report.json" in resp.text
+
+
+def test_status_page_surfaces_missing_added_truth_blockers(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    _login(client, db_engine, admin_user)
+    run_id = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 5,
+                "status": "changed",
+                "confidence": 0.44,
+                "requirement_revB": "Exception row",
+                "scores": {},
+                "reasons": ["classification differs"],
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 5,
+                    "snippet_conforms": False,
+                    "mismatches": [
+                        {"code": "classification_mismatch", "message": "classification differs"}
+                    ],
+                },
+            }
+        ],
+    )
+    _resolve_all_exception_rows(db_engine, run_id)
+
+    with patch("shop.services.review.load_ground_truth_packet", return_value=_make_truth_packet("added")):
+        resp = client.get(f"/runs/{run_id}")
+
+    assert resp.status_code == 200
+    assert "Ground truth includes 1 added characteristic" in resp.text
+    assert "this run did not capture." in resp.text
+    assert "Missing truth row index" in resp.text
+    assert "0." in resp.text
+    assert "Download debug_report.json" not in resp.text
