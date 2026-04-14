@@ -393,6 +393,32 @@ def _normalize_gdt_tolerance_token(token: str) -> str:
 
 _GDT_DATUM_RE = re.compile(r"^[A-Z](?:-[A-Z])?$")
 
+# Compact remainder regex: splits the tail of a control-symbol-leading token into
+# optional diameter prefix, numeric tolerance value, and optional datum-ref suffix.
+# Example: "∅0.35ABC" → ("∅", "0.35", "ABC")
+_GDT_COMPACT_REMAINDER_RE = re.compile(
+    r"^([⌀∅])?((?:\d+(?:\.\d+)?|\.\d+))([A-Z](?:-[A-Z])?(?:[A-Z](?:-[A-Z])?)*)?$"
+)
+
+
+def _split_compact_gdt_remainder(remainder: str):
+    """Split a compact GD&T remainder into (diameter_prefix, tolerance, datum_suffix).
+
+    Returns a tuple (diam_prefix, tolerance_str, datum_chars) where datum_chars is a
+    list of individual datum-ref strings extracted from the suffix, or None if the
+    remainder does not match the compact form.
+    """
+    m = _GDT_COMPACT_REMAINDER_RE.fullmatch(remainder)
+    if m is None:
+        return None
+    diam_prefix = m.group(1) or ""
+    tolerance_str = m.group(2)
+    datum_suffix = m.group(3) or ""
+    # Split datum suffix into individual uppercase letter tokens (e.g. "ABC" → ["A","B","C"])
+    # Each letter is a separate datum reference per _GDT_DATUM_RE.
+    datum_chars = [ch for ch in datum_suffix if ch.isupper()]
+    return diam_prefix, tolerance_str, datum_chars
+
 _WELD_PROCESS_PATTERNS = (
     (re.compile(r"\bFILLET\b"), "fillet"),
     (re.compile(r"\bGROOVE\b"), "groove"),
@@ -754,6 +780,24 @@ def _parse_gdt_frame(normalized_text: str) -> Optional[ParsedGdtFrame | str]:
     control_type = _GDT_CONTROL_MAP.get(control_symbol)
     if control_type is None:
         return None
+
+    # Compact single-token path: e.g. "⌖∅0.35ABC" where remainder = "∅0.35ABC"
+    # The whitespace-tokenized path will not find a tolerance neighbor for these,
+    # so parse them directly and return early.
+    if remainder and len(tokens) == 1:
+        compact = _split_compact_gdt_remainder(remainder)
+        if compact is None:
+            return "recognized GD&T control symbol but missing tolerance segment"
+        diam_prefix, tol_str, datum_chars = compact
+        tolerance_token = _normalize_gdt_tolerance_token(f"{diam_prefix}{tol_str}")
+        frame_tokens = [control_symbol, tolerance_token, *datum_chars]
+        return ParsedGdtFrame(
+            control_type=control_type,
+            frame_text=" | ".join(frame_tokens),
+            tolerance_text=tolerance_token,
+            datum_refs=datum_chars,
+            modifiers=[],
+        )
 
     tolerance_idx = None
     tolerance_token = None

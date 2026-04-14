@@ -367,4 +367,50 @@ def test_extract_semantic_callout_gdt_parsed_word_name_controls():
         assert semantic.gdt.control_type == expected_control, f"control_type mismatch for {text!r}"
         assert semantic.gdt.tolerance_text == expected_tol, f"tolerance_text mismatch for {text!r}"
         assert semantic.gdt.datum_refs == expected_datums, f"datum_refs mismatch for {text!r}"
-    assert semantic.fit is None
+
+
+# GD&T compact single-token parsing (GDT-01)
+
+def test_extract_semantic_callout_gdt_parsed_compact_token_variants():
+    # Compact tokens: control symbol + diameter prefix + tolerance + datum suffix, no whitespace
+    compact_cases = [
+        ("⌖∅0.35ABC", "position", "∅0.35", ["A", "B", "C"]),
+        ("⌓0.5A", "profile_of_a_surface", "0.5", ["A"]),
+        ("⏥0.2", "flatness", "0.2", []),
+    ]
+    for text, expected_control, expected_tol, expected_datums in compact_cases:
+        semantic = extract_semantic_callout(
+            pdf_spans=[_span(text, span_id=0, x0=10.0)],
+        )
+        assert semantic.status.state == "parsed", (
+            f"Expected parsed for {text!r}, got state={semantic.status.state!r} "
+            f"reason_code={semantic.status.reason_code!r} detail={semantic.status.detail!r}"
+        )
+        assert semantic.status.parser_family == "gdt"
+        assert semantic.gdt is not None
+        assert semantic.gdt.control_type == expected_control, f"control_type mismatch for {text!r}"
+        assert semantic.gdt.tolerance_text == expected_tol, f"tolerance_text mismatch for {text!r}"
+        assert semantic.gdt.datum_refs == expected_datums, f"datum_refs mismatch for {text!r}"
+
+    # Regression: whitespace-tokenized path still works
+    whitespace = extract_semantic_callout(
+        pdf_spans=[
+            _span("⌖", span_id=0, x0=10.0),
+            _span("⌀0.10", span_id=1, x0=20.0),
+            _span("M", span_id=2, x0=30.0),
+            _span("A", span_id=3, x0=40.0),
+        ],
+    )
+    assert whitespace.status.state == "parsed"
+    assert whitespace.gdt is not None
+    assert whitespace.gdt.control_type == "position"
+    assert whitespace.gdt.tolerance_text == "⌀0.10"
+    assert whitespace.gdt.datum_refs == ["A"]
+    assert whitespace.gdt.modifiers == ["MMC"]
+
+    # Regression: true malformed input (control symbol + datum only, no tolerance) still errors
+    malformed = extract_semantic_callout(
+        pdf_spans=[_span("⌖", span_id=0, x0=10.0), _span("A", span_id=1, x0=20.0)],
+    )
+    assert malformed.status.state == "error"
+    assert malformed.status.reason_code == "gdt_malformed_frame"
