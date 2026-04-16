@@ -36,15 +36,19 @@ created: 2026-04-16
 
 ## Per-Task Verification Map
 
-*Populated by gsd-planner during plan emission. Each task must bind to a pytest test_id or Wave 0 fixture.*
+*One row per plan (each plan bundles 1–3 tasks that share the same pytest binding). Populated from emitted PLAN.md frontmatter after planner completion.*
 
-| Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 5-01-XX | 01 | TBD | CLS-01 | — | N/A | unit | `pytest tests/test_classify_bugfixes.py::TestAdjacencyBleed -x` | ❌ W0 | ⬜ pending |
-| 5-01-XX | 01 | TBD | CLS-02 | — | N/A | unit | `pytest tests/test_classify_bugfixes.py::TestRemovedAddedReconciliation -x` | ❌ W0 | ⬜ pending |
-| 5-01-XX | 01 | TBD | CLS-03 | — | N/A | unit | `pytest tests/test_classify_bugfixes.py::TestAsymmetricTolerance -x` | ❌ W0 | ⬜ pending |
+| Plan | Wave | Requirement(s) | Threat Refs | Secure Behavior | Test Type | Automated Command | File Exists | Status |
+|------|------|----------------|-------------|-----------------|-----------|-------------------|-------------|--------|
+| 05-01 (scaffold) | 0 | CLS-01, CLS-02, CLS-03 | T-05-01, T-05-02 | Backward-compat field addition | unit | `pytest tests/test_classify_bugfixes.py::TestConfidenceFlagsBackwardCompat -x` | ❌ W0 | ⬜ pending |
+| 05-02 (CLS-01 bleed) | 1 | CLS-01 | T-05-04, T-05-05 | Preserves verdict on bleed; protects CLS-03 signal | unit | `pytest tests/test_classify_bugfixes.py::TestAdjacencyBleed tests/test_classify_bugfixes.py::TestCountAdded -x` | ❌ W0 | ⬜ pending |
+| 05-03 (CLS-03 asym) | 1 | CLS-03 | T-05-07, T-05-08 | Promotes unchanged→changed on kind flip | unit | `pytest tests/test_classify_bugfixes.py::TestAsymmetricTolerance -x` | ❌ W0 | ⬜ pending |
+| 05-04 (CLS-02 pair) | 2 | CLS-02 | T-05-10, T-05-11, T-05-12 | Type-compatible merge only; far-apart not merged | unit | `pytest tests/test_classify_bugfixes.py::TestRemovedAddedReconciliation -x` | ❌ W0 | ⬜ pending |
+| 05-05 (regression) | 3 | CLS-01, CLS-02, CLS-03 | T-05-14 | Zero helper over-firing against 9-part snapshots | integration | `pytest tests/test_classify_phase5_regression.py -x` | ❌ | ⬜ pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky. "File Exists" column: ❌ W0 = file created/extended during Wave 0 scaffold (Plan 05-01).*
+
+**Full-suite gate (run before `/gsd-verify-work`):** `pytest -x`
 
 ---
 
