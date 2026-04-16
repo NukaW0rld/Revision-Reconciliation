@@ -45,7 +45,12 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   2. A removed Rev A characteristic with an unmatched added characteristic at spatially close proximity on the same page is emitted as a single "changed" row, not a separate removed + added pair.
   3. A tolerance change from `±1°` to `+0.3° / −0.1°` (or any symmetric → asymmetric form) is classified as "changed", not "unchanged".
   4. No previously-passing characteristics across the 9-part corpus regress to a wrong classification after these fixes are applied.
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 05-01-PLAN.md — Wave 0 scaffold: confidence_flags field on both DeltaItem dataclasses + three empty test-class stubs + backward-compat deserialization
+  - [ ] 05-02-PLAN.md — CLS-01 adjacency-bleed suppressor (_looks_like_adjacency_bleed helper + count_added branch integration)
+  - [ ] 05-03-PLAN.md — CLS-03 symmetric->asymmetric tolerance detection (kind-based primary + string-shape fallback)
+  - [ ] 05-04-PLAN.md — CLS-02 removed+added reconciliation post-pass (reconcile_removed_added_pairs + cli.py wiring)
+  - [ ] 05-05-PLAN.md — Phase-5 regression harness (corpus snapshot read-only guard against helper over-firing)
 
 ### Phase 6: Added Characteristic Detection and Snippet Accuracy
 **Goal**: All ground-truth-added characteristics are present in pipeline output for every part, false-positive added rows are suppressed, and title block regions are reliably excluded from search windows so snippet matches land on actual drawing annotations.
