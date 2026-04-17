@@ -419,3 +419,246 @@ class TestToleranceOverlapThreshold:
 
         assert delta.status == "changed", f"Expected 'changed', got '{delta.status}' with reasons={delta.reasons}"
         assert any("Tolerance value changed" in reason for reason in delta.reasons)
+
+
+# ---------------------------------------------------------------------------
+# CLS-03: Asymmetric tolerance kind transition detection
+# ---------------------------------------------------------------------------
+
+class TestAsymmetricTolerance:
+    """CLS-03: Symmetric-to-asymmetric tolerance kind transitions must be detected
+    even when absolute limits happen to match (tolerances_match=True) and even
+    when tolerance_comparison is None (raw-text fallback path)."""
+
+    def _make_tolerance_comparison(
+        self,
+        revA_kind: str,
+        revB_kind: str,
+        nominal: float = 22.0,
+        revA_tol: float = 1.0,
+        revB_plus: float = 0.3,
+        revB_minus: float = 0.1,
+        limits_match: bool = False,
+        char_no: int = 1,
+    ):
+        """Build a fabricated ToleranceComparison for unit-testing the kind-transition branch."""
+        from delta_preservation.reconcile.tolerance_pdf import (
+            PdfTolerance,
+            ToleranceComparison,
+        )
+
+        revA_tolerance = PdfTolerance(
+            kind=revA_kind,
+            nominal_value=nominal,
+            upper_limit=nominal + revA_tol,
+            lower_limit=nominal - revA_tol,
+            confidence=0.95,
+            source_spans=[],
+            reasons=["fabricated for test"],
+        )
+
+        if limits_match:
+            # Rev B limits equal Rev A limits even though kind differs
+            revB_upper = nominal + revA_tol
+            revB_lower = nominal - revA_tol
+        else:
+            revB_upper = nominal + revB_plus
+            revB_lower = nominal - revB_minus
+
+        revB_tolerance = PdfTolerance(
+            kind=revB_kind,
+            nominal_value=nominal,
+            upper_limit=revB_upper,
+            lower_limit=revB_lower,
+            confidence=0.90,
+            source_spans=[],
+            reasons=["fabricated for test"],
+        )
+
+        # Determine match/differ from actual limit values
+        import math
+        _eps = 1e-6
+        upper_ok = abs(revA_tolerance.upper_limit - revB_tolerance.upper_limit) < _eps
+        lower_ok = abs(revA_tolerance.lower_limit - revB_tolerance.lower_limit) < _eps
+        tol_match = upper_ok and lower_ok
+        tol_differ = not tol_match
+
+        return ToleranceComparison(
+            char_no=char_no,
+            revA_tolerance=revA_tolerance,
+            revB_tolerance=revB_tolerance,
+            tolerances_match=tol_match,
+            tolerances_differ=tol_differ,
+            has_tolerance=True,
+            reasons=["fabricated comparison for CLS-03 test"],
+        )
+
+    def test_symmetric_to_asymmetric_kind_change_detected_before_tolerances_match(self):
+        """CLS-03 positive case 1: 22.0° ±1° → 22.0° +0.3°/−0.1° with high numeric overlap.
+
+        The anchor and candidate share primary value 22.0 so the main classification
+        would normally emit 'unchanged' (primary_matches=True, numeric_overlap≥50%).
+        With a ToleranceComparison that has tolerances_differ=True AND a kind transition
+        from plus_minus → bilateral_stacked, the kind-transition branch must fire and
+        produce 'changed' with a reason naming the kind transition.
+        """
+        # Anchor: "22.0° ±1°" — numeric tokens {22.0, 1.0}
+        anchor = _anchor("22.0° ±1°")
+        # Candidate: "22.0° +0.3° / −0.1°" — shares primary 22.0
+        candidate = _span("22.0° +0.3° / −0.1°", block_id=10, line_id=0, span_id=0, x0=12.0, y0=11.0, width=60.0)
+
+        tc = self._make_tolerance_comparison(
+            revA_kind="plus_minus",
+            revB_kind="bilateral_stacked",
+            nominal=22.0,
+            revA_tol=1.0,
+            revB_plus=0.3,
+            revB_minus=0.1,
+        )
+        # tc.tolerances_match is False here (limits differ); tc.tolerances_differ is True.
+        # The kind-first check must fire and name the kind transition in reasons.
+        from delta_preservation.reconcile.match import Match, Candidate
+        cand = Candidate(
+            span=candidate,
+            total_score=0.85,
+            location_score=0.85,
+            text_score=0.9,
+            context_score=0.7,
+            reasons=["fabricated for test"],
+        )
+        match = Match(char_no=anchor.char_no, candidate=cand)
+
+        delta = classify_delta(anchor, match, tolerance_comparison=tc)
+        assert delta.status == "changed", (
+            f"Kind transition (plus_minus → bilateral_stacked) must produce 'changed'; "
+            f"got '{delta.status}' with reasons={delta.reasons}"
+        )
+        # The reason must mention kind transition, not just generic tolerance change
+        assert any(
+            "kind" in r.lower() or "asymmetric" in r.lower() or "transition" in r.lower()
+            for r in delta.reasons
+        ), f"Expected kind-transition reason; got reasons={delta.reasons}"
+
+    def test_leading_decimal_fallback_detected_without_tolerance_comparison(self):
+        """CLS-03 positive case 2: leading-decimal asymmetric form with no tolerance_comparison.
+
+        anchor='Ø.250 ±.002'  →  candidate='Ø.250 +.005 / -.003'
+        tolerance_comparison=None (fallback path using raw text).
+        Status must be 'changed'.
+        """
+        anchor = _anchor("Ø.250 ±.002")
+        candidate = _span("Ø.250 +.005 / -.003", block_id=11, line_id=0, span_id=0, x0=12.0, y0=11.0, width=50.0)
+
+        delta = _classify(anchor, candidate)
+        assert delta.status == "changed", (
+            f"Leading-decimal asymmetric form must produce 'changed'; "
+            f"got '{delta.status}' with reasons={delta.reasons}"
+        )
+
+    def test_already_changed_not_downgraded(self):
+        """CLS-03 negative case 3: item already 'changed' before tolerance refinement.
+
+        When count/numeric mismatch already set status='changed', the new kind-transition
+        logic must not downgrade it back to 'unchanged'.
+        """
+        from delta_preservation.reconcile.match import Match, Candidate
+
+        # Anchor has count "2X", candidate drops the count → count_changed fires → changed
+        anchor = _anchor("2X Ø 8")
+        candidate = _span("4X Ø 8", block_id=12, line_id=0, span_id=0, x0=12.0, y0=11.0, width=30.0)
+
+        # Build a tolerance_comparison that says tolerances_match=True (same kind, same limits)
+        tc = self._make_tolerance_comparison(
+            revA_kind="plus_minus",
+            revB_kind="plus_minus",
+            limits_match=True,
+        )
+
+        cand = Candidate(
+            span=candidate,
+            total_score=0.85,
+            location_score=0.85,
+            text_score=0.9,
+            context_score=0.7,
+            reasons=["fabricated for test"],
+        )
+        match = Match(char_no=anchor.char_no, candidate=cand)
+
+        delta = classify_delta(anchor, match, tolerance_comparison=tc)
+        # Count changed from 2X → 4X; tolerance_comparison says match.
+        # The result must still be 'changed' — tolerances_match must not override count change.
+        assert delta.status == "changed", (
+            f"Count-changed item must stay 'changed' even if tolerances_match=True; "
+            f"got '{delta.status}' with reasons={delta.reasons}"
+        )
+
+    def test_same_kind_symmetric_routes_through_existing_logic(self):
+        """CLS-03 negative case 4 (control): 22.0° ±1° → 22.0° ±0.5°.
+
+        No kind transition (both plus_minus); this is a same-kind change and must
+        still be detected as 'changed' via the existing tolerances_differ path.
+        The new kind-transition branch must NOT be entered when kinds are equal.
+        """
+        from delta_preservation.reconcile.match import Match, Candidate
+
+        anchor = _anchor("22.0° ±1°")
+        candidate = _span("22.0° ±0.5°", block_id=13, line_id=0, span_id=0, x0=12.0, y0=11.0, width=40.0)
+
+        # Both plus_minus; limits differ (±1 vs ±0.5)
+        tc = self._make_tolerance_comparison(
+            revA_kind="plus_minus",
+            revB_kind="plus_minus",
+            nominal=22.0,
+            revA_tol=1.0,
+            revB_plus=0.5,
+            revB_minus=0.5,
+        )
+        cand = Candidate(
+            span=candidate,
+            total_score=0.8,
+            location_score=0.8,
+            text_score=0.5,
+            context_score=0.5,
+            reasons=["fabricated for test"],
+        )
+        match = Match(char_no=anchor.char_no, candidate=cand)
+
+        delta = classify_delta(anchor, match, tolerance_comparison=tc)
+        assert delta.status == "changed", (
+            f"Same-kind tolerance change must still be 'changed'; "
+            f"got '{delta.status}' with reasons={delta.reasons}"
+        )
+
+    def test_benign_asymmetric_no_transition_still_changes(self):
+        """CLS-03 negative case 5 (control): +0.3/-0.1 → +0.4/-0.1.
+
+        Both sides are bilateral_stacked (asymmetric); no kind transition.
+        Limit change must still produce 'changed' via the existing tolerances_differ path.
+        """
+        from delta_preservation.reconcile.match import Match, Candidate
+
+        anchor = _anchor("22.0 +0.3 / -0.1")
+        candidate = _span("22.0 +0.4 / -0.1", block_id=14, line_id=0, span_id=0, x0=12.0, y0=11.0, width=45.0)
+
+        tc = self._make_tolerance_comparison(
+            revA_kind="bilateral_stacked",
+            revB_kind="bilateral_stacked",
+            revA_tol=0.3,
+            revB_plus=0.4,
+            revB_minus=0.1,
+        )
+        cand = Candidate(
+            span=candidate,
+            total_score=0.85,
+            location_score=0.85,
+            text_score=0.8,
+            context_score=0.7,
+            reasons=["fabricated for test"],
+        )
+        match = Match(char_no=anchor.char_no, candidate=cand)
+
+        delta = classify_delta(anchor, match, tolerance_comparison=tc)
+        assert delta.status == "changed", (
+            f"Bilateral→bilateral tolerance change must be 'changed'; "
+            f"got '{delta.status}' with reasons={delta.reasons}"
+        )

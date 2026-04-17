@@ -180,20 +180,24 @@ def classify_delta(
     
     # Handle removed case
     if match_or_none is None:
+        # Pre-compute anchor fingerprint fields used by both last-chance scans so
+        # that the keyword-anchor scan at line ~264 can reference them even when
+        # revB_text_spans is falsy and the first scan is skipped entirely.
+        anchor_fp = parse_requirement(anchor.requirement_raw)
+        anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+        anchor_primary = max(anchor_numerics) if anchor_numerics else None
+        anchor_req_type = classify_requirement_type(anchor.requirement_raw)
+        is_notes_anchor = (
+            anchor_fp.pattern_class == "note"
+            or "NOTES" in anchor.requirement_raw.upper()
+        )
+
         # --- Last-chance identity check ---
         # Before declaring "removed", scan all Rev B spans for the anchor's
         # primary numeric value with a compatible requirement type.  This catches
         # cases where the search window missed the annotation (e.g., because the
         # alignment transform was off due to a new view being added).
         if revB_text_spans:
-            anchor_fp = parse_requirement(anchor.requirement_raw)
-            anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
-            anchor_primary = max(anchor_numerics) if anchor_numerics else None
-            anchor_req_type = classify_requirement_type(anchor.requirement_raw)
-            is_notes_anchor = (
-                anchor_fp.pattern_class == "note"
-                or "NOTES" in anchor.requirement_raw.upper()
-            )
 
             if anchor_primary is not None and not is_notes_anchor:
                 # Skip the identity check when the anchor's primary value is a
