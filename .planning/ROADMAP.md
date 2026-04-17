@@ -18,10 +18,10 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 
 **Milestone Goal:** Fix the concrete algorithm errors discovered across all 9 debug parts to improve aggregate classification accuracy. Every fix must generalize across all parts — no per-part hacks.
 
-- [ ] **Phase 4: GD&T Parser Fixes** - Correct compact token splitting, word-name normalization, and composite frame capture
+- [x] **Phase 4: GD&T Parser Fixes** - Correct compact token splitting, word-name normalization, and composite frame capture (completed 2026-04-17)
 - [x] **Phase 5: Classification Logic Fixes** - Suppress adjacency bleed false positives, resolve removed+added pairs as changed, detect asymmetric tolerance changes (completed 2026-04-17)
 - [x] **Phase 6: Added Characteristic Detection and Snippet Accuracy** - Fix missing added rows for parts 8/9, suppress false-positive added rows, exclude title block regions from search windows (completed 2026-04-17)
-- [ ] **Phase 7: Regression Tests and Verification** - Add parametrized regression tests per fix cluster, cross-part benchmark, and full 9-part verification run
+- [x] **Phase 7: Regression Tests and Verification** - Add parametrized regression tests per fix cluster, cross-part benchmark, and full 9-part verification run (completed 2026-04-17)
 
 ## Phase Details
 
@@ -34,7 +34,9 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   2. A Form 3 text entry using "circularity", "runout", or "total runout" (any supported word name) is recognized as equivalent to its Unicode symbol form and compares equal to a symbol-form drawing annotation.
   3. A composite FCF string like `⌓ .05 D B C / ⌓ .01 D` produces two captured compartments, not one, and neither compartment is silently dropped.
   4. Previously failing GD&T parse cases in the debug corpus now produce structured parse results, reducing exception-queue entries attributable to parser fallback.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [x] 04-01-PLAN.md — Word-form normalization and compact-token parsing with regression coverage
+  - [x] 04-02-PLAN.md — Composite GD&T frame capture with compartment-aware comparison
 
 ### Phase 5: Classification Logic Fixes
 **Goal**: The classifier correctly handles three known error patterns — adjacency bleed false positives, close-proximity removed/added pairs that should be a single changed item, and symmetric-to-asymmetric tolerance changes — without mis-classifying any of them.
@@ -75,7 +77,11 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   1. Each fix cluster (GD&T parsing, adjacency bleed, removed+added resolution, asymmetric tolerance, missing added rows, title block exclusion) has at least one parametrized pytest case that fails on the unfixed code and passes on the fixed code.
   2. A cross-part benchmark test validates scoring logic against known post-fix counts and fails the test suite if aggregate accuracy drops below the established baseline.
   3. All 9 parts are re-run through the pipeline and their ground-truth evaluation results show equal or better conforming count versus the pre-fix baseline, with zero regressions on previously-passing characteristics.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [x] 07-01-PLAN.md — Per-cluster audit and gap identification
+  - [x] 07-02-PLAN.md — TST-02 benchmark baseline derivation
+  - [x] 07-03-PLAN.md — VER-01 full 9-part ground-truth re-run
+  - [x] 07-04-PLAN.md — Algorithm-only baseline fixtures and parity correction
 
 ## Progress
 
@@ -84,7 +90,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 1. Ground Truth Fixtures | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 2. Debug Queue & Export | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 3. Accepted Alternates | v1.0 | 2/2 | Complete | 2026-04-12 |
-| 4. GD&T Parser Fixes | v1.1 | 0/TBD | Not started | - |
+| 4. GD&T Parser Fixes | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 5. Classification Logic Fixes | v1.1 | 5/5 | Complete   | 2026-04-17 |
 | 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 4/4 | Complete   | 2026-04-17 |
-| 7. Regression Tests and Verification | v1.1 | 0/TBD | Not started | - |
+| 7. Regression Tests and Verification | v1.1 | 4/4 | Complete | 2026-04-17 |
