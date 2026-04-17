@@ -235,6 +235,77 @@ class TestPlainDecimalDetection:
         assert results[0].status == "added"
 
 
+class TestConfidenceFlagsCompatibility:
+    """Scaffold compatibility tests for the additive confidence_flags field.
+
+    These tests assert concrete backward-compat properties on both the internal
+    (dataclass) and persisted (Pydantic) DeltaItem models without relying on any
+    fixture files.
+    """
+
+    def test_internal_deltaitem_defaults_to_independent_lists(self):
+        """Each internal DeltaItem must default confidence_flags to an independent list.
+
+        Two separate instances must not share the same default list object — a
+        common mistake when a mutable default is used directly.
+        """
+        from delta_preservation.reconcile.classify import DeltaItem as InternalDeltaItem
+
+        item_a = InternalDeltaItem(
+            char_no=1, status="unchanged", confidence=0.9, reasons=[], component_scores={}
+        )
+        item_b = InternalDeltaItem(
+            char_no=2, status="changed", confidence=0.7, reasons=[], component_scores={}
+        )
+
+        assert item_a.confidence_flags == [], f"Expected [], got {item_a.confidence_flags!r}"
+        assert item_b.confidence_flags == [], f"Expected [], got {item_b.confidence_flags!r}"
+        # Independence check — mutating one must not affect the other
+        item_a.confidence_flags.append("test_flag")
+        assert item_b.confidence_flags == [], "confidence_flags default lists are not independent"
+
+    def test_packet_deltaitem_validates_legacy_payload_without_confidence_flags(self):
+        """A legacy JSON payload that omits confidence_flags must still parse successfully.
+
+        This verifies backward-compat: clients serializing DeltaItem before the
+        confidence_flags field was added must not break on deserialization.
+        """
+        from delta_preservation.types import DeltaItem as PacketDeltaItem
+
+        legacy_payload = {
+            "char_no": 5,
+            "status": "unchanged",
+            "confidence": 0.85,
+            "reasons": ["Primary dimension matches: 12.5"],
+            "scores": {"location": 0.9, "text": 0.8, "context": 0.7},
+            # confidence_flags intentionally absent — simulates legacy JSON
+        }
+
+        item = PacketDeltaItem.model_validate(legacy_payload)
+        assert item.confidence_flags == [], (
+            f"Legacy payload without confidence_flags should default to [], got {item.confidence_flags!r}"
+        )
+
+    def test_packet_deltaitem_model_dump_includes_confidence_flags(self):
+        """model_dump() on a PacketDeltaItem must include the confidence_flags key."""
+        from delta_preservation.types import DeltaItem as PacketDeltaItem
+
+        item = PacketDeltaItem(
+            char_no=3,
+            status="removed",
+            confidence=0.6,
+            reasons=["No candidate found"],
+            scores={"location": 0.0, "text": 0.0, "context": 0.0},
+            confidence_flags=["adjacency_bleed_risk"],
+        )
+
+        dumped = item.model_dump()
+        assert "confidence_flags" in dumped, "model_dump() must include confidence_flags"
+        assert dumped["confidence_flags"] == ["adjacency_bleed_risk"], (
+            f"Expected ['adjacency_bleed_risk'], got {dumped['confidence_flags']!r}"
+        )
+
+
 class TestToleranceOverlapThreshold:
     """Tolerance-only numeric changes in the 65-70% overlap band should be marked changed."""
 
