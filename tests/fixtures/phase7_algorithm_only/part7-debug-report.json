@@ -1,0 +1,1496 @@
+{
+  "baseline_commit": "c5c19f0",
+  "packet_run_id": "part7_2026-04-17T13-42-20_b59b305d",
+  "part_name": "part7",
+  "items": [
+    {
+      "char_no": 1,
+      "status": "unchanged",
+      "confidence": 0.517143677639088,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 30.0",
+        "Numeric values match (50% overlap)"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.41785919409772,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -88.02815246582031,
+          253.02444458007812,
+          391.9718475341797,
+          733.0244445800781
+        ],
+        "image_path": "snippets/char_001_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          866.6572875976562,
+          174.2545623779297,
+          1346.6572875976562,
+          654.2545623779297
+        ],
+        "image_path": "snippets/char_001_revB_p0.png"
+      },
+      "requirement_revB": "70 / 30",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:38/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "70 30",
+        "normalized_text": "70 30",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 1,
+        "truth_match": {
+          "truth_index": 0,
+          "matched_truth_char_no": 1,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": false,
+        "snippet_conforms": true,
+        "mismatches": [
+          {
+            "code": "requirement_mismatch",
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 30 != 70 / 30"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 2,
+      "status": "unchanged",
+      "confidence": 0.517143677639088,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 70.0",
+        "Numeric values match (50% overlap)"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.41785919409772,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -76.14051818847656,
+          241.68588256835938,
+          403.85948181152344,
+          721.6858825683594
+        ],
+        "image_path": "snippets/char_002_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          866.6572875976562,
+          174.2545623779297,
+          1346.6572875976562,
+          654.2545623779297
+        ],
+        "image_path": "snippets/char_002_revB_p0.png"
+      },
+      "requirement_revB": "70 / 30",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:38/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "70 30",
+        "normalized_text": "70 30",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 2,
+        "truth_match": {
+          "truth_index": 1,
+          "matched_truth_char_no": 2,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": false,
+        "snippet_conforms": true,
+        "mismatches": [
+          {
+            "code": "requirement_mismatch",
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 70 != 70 / 30"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 3,
+      "status": "unchanged",
+      "confidence": 0.5106226587762026,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 120.0",
+        "Numeric values match (50% overlap)"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.4015566469405064,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -91.4051284790039,
+          227.51263427734375,
+          388.5948715209961,
+          707.5126342773438
+        ],
+        "image_path": "snippets/char_003_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          869.5689697265625,
+          154.41204833984375,
+          1349.5689697265625,
+          634.4120483398438
+        ],
+        "image_path": "snippets/char_003_revB_p0.png"
+      },
+      "requirement_revB": "120",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:38/line:2/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "120",
+        "normalized_text": "120",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 3,
+        "truth_match": {
+          "truth_index": 2,
+          "matched_truth_char_no": 3,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 4,
+      "status": "unchanged",
+      "confidence": 0.4811839246109848,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 22.0",
+        "Numeric values match (66% overlap)"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.11962647819412875,
+        "text": 0.6666666666666666,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          276.93211364746094,
+          223.61029052734375,
+          756.9321136474609,
+          703.6102905273438
+        ],
+        "image_path": "snippets/char_004_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          462.74298095703125,
+          146.49888610839844,
+          942.7429809570312,
+          626.4988861083984
+        ],
+        "image_path": "snippets/char_004_revB_p0.png"
+      },
+      "requirement_revB": "2X 22.0\u00b0 +0.3\u00b0 / \u22120.1\u00b0",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:40/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "+0.3\u00b0 2X 22.0\u00b0 \u22120.1\u00b0",
+        "normalized_text": "+0.3\u00b0 2X 22.0\u00b0 \u22120.1\u00b0",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 4,
+        "truth_match": {
+          "truth_index": 3,
+          "matched_truth_char_no": 4,
+          "classification": "changed"
+        },
+        "classification_conforms": false,
+        "requirement_conforms": false,
+        "snippet_conforms": true,
+        "mismatches": [
+          {
+            "code": "classification_mismatch",
+            "message": "packet classification unchanged does not match canonical truth changed"
+          },
+          {
+            "code": "requirement_mismatch",
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X 22.0\u00b0 +0.3\u00b0 \u22120.1\u00b0 != 2X 22.0\u00b0 +0.3\u00b0 / \u22120.1\u00b0"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 5,
+      "status": "unchanged",
+      "confidence": 0.6305099381331257,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 10.0",
+        "Numeric values match (50% overlap)",
+        "High location agreement after global alignment"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.7012748453328141,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -4.068443298339844,
+          298.8170166015625,
+          475.93155670166016,
+          778.8170166015625
+        ],
+        "image_path": "snippets/char_005_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          771.3153991699219,
+          225.71646118164062,
+          1251.3153991699219,
+          705.7164611816406
+        ],
+        "image_path": "snippets/char_005_revB_p0.png"
+      },
+      "requirement_revB": "\u00d810",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:39/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "\u00d810",
+        "normalized_text": "\u00d810",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 5,
+        "truth_match": {
+          "truth_index": 4,
+          "matched_truth_char_no": 5,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 6,
+      "status": "unchanged",
+      "confidence": 0.6045192804849463,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 75.0",
+        "Numeric values match (50% overlap)"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.6362982012123658,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          409.1986389160156,
+          56.212432861328125,
+          889.1986389160156,
+          536.2124328613281
+        ],
+        "image_path": "snippets/char_006_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          -65.65914916992188,
+          51.6805419921875,
+          414.3408508300781,
+          531.6805419921875
+        ],
+        "image_path": "snippets/char_006_revB_p0.png"
+      },
+      "requirement_revB": "75",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:34/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "75",
+        "normalized_text": "75",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 6,
+        "truth_match": {
+          "truth_index": 5,
+          "matched_truth_char_no": 6,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 7,
+      "status": "changed",
+      "confidence": 0.6717451397266256,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Tolerance-sized numeric differs: anchor [0.1, 14.0], matched [0.5, 14.0]",
+        "Primary dimension matches: 14.0",
+        "Tolerance value changed despite same primary dimension",
+        "High location agreement after global alignment"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.8043628493165641,
+        "text": 0.5,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          780.7442932128906,
+          47.666534423828125,
+          1260.7442932128906,
+          527.6665344238281
+        ],
+        "image_path": "snippets/char_007_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          289.3578186035156,
+          43.1346435546875,
+          769.3578186035156,
+          523.1346435546875
+        ],
+        "image_path": "snippets/char_007_revB_p0.png"
+      },
+      "requirement_revB": "30X \u00d814\u00b10.5",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:36/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "30X \u00d814\u00b10.5",
+        "normalized_text": "30X \u00d814\u00b10.5",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 7,
+        "truth_match": {
+          "truth_index": 6,
+          "matched_truth_char_no": 7,
+          "classification": "changed"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 8,
+      "status": "removed",
+      "confidence": 0.9,
+      "reasons": [
+        "No candidate found within search window"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 0.0,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -19.1907958984375,
+          153.02496337890625,
+          460.8092041015625,
+          633.0249633789062
+        ],
+        "image_path": "snippets/char_008_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          -505.5508728027344,
+          148.49310302734375,
+          -25.550872802734375,
+          628.4931030273438
+        ]
+      },
+      "semantic_callout": {
+        "provenance": {
+          "authority": "form3",
+          "source_type": "form3_requirement",
+          "source_ref": "form3:requirement",
+          "notes": [
+            "No PDF-derived spans were supplied; Form 3 text is the fallback source."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u23132DGH",
+        "normalized_text": "\u23132DGH",
+        "gdt": {
+          "frame_text": "\u2313 | 2 | D | G | H",
+          "control_type": "profile_of_a_surface",
+          "tolerance_text": "2",
+          "datum_refs": [
+            "D",
+            "G",
+            "H"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "form3",
+          "context_alignment": "form3_only",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 8,
+        "truth_match": {
+          "truth_index": 7,
+          "matched_truth_char_no": 8,
+          "classification": "unchanged"
+        },
+        "classification_conforms": false,
+        "requirement_conforms": false,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "classification_mismatch",
+            "message": "packet classification removed does not match canonical truth unchanged"
+          },
+          {
+            "code": "requirement_missing",
+            "message": "truth expects Rev B requirement evidence but the packet row has none"
+          },
+          {
+            "code": "snippet_outside_revB",
+            "message": "revB truth center falls outside the contracted grouped-callout snippet bbox"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 9,
+      "status": "removed",
+      "confidence": 0.9,
+      "reasons": [
+        "No candidate found within search window"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 0.0,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          -31.233604431152344,
+          170.30496215820312,
+          448.76639556884766,
+          650.3049621582031
+        ],
+        "image_path": "snippets/char_009_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          -517.5936889648438,
+          165.77308654785156,
+          -37.59368896484375,
+          645.7730865478516
+        ]
+      },
+      "semantic_callout": {
+        "provenance": {
+          "authority": "form3",
+          "source_type": "form3_requirement",
+          "source_ref": "form3:requirement",
+          "notes": [
+            "No PDF-derived spans were supplied; Form 3 text is the fallback source."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u23130.2D",
+        "normalized_text": "\u23130.2D",
+        "gdt": {
+          "frame_text": "\u2313 | 0.2 | D",
+          "control_type": "profile_of_a_surface",
+          "tolerance_text": "0.2",
+          "datum_refs": [
+            "D"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "form3",
+          "context_alignment": "form3_only",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 9,
+        "truth_match": {
+          "truth_index": 8,
+          "matched_truth_char_no": 9,
+          "classification": "unchanged"
+        },
+        "classification_conforms": false,
+        "requirement_conforms": false,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "classification_mismatch",
+            "message": "packet classification removed does not match canonical truth unchanged"
+          },
+          {
+            "code": "requirement_missing",
+            "message": "truth expects Rev B requirement evidence but the packet row has none"
+          },
+          {
+            "code": "snippet_outside_revB",
+            "message": "revB truth center falls outside the contracted grouped-callout snippet bbox"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 10,
+      "status": "unchanged",
+      "confidence": 0.85,
+      "reasons": [
+        "semantic GD&T match: position \u22050.35 datums A,B,C modifiers none",
+        "Semantic family agreement overrides formatting-only numeric/text variation"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.7628673437304415,
+        "text": 0.5499999999999999,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          480.66058349609375,
+          -74.26934814453125,
+          960.6605834960938,
+          405.73065185546875
+        ],
+        "image_path": "snippets/char_010_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          -23.065765380859375,
+          -78.2726058959961,
+          456.9342346191406,
+          401.7273941040039
+        ],
+        "image_path": "snippets/char_010_revB_p0.png"
+      },
+      "requirement_revB": "\u2316\u2205 0.35 A B C",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:29/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u2316\u2205 0.35 A B C",
+        "normalized_text": "\u2316\u2205 0.35 A B C",
+        "gdt": {
+          "frame_text": "\u2316 | \u22050.35 | A | B | C",
+          "control_type": "position",
+          "tolerance_text": "\u22050.35",
+          "datum_refs": [
+            "A",
+            "B",
+            "C"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 10,
+        "truth_match": {
+          "truth_index": 9,
+          "matched_truth_char_no": 10,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 11,
+      "status": "unchanged",
+      "confidence": 0.9061073925291231,
+      "reasons": [
+        "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
+        "Primary dimension matches: 6.65",
+        "Numeric values match (100% overlap)",
+        "Count tokens match: {'6X'}",
+        "High location agreement after global alignment"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.7652684813228076,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          765.7317810058594,
+          -107.11120986938477,
+          1245.7317810058594,
+          372.88879013061523
+        ],
+        "image_path": "snippets/char_011_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          286.75230407714844,
+          -111.64313125610352,
+          766.7523040771484,
+          368.3568687438965
+        ],
+        "image_path": "snippets/char_011_revB_p0.png"
+      },
+      "requirement_revB": "6X \u00d86.65 \u00b10.12",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:33/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "6X \u00d86.65 \u00b10.12",
+        "normalized_text": "6X \u00d86.65 \u00b10.12",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 11,
+        "truth_match": {
+          "truth_index": 10,
+          "matched_truth_char_no": 11,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 12,
+      "status": "removed",
+      "confidence": 0.9,
+      "reasons": [
+        "No candidate found within search window"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 0.0,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          811.376220703125,
+          -89.46044921875,
+          1291.376220703125,
+          390.53955078125
+        ],
+        "image_path": "snippets/char_012_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          325.01612854003906,
+          -93.9923095703125,
+          805.0161285400391,
+          386.0076904296875
+        ],
+        "image_path": "snippets/char_012_revB_p0.png"
+      },
+      "semantic_callout": {
+        "provenance": {
+          "authority": "form3",
+          "source_type": "form3_requirement",
+          "source_ref": "form3:requirement",
+          "notes": [
+            "No PDF-derived spans were supplied; Form 3 text is the fallback source."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u2316\u22051.5DEF",
+        "normalized_text": "\u2316\u22051.5DEF",
+        "gdt": {
+          "frame_text": "\u2316 | \u22051.5 | D | E | F",
+          "control_type": "position",
+          "tolerance_text": "\u22051.5",
+          "datum_refs": [
+            "D",
+            "E",
+            "F"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "form3",
+          "context_alignment": "form3_only",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 12,
+        "truth_match": {
+          "truth_index": 11,
+          "matched_truth_char_no": 12,
+          "classification": "removed"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 13,
+      "status": "unchanged",
+      "confidence": 0.85,
+      "reasons": [
+        "semantic GD&T match: position \u22050.3 datums D,E modifiers none",
+        "Semantic family agreement overrides formatting-only numeric/text variation"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.81171100236726,
+        "text": 0.5499999999999999,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          794.8372192382812,
+          -72.180419921875,
+          1274.8372192382812,
+          407.819580078125
+        ],
+        "image_path": "snippets/char_013_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          291.1108703613281,
+          -93.46370697021484,
+          771.1108703613281,
+          386.53629302978516
+        ],
+        "image_path": "snippets/char_013_revB_p0.png"
+      },
+      "requirement_revB": "\u2316\u2205 0.3 D E",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:33/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u2316\u2205 0.3 D E",
+        "normalized_text": "\u2316\u2205 0.3 D E",
+        "gdt": {
+          "frame_text": "\u2316 | \u22050.3 | D | E",
+          "control_type": "position",
+          "tolerance_text": "\u22050.3",
+          "datum_refs": [
+            "D",
+            "E"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 13,
+        "truth_match": {
+          "truth_index": 12,
+          "matched_truth_char_no": 13,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 14,
+      "status": "uncertain",
+      "confidence": 0.55,
+      "reasons": [
+        "semantic comparison fallback: left semantic state error/fit_malformed",
+        "Requirement type mismatch: Rev A is 'thread', Rev B is 'other'",
+        "Rev A: \"4X M12 x 1.75 - 6H \u21a7 25 \u00b10.25 mm\" \u2014 Rev B: \"\u21a7\"",
+        "Contextually incompatible requirement types; manual review required"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.7172596102270725,
+        "text": 0.0,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          798.9133911132812,
+          -25.5911865234375,
+          1278.9133911132812,
+          454.4088134765625
+        ],
+        "image_path": "snippets/char_014_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          325.48797607421875,
+          -29.594444274902344,
+          805.4879760742188,
+          450.40555572509766
+        ],
+        "image_path": "snippets/char_014_revB_p0.png"
+      },
+      "requirement_revB": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:35/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "error",
+          "parser_family": "fit",
+          "reason_code": "fit_malformed",
+          "detail": "recognized fit designator but missing a complete paired hole/shaft class"
+        },
+        "raw_text": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
+        "normalized_text": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": 14,
+        "truth_match": {
+          "truth_index": 13,
+          "matched_truth_char_no": 14,
+          "classification": "changed"
+        },
+        "classification_conforms": false,
+        "requirement_conforms": false,
+        "snippet_conforms": true,
+        "mismatches": [
+          {
+            "code": "classification_mismatch",
+            "message": "packet classification uncertain does not match canonical truth changed"
+          },
+          {
+            "code": "requirement_mismatch",
+            "message": "semantic comparison fallback: left semantic state error/fit_malformed; normalized requirement mismatch: 4X M12 x 1.75 - 6H \u21a725.0 \u00b10.50 != \u21a74X M12 x 1.75 - 6H 25.0 \u00b10.50"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 15,
+      "status": "unchanged",
+      "confidence": 0.85,
+      "reasons": [
+        "semantic GD&T match: position \u22050.75 datums A,B,C modifiers none",
+        "Semantic family agreement overrides formatting-only numeric/text variation"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.7771829037473365,
+        "text": 0.5499999999999999,
+        "context": 0.0
+      },
+      "revA": {
+        "page": 0,
+        "bbox": [
+          806.2488403320312,
+          -7.83209228515625,
+          1286.2488403320312,
+          472.16790771484375
+        ],
+        "image_path": "snippets/char_015_revA_p0.png"
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          292.99269104003906,
+          -11.835350036621094,
+          772.9926910400391,
+          468.1646499633789
+        ],
+        "image_path": "snippets/char_015_revB_p0.png"
+      },
+      "requirement_revB": "\u2316\u2205 0.75 A B C",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:35/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
+          ]
+        },
+        "status": {
+          "state": "parsed",
+          "parser_family": "gdt",
+          "detail": "parsed feature control frame from PDF spans"
+        },
+        "raw_text": "\u2316\u2205 0.75 A B C",
+        "normalized_text": "\u2316\u2205 0.75 A B C",
+        "gdt": {
+          "frame_text": "\u2316 | \u22050.75 | A | B | C",
+          "control_type": "position",
+          "tolerance_text": "\u22050.75",
+          "datum_refs": [
+            "A",
+            "B",
+            "C"
+          ],
+          "modifiers": [],
+          "compartments": []
+        },
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
+          "form3_context_supplied": "true",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": 15,
+        "truth_match": {
+          "truth_index": 14,
+          "matched_truth_char_no": 15,
+          "classification": "unchanged"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 16,
+      "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"\u2313 \u2313 2 0.2  D   D G  H\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          917.3249816894531,
+          204.4137420654297,
+          1157.3249816894531,
+          444.4137420654297
+        ],
+        "image_path": "snippets/char_016_revB_p0.png"
+      },
+      "requirement_revB": "\u2313 \u2313 2 0.2  D   D G  H",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:42/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "error",
+          "parser_family": "gdt",
+          "reason_code": "gdt_malformed_frame",
+          "detail": "recognized GD&T control symbol but missing tolerance segment"
+        },
+        "raw_text": "\u2313",
+        "normalized_text": "\u2313",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "truth_ambiguity",
+            "message": "no canonical added truth row matched the packet requirement text; snippet matching is deferred"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 17,
+      "status": "added",
+      "confidence": 0.95,
+      "reasons": [
+        "New requirement detected in Rev B: \"30X \u00d820\u00b10.3\"",
+        "Symbols: ['\u00d8'], Counts: ['30X']",
+        "Grouped from 1 span(s) on the same annotation row"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          57.55921173095703,
+          377.5791931152344,
+          297.55921173095703,
+          617.5791931152344
+        ],
+        "image_path": "snippets/char_017_revB_p0.png"
+      },
+      "requirement_revB": "30X \u00d820\u00b10.3",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:43/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "30X \u00d820\u00b10.3",
+        "normalized_text": "30X \u00d820\u00b10.3",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": "added:15",
+        "truth_match": {
+          "truth_index": 15,
+          "matched_truth_char_no": "added:15",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 18,
+      "status": "added",
+      "confidence": 0.6,
+      "reasons": [
+        "New requirement detected in Rev B: \"\u2335 X 90\u00b0 \u00b11\u00b0\"",
+        "Symbols: [], Counts: []",
+        "Grouped from 2 span(s) on the same annotation row",
+        "Angle-style callout detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          56.816688537597656,
+          392.7344055175781,
+          296.81668853759766,
+          632.7344055175781
+        ],
+        "image_path": "snippets/char_018_revB_p0.png"
+      },
+      "requirement_revB": "\u2335 X 90\u00b0 \u00b11\u00b0",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:43/line:1/span:1",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "X 90\u00b0 \u00b11\u00b0",
+        "normalized_text": "X 90\u00b0 \u00b11\u00b0",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": "added:16",
+        "truth_match": {
+          "truth_index": 16,
+          "matched_truth_char_no": "added:16",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    }
+  ],
+  "missing_added_truth_indexes": [],
+  "conforming_count": 11,
+  "review_needed_count": 7
+}
