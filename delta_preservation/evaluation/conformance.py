@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -22,6 +23,57 @@ REVIEW_NEEDED = "review_needed"
 CONFORMING = "conforming"
 TRUTH_AMBIGUITY_CODE = "truth_ambiguity"
 ADDED_POOL_TOKEN_PREFIX = "added"
+
+# Maximum distance (in PDF points) from the packet bbox center to a truth
+# snippet_center_revB to qualify for the nearest-center fallback tie-break.
+# 72 pt ≈ 1 inch; 100 pt provides a comfortable region without risking
+# cross-cluster confusion on typical aerospace drawings.
+ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT: float = 100.0
+
+
+# ---------------------------------------------------------------------------
+# Geometry helpers for added-truth tie-break (self-contained; no imports from
+# snippet_rules.py private helpers).
+# ---------------------------------------------------------------------------
+
+def _coerce_packet_bbox(bbox_raw: object) -> tuple[float, float, float, float] | None:
+    """Return a validated 4-element bbox tuple from packet evidence, or None.
+
+    Accepts any sequence of exactly 4 real numbers.  Returns None when the
+    input is None, not a sequence, has the wrong length, or contains
+    non-numeric values.
+    """
+    if bbox_raw is None:
+        return None
+    try:
+        items = list(bbox_raw)
+    except TypeError:
+        return None
+    if len(items) != 4:
+        return None
+    try:
+        x0, y0, x1, y1 = float(items[0]), float(items[1]), float(items[2]), float(items[3])
+    except (TypeError, ValueError):
+        return None
+    return (x0, y0, x1, y1)
+
+
+def _bbox_center(bbox: tuple[float, float, float, float]) -> tuple[float, float]:
+    """Return the center point of a validated 4-element bbox tuple."""
+    x0, y0, x1, y1 = bbox
+    return ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
+
+
+def _point_inside_bbox(point: tuple[float, float], bbox: tuple[float, float, float, float]) -> bool:
+    """Return True when *point* falls strictly inside the packet bbox."""
+    px, py = point
+    x0, y0, x1, y1 = bbox
+    return x0 <= px <= x1 and y0 <= py <= y1
+
+
+def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Euclidean distance between two 2-D points."""
+    return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
 @dataclass(frozen=True)
@@ -151,6 +203,56 @@ def select_truth_row_for_item(
             ),
         )
 
+    # ------------------------------------------------------------------
+    # Second-stage tie-break using packet-side Rev B bbox evidence.
+    # Only reached when exact_requirement_matches has more than one row.
+    # ------------------------------------------------------------------
+
+    packet_bbox = _coerce_packet_bbox(item.revB.bbox if item.revB is not None else None)
+
+    if packet_bbox is not None:
+        # Stage 1: prefer a truth center that falls inside the packet bbox.
+        inside_bbox = [
+            (truth_index, truth_row)
+            for truth_index, truth_row in exact_requirement_matches
+            if truth_row.snippet_center_revB is not None
+            and _point_inside_bbox(truth_row.snippet_center_revB, packet_bbox)
+        ]
+        if len(inside_bbox) == 1:
+            truth_index, truth_row = inside_bbox[0]
+            return _TruthSelection(
+                truth_row=truth_row,
+                truth_index=truth_index,
+                matched_truth_char_no=_truth_match_token(truth_row, truth_index),
+            )
+
+        # Stage 2: if exactly one truth center is the unique nearest within the
+        # distance threshold, select it.
+        bbox_ctr = _bbox_center(packet_bbox)
+        candidates_with_distance = [
+            (truth_index, truth_row, _distance(bbox_ctr, truth_row.snippet_center_revB))
+            for truth_index, truth_row in exact_requirement_matches
+            if truth_row.snippet_center_revB is not None
+        ]
+        if candidates_with_distance:
+            min_dist = min(d for _, _, d in candidates_with_distance)
+            if min_dist <= ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT:
+                nearest = [
+                    (ti, tr)
+                    for ti, tr, d in candidates_with_distance
+                    if d == min_dist
+                ]
+                if len(nearest) == 1:
+                    truth_index, truth_row = nearest[0]
+                    return _TruthSelection(
+                        truth_row=truth_row,
+                        truth_index=truth_index,
+                        matched_truth_char_no=_truth_match_token(truth_row, truth_index),
+                    )
+
+    # Conservative fallback: multiple canonical added truth rows share the same
+    # normalized requirement text and packet evidence does not identify one row
+    # uniquely.  Preserve ambiguity rather than guess.
     return _TruthSelection(
         truth_row=None,
         truth_index=None,
