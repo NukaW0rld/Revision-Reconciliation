@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-17T14:08:22.122Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-04-17T14:23:48.069Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Phase: 06 (added-characteristic-detection-and-snippet-accuracy) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P04 | 4 | 3 tasks | 3 files |
 | Phase 05 P05 | 129 | 2 tasks | 1 files |
 | Phase 06 P01 | 6 | 2 tasks | 5 files |
+| Phase 06 P02 | 11 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Phase 05-05: Snapshot tests use exact requirement_revB strings as lookup keys, not count caps or index offsets
 - [Phase 06-01]: Thin wrappers kept in match.py so existing internal call sites work unchanged after exclusion.py extraction
 - [Phase 06-01]: estimate_page_dimensions uses portrait min_width=612/min_height=792 floors matching pre-existing match.py behavior
+- [Phase 06-02]: Reduce Pass 0 GD&T proximity threshold from 40pt/50pt to 12pt; content-aware post-pass suppressor handles broader suppression cases
+- [Phase 06-02]: Explained-by-match suppressor requires both content ownership (normalized text subset) AND bbox containment >= 0.3 before suppressing added fragment
+- [Phase 06-02]: Use getattr fallback for added_requirement_text/added_bbox in cli.py to tolerate legacy _FakeInternalDeltaItem test objects
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T14:08:22.119Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-17T14:23:48.067Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
