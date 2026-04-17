@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-17T14:30:30.932Z"
+status: verifying
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-04-17T14:35:21.076Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
-  percent: 91
+  completed_plans: 11
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 
 Phase: 06 (added-characteristic-detection-and-snippet-accuracy) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06 P01 | 6 | 2 tasks | 5 files |
 | Phase 06 P02 | 11 | 3 tasks | 3 files |
 | Phase 06 P03 | 4 | 2 tasks | 3 files |
+| Phase 06 P04 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Recent decisions affecting current work:
 - [Phase 06-02]: Use getattr fallback for added_requirement_text/added_bbox in cli.py to tolerate legacy _FakeInternalDeltaItem test objects
 - [Phase 06-03]: Use 100.0 pt as ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT — comfortable radius preventing cross-cluster confusion on aerospace drawings
 - [Phase 06-03]: Two-stage tie-break: bbox containment first, then nearest-center within threshold; conservative ambiguity when evidence is missing or non-unique
+- [Phase 06]: Phase-6 regression harness uses exact exemplar strings and canonical centers from checked-in assets, not vague count assertions (T-06-09 / T-06-10)
 
 ### Pending Todos
 
@@ -107,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T14:30:30.930Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-04-17T14:35:21.073Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None

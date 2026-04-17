@@ -20,7 +20,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 
 - [ ] **Phase 4: GD&T Parser Fixes** - Correct compact token splitting, word-name normalization, and composite frame capture
 - [x] **Phase 5: Classification Logic Fixes** - Suppress adjacency bleed false positives, resolve removed+added pairs as changed, detect asymmetric tolerance changes (completed 2026-04-17)
-- [ ] **Phase 6: Added Characteristic Detection and Snippet Accuracy** - Fix missing added rows for parts 8/9, suppress false-positive added rows, exclude title block regions from search windows
+- [x] **Phase 6: Added Characteristic Detection and Snippet Accuracy** - Fix missing added rows for parts 8/9, suppress false-positive added rows, exclude title block regions from search windows (completed 2026-04-17)
 - [ ] **Phase 7: Regression Tests and Verification** - Add parametrized regression tests per fix cluster, cross-part benchmark, and full 9-part verification run
 
 ## Phase Details
@@ -65,7 +65,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   - [x] 06-01-PLAN.md — Wave 1 shared exclusion contract across anchors, matching, rescue scans, and added detection
   - [x] 06-02-PLAN.md — Wave 2 grouped added-evidence contract plus explained-by-match false-positive suppression
   - [x] 06-03-PLAN.md — Wave 3 deterministic duplicate added-truth claiming from packet Rev B evidence
-  - [ ] 06-04-PLAN.md — Wave 4 read-only Part 8 / Part 9 asset-backed regression harness
+  - [x] 06-04-PLAN.md — Wave 4 read-only Part 8 / Part 9 asset-backed regression harness
 
 ### Phase 7: Regression Tests and Verification
 **Goal**: Every fix cluster from Phases 4-6 is covered by at least one fast parametrized pytest case, a cross-part benchmark guards aggregate accuracy, and a full 9-part ground-truth re-run confirms no regressions against the pre-fix baseline.
@@ -86,5 +86,5 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 3. Accepted Alternates | v1.0 | 2/2 | Complete | 2026-04-12 |
 | 4. GD&T Parser Fixes | v1.1 | 0/TBD | Not started | - |
 | 5. Classification Logic Fixes | v1.1 | 5/5 | Complete   | 2026-04-17 |
-| 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 3/4 | In Progress|  |
+| 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 4/4 | Complete   | 2026-04-17 |
 | 7. Regression Tests and Verification | v1.1 | 0/TBD | Not started | - |
