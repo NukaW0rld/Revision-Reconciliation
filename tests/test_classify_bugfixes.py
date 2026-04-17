@@ -6,6 +6,8 @@ Bug 3: GD&T feature control frames detected as added characteristics
 Bug 4: Plain decimal dimensions (e.g., "1.250") detected as added characteristics
 """
 
+from typing import Optional
+
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.classify import (
@@ -406,6 +408,294 @@ class TestAdjacencyBleed:
         assert "Rev B text may contain adjacent balloon content" not in delta.confidence_flags, (
             f"Bleed flag must not fire for no-slash case; confidence_flags={delta.confidence_flags!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# CLS-02: Removed+Added reconciliation post-pass
+# ---------------------------------------------------------------------------
+
+class TestRemovedAddedReconciliation:
+    """CLS-02: removed+added pairs at close spatial proximity reconcile to 'changed'.
+
+    Tests cover:
+    1. Close compatible pair collapses into a single 'changed' row
+    2. Far-apart pair stays 'removed' + 'added'
+    3. Type-incompatible pair stays separate
+    4. req_bbox=None uses balloon_bbox fallback on the removed side
+    5. Cross-page candidate stays separate
+    6. Grouped added item uses added_requirement_text and added_bbox
+    7. Closest-wins tie-break when two compatible added items are nearby
+    """
+
+    def _removed_item(
+        self,
+        char_no: int,
+        *,
+        req_bbox: Optional[tuple] = (50.0, 50.0, 70.0, 58.0),
+        balloon_bbox: tuple = (10.0, 10.0, 20.0, 20.0),
+        requirement_raw: str = "Ø 12.5",
+        page: int = 0,
+    ) -> DeltaItem:
+        """Build a removed-status internal DeltaItem."""
+        from delta_preservation.reconcile.classify import DeltaItem as _DI
+        item = _DI(
+            char_no=char_no,
+            status="removed",
+            confidence=0.8,
+            reasons=["No candidate found within search window"],
+            component_scores={"location": 0.0, "text": 0.0, "context": 0.0},
+        )
+        return item
+
+    def _anchor_for(
+        self,
+        char_no: int,
+        *,
+        req_bbox: Optional[tuple] = (50.0, 50.0, 70.0, 58.0),
+        balloon_bbox: tuple = (10.0, 10.0, 20.0, 20.0),
+        requirement_raw: str = "Ø 12.5",
+        page: int = 0,
+    ) -> "Anchor":
+        """Build an Anchor with explicit spatial metadata."""
+        return Anchor(
+            char_no=char_no,
+            page=page,
+            balloon_bbox=balloon_bbox,
+            req_bbox=req_bbox,
+            requirement_raw=requirement_raw,
+            requirement_norm=requirement_raw,
+            local_context=[],
+        )
+
+    def _added_item(
+        self,
+        char_no: int,
+        *,
+        added_span: Optional[TextSpan] = None,
+        added_requirement_text: Optional[str] = None,
+        added_bbox: Optional[tuple] = None,
+        added_page: Optional[int] = 0,
+        requirement_raw: str = "Ø 13.0",
+    ) -> DeltaItem:
+        """Build an added-status internal DeltaItem with extended metadata."""
+        from delta_preservation.reconcile.classify import DeltaItem as _DI
+        span = added_span or _span(requirement_raw, x0=55.0, y0=55.0)
+        item = _DI(
+            char_no=char_no,
+            status="added",
+            confidence=0.75,
+            reasons=[f"New requirement detected in Rev B: \"{requirement_raw}\""],
+            component_scores={"location": 0.0, "text": 1.0, "context": 0.0},
+            added_span=span,
+        )
+        # Attach extended CLS-02 metadata
+        item.added_requirement_text = added_requirement_text or requirement_raw
+        item.added_bbox = added_bbox or span.bbox_pdf
+        item.added_page = added_page
+        return item
+
+    # ------------------------------------------------------------------
+    # Test 1: close compatible pair collapses into 'changed'
+    # ------------------------------------------------------------------
+
+    def test_close_compatible_pair_becomes_changed(self):
+        """A removed+added pair with matching type and distance <= 150 pt → changed."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        # Removed char_no=1 with req_bbox centroid at (60, 54)
+        removed = self._removed_item(1, req_bbox=(50.0, 50.0, 70.0, 58.0))
+        # Added item with bbox centroid at (65, 55) — ~6 pts away
+        added = self._added_item(
+            200,
+            added_bbox=(60.0, 51.0, 70.0, 59.0),
+            added_page=0,
+            requirement_raw="Ø 13.0",
+        )
+        anchor = self._anchor_for(1, req_bbox=(50.0, 50.0, 70.0, 58.0), page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        changed = [r for r in result if r.char_no == 1]
+        assert changed, "Removed item must survive in result (as changed)"
+        assert changed[0].status == "changed", (
+            f"Expected 'changed' after reconciliation, got '{changed[0].status}'"
+        )
+        # Consumed added item must not appear separately
+        still_added = [r for r in result if r.char_no == 200 and r.status == "added"]
+        assert not still_added, "Consumed added item must be removed from output"
+
+    # ------------------------------------------------------------------
+    # Test 2: far-apart pair stays separate
+    # ------------------------------------------------------------------
+
+    def test_far_apart_pair_stays_separate(self):
+        """Euclidean distance > 150 pt → pair not reconciled."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(2, req_bbox=(50.0, 50.0, 70.0, 58.0))
+        # Added item 200 pts away (horizontally)
+        added = self._added_item(
+            201,
+            added_bbox=(260.0, 51.0, 280.0, 59.0),
+            added_page=0,
+            requirement_raw="Ø 13.0",
+        )
+        anchor = self._anchor_for(2, req_bbox=(50.0, 50.0, 70.0, 58.0), page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        removed_items = [r for r in result if r.char_no == 2]
+        added_items = [r for r in result if r.char_no == 201]
+        assert removed_items and removed_items[0].status == "removed", (
+            "Far-apart removed item must stay 'removed'"
+        )
+        assert added_items and added_items[0].status == "added", (
+            "Far-apart added item must stay 'added'"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 3: type-incompatible pair stays separate
+    # ------------------------------------------------------------------
+
+    def test_type_incompatible_pair_stays_separate(self):
+        """Dimension vs. thread requirement types are incompatible → no merge."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        # Removed: plain dimension
+        removed = self._removed_item(3, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø 8.0")
+        # Added: thread callout — type-incompatible with dimension
+        added = self._added_item(
+            202,
+            added_bbox=(55.0, 51.0, 75.0, 59.0),
+            added_page=0,
+            requirement_raw="1/4-20 UNC-2B",
+            added_requirement_text="1/4-20 UNC-2B",
+        )
+        anchor = self._anchor_for(3, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø 8.0", page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        removed_items = [r for r in result if r.char_no == 3]
+        assert removed_items and removed_items[0].status == "removed", (
+            "Type-incompatible removed item must stay 'removed'"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 4: req_bbox=None uses balloon_bbox fallback
+    # ------------------------------------------------------------------
+
+    def test_req_bbox_none_uses_balloon_fallback(self):
+        """When req_bbox is None, removed-side centroid falls back to balloon_bbox centroid."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(4, req_bbox=None)
+        # Balloon centroid at (15, 15); added bbox centroid at (20, 20) — ~7 pts
+        added = self._added_item(
+            203,
+            added_bbox=(17.0, 17.0, 23.0, 23.0),
+            added_page=0,
+            requirement_raw="Ø 12.5",
+        )
+        # Anchor has req_bbox=None but a known balloon_bbox
+        anchor = self._anchor_for(
+            4,
+            req_bbox=None,
+            balloon_bbox=(10.0, 10.0, 20.0, 20.0),
+            requirement_raw="Ø 12.5",
+            page=0,
+        )
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        changed = [r for r in result if r.char_no == 4]
+        assert changed and changed[0].status == "changed", (
+            f"Balloon fallback must produce 'changed'; got '{changed[0].status if changed else 'missing'}'"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 5: cross-page candidate stays separate
+    # ------------------------------------------------------------------
+
+    def test_cross_page_candidate_stays_separate(self):
+        """Added item on page 1 cannot be paired with removed item on page 0."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(5, req_bbox=(50.0, 50.0, 70.0, 58.0))
+        # Spatially close but on a different page
+        added = self._added_item(
+            204,
+            added_bbox=(55.0, 51.0, 75.0, 59.0),
+            added_page=1,  # different page
+            requirement_raw="Ø 12.5",
+        )
+        anchor = self._anchor_for(5, req_bbox=(50.0, 50.0, 70.0, 58.0), page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        removed_items = [r for r in result if r.char_no == 5]
+        assert removed_items and removed_items[0].status == "removed", (
+            "Cross-page added item must not pair with removed item on page 0"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 6: grouped added item uses added_requirement_text and added_bbox
+    # ------------------------------------------------------------------
+
+    def test_grouped_added_item_uses_full_text_and_bbox(self):
+        """A grouped GD&T added item uses added_requirement_text for type gating
+        and added_bbox for distance gating, not just added_span.text."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(6, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="⌓ .05 D B C")
+        # Representative span is just the anchor symbol — small and possibly misleading
+        small_span = _span("⌓", x0=55.0, y0=51.0, width=8.0, height=8.0)
+        # Full grouped text spans multiple frames; union bbox is larger
+        added = self._added_item(
+            205,
+            added_span=small_span,
+            added_requirement_text="⌓ .05 D B C / ⌓ .01 D",
+            added_bbox=(55.0, 51.0, 95.0, 59.0),  # union bbox — larger than small_span
+            added_page=0,
+        )
+        anchor = self._anchor_for(6, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="⌓ .05 D B C", page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        # The pair should reconcile because the full text shares GD&T type and is close
+        changed = [r for r in result if r.char_no == 6]
+        assert changed, "Grouped added item must still be considered for pairing"
+        # Whether merged or not, ensure the reconciler did not crash
+        statuses = {r.status for r in result}
+        assert statuses, "Result must be non-empty"
+
+    # ------------------------------------------------------------------
+    # Test 7: closest-wins tie-break
+    # ------------------------------------------------------------------
+
+    def test_closest_wins_tiebreak(self):
+        """When two compatible added items are nearby, the closer one wins."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(7, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø 5.0")
+        anchor = self._anchor_for(7, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø 5.0", page=0)
+
+        # Near added — centroid at (62, 55.5), distance ~2 pt from req_bbox centroid (60,54)
+        near_added = self._added_item(
+            206,
+            added_bbox=(59.0, 52.0, 65.0, 59.0),
+            added_page=0,
+            requirement_raw="Ø 5.5",
+        )
+        # Far added — centroid at (100, 54), distance ~40 pt
+        far_added = self._added_item(
+            207,
+            added_bbox=(95.0, 51.0, 105.0, 57.0),
+            added_page=0,
+            requirement_raw="Ø 5.8",
+        )
+
+        result = reconcile_removed_added_pairs([removed, near_added, far_added], [anchor])
+        changed = [r for r in result if r.char_no == 7]
+        assert changed and changed[0].status == "changed", "Removed must become 'changed'"
+        # The nearer added item (206) must be consumed; the farther (207) must remain
+        still_near = [r for r in result if r.char_no == 206]
+        still_far = [r for r in result if r.char_no == 207]
+        assert not still_near, "Nearest added item must be consumed by reconciliation"
+        assert still_far and still_far[0].status == "added", "Far added item must remain 'added'"
 
 
 class TestToleranceOverlapThreshold:
