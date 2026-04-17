@@ -20,10 +20,14 @@ Three test classes:
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
+from tempfile import mkdtemp
 from typing import Optional
 
 import pytest
+
+from delta_preservation.cli import run_pipeline
 
 # ---------------------------------------------------------------------------
 # Asset paths
@@ -52,6 +56,26 @@ def _added_rows(ground_truth: dict) -> list[dict]:
         c for c in ground_truth.get("characteristics", [])
         if c.get("classification") == "added"
     ]
+
+
+def _normalize_text(text: Optional[str]) -> str:
+    return " ".join((text or "").split())
+
+
+@lru_cache(maxsize=None)
+def _live_packet(part_name: str) -> dict:
+    """Run the real pipeline for a part once and cache the resulting packet."""
+    asset_dir = ASSETS_DIR / part_name
+    out_dir = Path(mkdtemp(prefix=f"phase6-{part_name}-", dir="/tmp"))
+    run_dir = run_pipeline(
+        revA_pdf=asset_dir / "revA.pdf",
+        revB_pdf=asset_dir / "revB.pdf",
+        form3_xlsx=asset_dir / "FAIR.xlsx",
+        out_dir=out_dir,
+        dpi=300,
+        part_name=part_name,
+    )
+    return _load_json(run_dir / "delta_packet.json")
 
 
 # ===========================================================================
@@ -338,6 +362,29 @@ class TestPhase6Part8Exemplars:
             f"got spurious added rows: {fragment_texts!r}"
         )
 
+    def test_live_part8_pipeline_keeps_added_rows_distinct(self):
+        """Fresh Part 8 pipeline output must keep runout and diameter rows separate.
+
+        Regression: the live packet currently emits a merged `⌰ .015 B Ø10.000±.001`
+        row and loses the canonical added `⌰ .002 A`.
+        """
+        packet = _live_packet("part8")
+        added = [item for item in packet.get("items", []) if item.get("status") == "added"]
+        added_texts = [_normalize_text(item.get("requirement_revB")) for item in added]
+
+        assert "⌰ .015 B" in added_texts, f"Missing Part 8 runout row in live packet: {added_texts!r}"
+        assert "Ø10.000±.001" in added_texts, f"Missing Part 8 diameter row in live packet: {added_texts!r}"
+        assert "⌰ .002 A" in added_texts, f"Missing Part 8 canonical added row in live packet: {added_texts!r}"
+        assert not any("⌰" in text and "Ø10.000±.001" in text for text in added_texts), (
+            f"Part 8 live packet still contains a merged row: {added_texts!r}"
+        )
+
+        char5_items = [
+            item for item in packet.get("items", [])
+            if item.get("char_no") == 5 and _normalize_text(item.get("requirement_revB")) == "⌰ .002 A"
+        ]
+        assert not char5_items, "Form 3 char 5 must not steal the canonical added `⌰ .002 A` row"
+
 
 # ===========================================================================
 # Class 3: TestPhase6Part9DuplicateAddedRows
@@ -599,3 +646,40 @@ class TestPhase6Part9DuplicateAddedRows:
         assert str(token_b).startswith(ADDED_POOL_TOKEN_PREFIX), (
             f"Token for item_b must be an added-pool token, got: {token_b!r}"
         )
+
+    def test_live_part9_pipeline_preserves_duplicate_added_rows(self):
+        """Fresh Part 9 pipeline output must retain both physical instances of each duplicate row."""
+        packet = _live_packet("part9")
+        added = [item for item in packet.get("items", []) if item.get("status") == "added"]
+        normalized_texts = [_normalize_text(item.get("requirement_revB")) for item in added]
+
+        assert normalized_texts.count("Ø.250 ±.008") == 2, (
+            f"Expected two diameter duplicate rows in live Part 9 packet, got: {normalized_texts!r}"
+        )
+        assert normalized_texts.count("⌖∅ .015 D H") == 2, (
+            f"Expected two position duplicate rows in live Part 9 packet, got: {normalized_texts!r}"
+        )
+        assert normalized_texts.count("↧ .50 ±.05") == 2, (
+            f"Expected two depth duplicate rows in live Part 9 packet, got: {normalized_texts!r}"
+        )
+
+    def test_live_part9_pipeline_claims_distinct_truth_tokens_for_duplicate_rows(self):
+        """Fresh Part 9 packet rows should claim both truth rows for each duplicate group."""
+        packet = _live_packet("part9")
+        added = [item for item in packet.get("items", []) if item.get("status") == "added"]
+
+        grouped_tokens: dict[str, list[str]] = {}
+        for item in added:
+            text = _normalize_text(item.get("requirement_revB"))
+            token = ((item.get("evaluation") or {}).get("matched_truth_char_no"))
+            if isinstance(token, str) and token.startswith("added:"):
+                grouped_tokens.setdefault(text, []).append(token)
+
+        for text in ["Ø.250 ±.008", "⌖∅ .015 D H", "↧ .50 ±.05"]:
+            tokens = grouped_tokens.get(text, [])
+            assert len(tokens) == 2, (
+                f"Expected two claimed truth tokens for {text!r}, got {tokens!r}"
+            )
+            assert len(set(tokens)) == 2, (
+                f"Expected distinct truth tokens for {text!r}, got {tokens!r}"
+            )

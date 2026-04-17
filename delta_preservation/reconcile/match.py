@@ -20,7 +20,11 @@ import cv2
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.vision.bbox_utils import union_bbox
-from delta_preservation.reconcile.normalize import parse_requirement, classify_requirement_type
+from delta_preservation.reconcile.normalize import (
+    classify_requirement_type,
+    extract_semantic_callout,
+    parse_requirement,
+)
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.types import SemanticCallout
 from delta_preservation.vision.alignment import Transform
@@ -113,9 +117,45 @@ def _span_key(span: TextSpan | GroupedSpan) -> tuple:
     )
 
 
-_GDT_CONTROL_CHARS = frozenset("⌖⌒⟂⊙⌓⏥∥∠↧")
+_GDT_CONTROL_CHARS = frozenset("⌖⌒⟂⊙⌓⏥∥∠○⌿⟃◎⌰⚪↗↧")
 _GDT_COMPANION_CHARS = _GDT_CONTROL_CHARS | frozenset("Ø⌀RⓂⓁⓅ")
 _GDT_MODIFIER_TOKENS = frozenset({"M", "L", "P", "MMC", "LMC", "RFS"})
+_GDT_CONTROL_HINTS: tuple[tuple[str, str], ...] = (
+    ("⌖✢", "position"),
+    ("⌖", "position"),
+    ("⌒", "profile_of_a_line"),
+    ("⌓", "profile_of_a_surface"),
+    ("⟂", "perpendicularity"),
+    ("⏥", "flatness"),
+    ("∥", "parallelism"),
+    ("∠", "angularity"),
+    ("⊙", "concentricity"),
+    ("◎", "concentricity"),
+    ("⚪", "circularity"),
+    ("○", "circularity"),
+    ("↗", "circular_runout"),
+    ("⌿", "circular_runout"),
+    ("⌰", "total_runout"),
+    ("⟃", "total_runout"),
+)
+_GDT_WORD_HINTS: tuple[tuple[str, str], ...] = (
+    ("TOTAL RUNOUT", "total_runout"),
+    ("CIRCULAR RUNOUT", "circular_runout"),
+    ("RUNOUT", "circular_runout"),
+    ("CIRCULARITY", "circularity"),
+    ("CONCENTRICITY", "concentricity"),
+    ("POSITION", "position"),
+    ("FLATNESS", "flatness"),
+    ("PERPENDICULARITY", "perpendicularity"),
+    ("PARALLELISM", "parallelism"),
+    ("ANGULARITY", "angularity"),
+    ("PROFILE", "profile_of_a_surface"),
+)
+_ANNOTATION_ANCHOR_HINTS: tuple[tuple[str, str], ...] = (
+    ("↧", "depth"),
+    ("⌴", "counterbore"),
+    ("⏤", "straightness"),
+)
 
 
 def _normalize_span_text(text: str) -> str:
@@ -124,6 +164,11 @@ def _normalize_span_text(text: str) -> str:
 
 def _span_has_numeric_payload(text: str) -> bool:
     return bool(re.search(r"\d|[+\-±]", text))
+
+
+def _is_stacked_numeric_fragment(text: str) -> bool:
+    normalized = _normalize_span_text(text)
+    return bool(re.fullmatch(r"(?:[+\-]?(?:\d+(?:\.\d+)?|\.\d+))", normalized))
 
 
 def _looks_like_gdt_fragment(text: str) -> bool:
@@ -159,6 +204,96 @@ def _looks_like_gdt_related_source_span(text: str) -> bool:
     return False
 
 
+def _semantic_identity_from_callout(callout: Optional[SemanticCallout]) -> tuple[str, Optional[str]] | None:
+    if callout is None or callout.status.state != "parsed":
+        return None
+    family = callout.status.parser_family
+    if family == "gdt" and callout.gdt is not None:
+        return (family, callout.gdt.control_type)
+    if family == "weld" and callout.weld is not None:
+        return (family, callout.weld.process)
+    if family == "surface_finish" and callout.surface_finish is not None:
+        return (family, callout.surface_finish.indicator)
+    if family == "fit" and callout.fit is not None:
+        return (family, callout.fit.basis)
+    return (family, None)
+
+
+def _gdt_control_hint_from_text(text: str) -> Optional[str]:
+    for symbol, control_type in _GDT_CONTROL_HINTS:
+        if symbol in text:
+            return control_type
+    normalized = _normalize_span_text(text)
+    for token, control_type in _GDT_WORD_HINTS:
+        if token in normalized:
+            return control_type
+    return None
+
+
+def _annotation_anchor_hint_from_text(text: str) -> Optional[str]:
+    gdt_hint = _gdt_control_hint_from_text(text)
+    if gdt_hint is not None:
+        return gdt_hint
+    for symbol, control_type in _ANNOTATION_ANCHOR_HINTS:
+        if symbol in text:
+            return control_type
+    return None
+
+
+def _semantic_identity_from_text(
+    text: str,
+    *,
+    source_spans: Optional[List[TextSpan]] = None,
+) -> tuple[str, Optional[str]] | None:
+    pdf_spans = source_spans or []
+    semantic_identity = _semantic_identity_from_callout(
+        extract_semantic_callout(pdf_spans=pdf_spans, form3_requirement=None if pdf_spans else text)
+    )
+    if semantic_identity is not None:
+        return semantic_identity
+    gdt_control_hint = _gdt_control_hint_from_text(text)
+    if gdt_control_hint is not None:
+        return ("gdt", gdt_control_hint)
+    return None
+
+
+def _semantic_identities_conflict(
+    left: tuple[str, Optional[str]] | None,
+    right: tuple[str, Optional[str]] | None,
+) -> bool:
+    if left is None and right is None:
+        return False
+    if left is None or right is None:
+        return True
+    left_family, left_detail = left
+    right_family, right_detail = right
+    if left_family != right_family:
+        return True
+    if left_family == "gdt" and left_detail and right_detail and left_detail != right_detail:
+        return True
+    return False
+
+
+def _gdt_datum_refs_from_text(
+    text: str,
+    *,
+    source_spans: Optional[List[TextSpan]] = None,
+) -> tuple[str, ...]:
+    semantic_callout = extract_semantic_callout(
+        pdf_spans=source_spans or [],
+        form3_requirement=None if source_spans else text,
+    )
+    if semantic_callout.status.state == "parsed" and semantic_callout.gdt is not None:
+        return tuple(semantic_callout.gdt.datum_refs)
+    tokens: list[str] = []
+    source_texts = [span.text for span in source_spans] if source_spans else [text]
+    for raw_token in source_texts:
+        normalized = _normalize_span_text(raw_token)
+        if re.fullmatch(r"[A-HJ-NP-Z](?:-[A-HJ-NP-Z])?", normalized):
+            tokens.append(normalized)
+    return tuple(tokens)
+
+
 def _horizontal_gap(a: TextSpan, b: TextSpan) -> float:
     ax0, _ay0, ax1, _ay1 = a.bbox_pdf
     bx0, _by0, bx1, _by1 = b.bbox_pdf
@@ -185,6 +320,13 @@ def _spans_are_companions(base: TextSpan, other: TextSpan) -> bool:
     center_dy = abs(ocy - bcy)
     pair_is_gdt = _looks_like_gdt_fragment(base.text) or _looks_like_gdt_fragment(other.text)
     either_has_numeric_payload = _span_has_numeric_payload(base.text) or _span_has_numeric_payload(other.text)
+    base_anchor_hint = _annotation_anchor_hint_from_text(base.text)
+    other_anchor_hint = _annotation_anchor_hint_from_text(other.text)
+    incompatible_anchor_pair = (
+        base_anchor_hint is not None
+        and other_anchor_hint is not None
+        and base_anchor_hint != other_anchor_hint
+    )
 
     close_horiz_limit = 28.0 if pair_is_gdt else 20.0
     center_dx_limit = 32.0 if pair_is_gdt else 28.0
@@ -192,6 +334,8 @@ def _spans_are_companions(base: TextSpan, other: TextSpan) -> bool:
     stacked_dy_limit = 18.0 if pair_is_gdt else 14.0
 
     if same_row and (horiz_gap <= close_horiz_limit or center_dx <= center_dx_limit):
+        if incompatible_anchor_pair:
+            return False
         if pair_is_gdt or either_has_numeric_payload:
             return True
 
@@ -200,7 +344,11 @@ def _spans_are_companions(base: TextSpan, other: TextSpan) -> bool:
         and 0.0 < center_dy <= stacked_dy_limit
         and (pair_is_gdt or either_has_numeric_payload)
     ):
-        return True
+        if incompatible_anchor_pair:
+            return False
+        if base_anchor_hint or other_anchor_hint:
+            return base_anchor_hint is not None and base_anchor_hint == other_anchor_hint
+        return _is_stacked_numeric_fragment(base.text) and _is_stacked_numeric_fragment(other.text)
 
     return False
 
@@ -785,6 +933,14 @@ def assign_matches(
     """
     # Build anchor lookup by char_no for shared-span and notes-aware fallbacks.
     anchor_by_char: dict[int, Anchor] = {a.char_no: a for a in anchors}
+    anchor_semantic_identity_by_char: dict[int, tuple[str, Optional[str]] | None] = {
+        anchor.char_no: _semantic_identity_from_text(anchor.requirement_raw)
+        for anchor in anchors
+    }
+    anchor_gdt_datums_by_char: dict[int, tuple[str, ...]] = {
+        anchor.char_no: _gdt_datum_refs_from_text(anchor.requirement_raw)
+        for anchor in anchors
+    }
 
     # Build list of all edges: (total_score, char_no, span_key, candidate)
     edges = []
@@ -875,6 +1031,28 @@ def assign_matches(
         # Skip implausibly low-scoring matches — they indicate no real candidate
         if total_score < effective_min_score:
             continue
+        candidate_semantic_identity = _semantic_identity_from_text(
+            candidate.span.text,
+            source_spans=getattr(candidate.span, "source_spans", None),
+        )
+        if _semantic_identities_conflict(
+            anchor_semantic_identity_by_char.get(char_no),
+            candidate_semantic_identity,
+        ):
+            continue
+        anchor_gdt_datums = anchor_gdt_datums_by_char.get(char_no, ())
+        candidate_gdt_datums = _gdt_datum_refs_from_text(
+            candidate.span.text,
+            source_spans=getattr(candidate.span, "source_spans", None),
+        )
+        if (
+            anchor_semantic_identity_by_char.get(char_no) is not None
+            and anchor_semantic_identity_by_char[char_no][0] == "gdt"
+            and anchor_gdt_datums
+            and candidate_gdt_datums
+            and anchor_gdt_datums != candidate_gdt_datums
+        ):
+            continue
         candidate_fp = parse_requirement(candidate.span.text)
         candidate_numerics = {v for v, _ in candidate_fp.numeric_tokens}
         has_primary_reason = _candidate_has_primary_signal(candidate)
@@ -935,6 +1113,28 @@ def assign_matches(
             # share an already-assigned span would wrongly classify it as
             # "unchanged" when it should be "removed".
             if candidate.from_global_fallback:
+                continue
+            candidate_semantic_identity = _semantic_identity_from_text(
+                candidate.span.text,
+                source_spans=getattr(candidate.span, "source_spans", None),
+            )
+            if _semantic_identities_conflict(
+                anchor_semantic_identity_by_char.get(char_no),
+                candidate_semantic_identity,
+            ):
+                continue
+            anchor_gdt_datums = anchor_gdt_datums_by_char.get(char_no, ())
+            candidate_gdt_datums = _gdt_datum_refs_from_text(
+                candidate.span.text,
+                source_spans=getattr(candidate.span, "source_spans", None),
+            )
+            if (
+                anchor_semantic_identity_by_char.get(char_no) is not None
+                and anchor_semantic_identity_by_char[char_no][0] == "gdt"
+                and anchor_gdt_datums
+                and candidate_gdt_datums
+                and anchor_gdt_datums != candidate_gdt_datums
+            ):
                 continue
             span = candidate.span
             span_key = (

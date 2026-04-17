@@ -192,6 +192,16 @@ class TestDuplicateAddedTruthSelection:
         assert selection.truth_index == 1
         assert selection.truth_row.snippet_center_revB == _P9_B1_CENTER
 
+    def test_bbox_containment_accepts_spacing_variant_for_position_mark(self):
+        """Spacing-only variants must still reach the duplicate-row bbox tie-break."""
+        truth_rows = self._pool_position_mark()
+        bbox = [590.0, 280.0, 650.0, 330.0]  # contains (618, 306)
+        item = _make_added_item("⌖∅ .015 D H", bbox=bbox)
+        selection = _sel(item, truth_rows)
+        assert selection.truth_row is not None
+        assert selection.truth_index == 1
+        assert selection.truth_row.snippet_center_revB == _P9_B1_CENTER
+
     def test_bbox_containment_selects_group_a_depth(self):
         """Packet bbox around group-A center disambiguates ↧.50 ±.05 → index 0."""
         truth_rows = self._pool_depth()
@@ -207,6 +217,16 @@ class TestDuplicateAddedTruthSelection:
         truth_rows = self._pool_depth()
         bbox = [565.0, 295.0, 625.0, 350.0]  # contains (594, 322)
         item = _make_added_item(_P9_B2_REQ, bbox=bbox)
+        selection = _sel(item, truth_rows)
+        assert selection.truth_row is not None
+        assert selection.truth_index == 1
+        assert selection.truth_row.snippet_center_revB == _P9_B2_CENTER
+
+    def test_bbox_containment_accepts_spacing_variant_for_depth(self):
+        """Spacing-only variants must still resolve duplicate depth rows."""
+        truth_rows = self._pool_depth()
+        bbox = [565.0, 295.0, 625.0, 350.0]  # contains (594, 322)
+        item = _make_added_item("↧ .50 ±.05", bbox=bbox)
         selection = _sel(item, truth_rows)
         assert selection.truth_row is not None
         assert selection.truth_index == 1

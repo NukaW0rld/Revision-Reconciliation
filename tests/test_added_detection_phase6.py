@@ -213,6 +213,101 @@ class TestGroupedAddedEvidence:
         assert item.added_span is not None
         assert hasattr(item.added_span, "bbox_pdf")
 
+    def test_part8_same_row_gdt_grouping_does_not_absorb_distant_dimension(self):
+        """A GD&T row must not sweep in a separate same-row dimension hundreds of points away.
+
+        This reproduces the Part 8 over-grouping regression where `⌰ .015 B`
+        was merged with `Ø10.000±.001` into one added row.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        runout_symbol = _span("⌰", block_id=0, line_id=0, span_id=0, x0=167.0, y0=528.0, width=20.0)
+        tol_span = _span(".015", block_id=0, line_id=0, span_id=1, x0=198.0, y0=528.0, width=24.0)
+        datum_span = _span("B", block_id=0, line_id=0, span_id=2, x0=230.0, y0=528.0, width=8.0)
+        distant_dimension = _span(
+            "Ø10.000±.001",
+            block_id=0,
+            line_id=0,
+            span_id=3,
+            x0=482.0,
+            y0=521.0,
+            width=78.0,
+        )
+
+        added = detect_added_characteristics(
+            revB_spans=[runout_symbol, tol_span, datum_span, distant_dimension],
+            matches={},
+            next_char_no=9,
+            page_width=612.0,
+            page_height=792.0,
+        )
+
+        texts = [" ".join((it.added_requirement_text or "").split()) for it in added]
+        assert "⌰ .015 B" in texts, f"Expected preserved runout row, got: {texts!r}"
+        assert "Ø10.000±.001" in texts, f"Expected separate diameter row, got: {texts!r}"
+        assert not any("⌰" in text and "Ø10.000±.001" in text for text in texts), (
+            "Part 8 regression: distant same-row dimension was merged into the GD&T row"
+        )
+
+    def test_duplicate_standard_added_rows_survive_when_geometry_differs(self):
+        """Identical added text at different coordinates must survive as two rows.
+
+        This reproduces the Part 9 duplicate collapse where text-only dedupe
+        reduced two `Ø.250 ±.008` rows to one.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        left = _span("Ø.250 ±.008", block_id=0, line_id=0, span_id=0, x0=128.0, y0=322.0, width=68.0)
+        right = _span("Ø.250 ±.008", block_id=1, line_id=0, span_id=0, x0=566.0, y0=280.0, width=68.0)
+
+        added = detect_added_characteristics(
+            revB_spans=[left, right],
+            matches={},
+            next_char_no=38,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [" ".join((it.added_requirement_text or "").split()) for it in added]
+        assert texts.count("Ø.250 ±.008") == 2, (
+            "Part 9 regression: distinct duplicate added rows collapsed despite different geometry"
+        )
+
+    def test_adjacent_different_anchor_rows_do_not_chain_into_one_added_row(self):
+        """Nearby rows with different anchor symbols must stay separate.
+
+        This reproduces the Part 9 shape where a depth row sat close to a
+        position row and the stacked-companion logic chained them into one blob.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        depth_anchor = _span("↧", block_id=0, line_id=0, span_id=0, x0=150.0, y0=360.0, width=10.0)
+        depth_value = _span(".50 ±.05", block_id=0, line_id=0, span_id=1, x0=164.0, y0=360.0, width=42.0)
+
+        position_anchor = _span("⌖", block_id=1, line_id=0, span_id=0, x0=152.0, y0=348.0, width=10.0)
+        position_tol = _span("∅.015", block_id=1, line_id=0, span_id=1, x0=166.0, y0=348.0, width=24.0)
+        datum_d = _span("D", block_id=1, line_id=0, span_id=2, x0=192.0, y0=348.0, width=6.0)
+        datum_h = _span("H", block_id=1, line_id=0, span_id=3, x0=200.0, y0=348.0, width=6.0)
+
+        added = detect_added_characteristics(
+            revB_spans=[depth_anchor, depth_value, position_anchor, position_tol, datum_d, datum_h],
+            matches={},
+            next_char_no=35,
+            page_width=612.0,
+            page_height=792.0,
+        )
+
+        texts = [" ".join((it.added_requirement_text or "").split()) for it in added]
+        assert any("↧" in text and ".50" in text for text in texts), (
+            f"Expected separate depth row, got: {texts!r}"
+        )
+        assert any("⌖" in text and "∅.015" in text and "D" in text and "H" in text for text in texts), (
+            f"Expected separate position row, got: {texts!r}"
+        )
+        assert not any("↧" in text and "⌖" in text for text in texts), (
+            "Adjacent different-anchor rows were chained into one added row"
+        )
+
 
 # ===========================================================================
 # Class 2: TestExplainedByMatchSuppression

@@ -56,6 +56,7 @@ from delta_preservation.reconcile.match import Match
 from delta_preservation.reconcile.normalize import (
     are_requirement_types_incompatible,
     classify_requirement_type,
+    extract_semantic_callout,
     parse_requirement,
 )
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
@@ -94,6 +95,118 @@ class AddedCharacteristic:
     requirement_text: str
     confidence: float
     reasons: List[str]
+
+
+_SEMANTIC_GDT_CONTROL_HINTS: tuple[tuple[str, str], ...] = (
+    ("⌖✢", "position"),
+    ("⌖", "position"),
+    ("⌒", "profile_of_a_line"),
+    ("⌓", "profile_of_a_surface"),
+    ("⟂", "perpendicularity"),
+    ("⏥", "flatness"),
+    ("∥", "parallelism"),
+    ("∠", "angularity"),
+    ("⊙", "concentricity"),
+    ("◎", "concentricity"),
+    ("⚪", "circularity"),
+    ("○", "circularity"),
+    ("↗", "circular_runout"),
+    ("⌿", "circular_runout"),
+    ("⌰", "total_runout"),
+    ("⟃", "total_runout"),
+)
+_SEMANTIC_GDT_WORD_HINTS: tuple[tuple[str, str], ...] = (
+    ("TOTAL RUNOUT", "total_runout"),
+    ("CIRCULAR RUNOUT", "circular_runout"),
+    ("RUNOUT", "circular_runout"),
+    ("CIRCULARITY", "circularity"),
+    ("CONCENTRICITY", "concentricity"),
+    ("POSITION", "position"),
+    ("FLATNESS", "flatness"),
+    ("PERPENDICULARITY", "perpendicularity"),
+    ("PARALLELISM", "parallelism"),
+    ("ANGULARITY", "angularity"),
+    ("PROFILE", "profile_of_a_surface"),
+)
+
+
+def _semantic_identity_from_callout(callout: Optional[SemanticCallout]) -> tuple[str, Optional[str]] | None:
+    if callout is None or callout.status.state != "parsed":
+        return None
+    family = callout.status.parser_family
+    if family == "gdt" and callout.gdt is not None:
+        return (family, callout.gdt.control_type)
+    if family == "weld" and callout.weld is not None:
+        return (family, callout.weld.process)
+    if family == "surface_finish" and callout.surface_finish is not None:
+        return (family, callout.surface_finish.indicator)
+    if family == "fit" and callout.fit is not None:
+        return (family, callout.fit.basis)
+    return (family, None)
+
+
+def _gdt_control_hint_from_text(text: str) -> Optional[str]:
+    normalized = " ".join(text.strip().upper().split())
+    for symbol, control_type in _SEMANTIC_GDT_CONTROL_HINTS:
+        if symbol in text:
+            return control_type
+    for token, control_type in _SEMANTIC_GDT_WORD_HINTS:
+        if token in normalized:
+            return control_type
+    return None
+
+
+def _semantic_identity_from_text(
+    text: str,
+    *,
+    pdf_spans: Optional[List[TextSpan]] = None,
+) -> tuple[str, Optional[str]] | None:
+    semantic_identity = _semantic_identity_from_callout(
+        extract_semantic_callout(pdf_spans=pdf_spans or [], form3_requirement=None if pdf_spans else text)
+    )
+    if semantic_identity is not None:
+        return semantic_identity
+    gdt_control_hint = _gdt_control_hint_from_text(text)
+    if gdt_control_hint is not None:
+        return ("gdt", gdt_control_hint)
+    return None
+
+
+def _semantic_identities_conflict(
+    left: tuple[str, Optional[str]] | None,
+    right: tuple[str, Optional[str]] | None,
+) -> bool:
+    if left is None and right is None:
+        return False
+    if left is None or right is None:
+        return True
+    left_family, left_detail = left
+    right_family, right_detail = right
+    if left_family != right_family:
+        return True
+    if left_family == "gdt" and left_detail and right_detail and left_detail != right_detail:
+        return True
+    return False
+
+
+def _gdt_datum_refs_from_text(
+    text: str,
+    *,
+    pdf_spans: Optional[List[TextSpan]] = None,
+) -> tuple[str, ...]:
+    semantic_callout = extract_semantic_callout(
+        pdf_spans=pdf_spans or [],
+        form3_requirement=None if pdf_spans else text,
+    )
+    if semantic_callout.status.state == "parsed" and semantic_callout.gdt is not None:
+        return tuple(semantic_callout.gdt.datum_refs)
+    tokens: List[str] = []
+    source_texts = [span.text for span in pdf_spans] if pdf_spans else [text]
+    for raw_token in source_texts:
+        normalized = " ".join(raw_token.strip().upper().split())
+        if re.fullmatch(r"[A-HJ-NP-Z](?:-[A-HJ-NP-Z])?", normalized):
+            tokens.append(normalized)
+    return tuple(tokens)
 
 
 def _looks_like_adjacency_bleed(span_text: str, anchor_text: str) -> bool:
@@ -1243,6 +1356,114 @@ def detect_added_characteristics(
         '↧',  # Depth (↧ U+21A7)
         '⌖✢', # Position with projected tolerance zone
     }
+    GDT_COMPANION_CHARS = GDT_ANCHOR_SYMBOLS | {'Ø', '⌀', 'R', 'Ⓜ', 'Ⓛ', 'Ⓟ'}
+    GDT_MODIFIER_TOKENS = {"M", "L", "P", "MMC", "LMC", "RFS"}
+    ANNOTATION_ANCHOR_HINTS = (
+        ('⌖✢', 'position'),
+        ('⌖', 'position'),
+        ('⌒', 'profile_of_a_line'),
+        ('⌓', 'profile_of_a_surface'),
+        ('⟂', 'perpendicularity'),
+        ('⏥', 'flatness'),
+        ('∥', 'parallelism'),
+        ('∠', 'angularity'),
+        ('⊙', 'concentricity'),
+        ('◎', 'concentricity'),
+        ('⚪', 'circularity'),
+        ('○', 'circularity'),
+        ('↗', 'circular_runout'),
+        ('⌿', 'circular_runout'),
+        ('⌰', 'total_runout'),
+        ('⟃', 'total_runout'),
+        ('↧', 'depth'),
+        ('⌴', 'counterbore'),
+        ('⏤', 'straightness'),
+    )
+
+    def _normalize_span_text(text: str) -> str:
+        return " ".join(text.strip().upper().split())
+
+    def _span_has_numeric_payload(text: str) -> bool:
+        return bool(re.search(r"\d|[+\-±]", text))
+
+    def _is_stacked_numeric_fragment(text: str) -> bool:
+        normalized = _normalize_span_text(text)
+        return bool(re.fullmatch(r"(?:[+\-]?(?:\d+(?:\.\d+)?|\.\d+))", normalized))
+
+    def _looks_like_gdt_fragment(text: str) -> bool:
+        normalized = _normalize_span_text(text)
+        if not normalized:
+            return False
+        if any(ch in text for ch in GDT_COMPANION_CHARS):
+            return True
+        if normalized in GDT_MODIFIER_TOKENS:
+            return True
+        if re.fullmatch(r"[A-HJ-NP-Z]", normalized):
+            return True
+        return False
+
+    def _annotation_anchor_hint_from_text(text: str) -> Optional[str]:
+        for symbol, control_type in ANNOTATION_ANCHOR_HINTS:
+            if symbol in text:
+                return control_type
+        return None
+
+    def _horizontal_gap(a: TextSpan, b: TextSpan) -> float:
+        ax0, _ay0, ax1, _ay1 = a.bbox_pdf
+        bx0, _by0, bx1, _by1 = b.bbox_pdf
+        if bx0 > ax1:
+            return bx0 - ax1
+        if ax0 > bx1:
+            return ax0 - bx1
+        return 0.0
+
+    def _spans_are_annotation_companions(base: TextSpan, other: TextSpan) -> bool:
+        bx0, by0, bx1, by1 = base.bbox_pdf
+        ox0, oy0, ox1, oy1 = other.bbox_pdf
+        bcx = (bx0 + bx1) / 2
+        bcy = (by0 + by1) / 2
+        ocx = (ox0 + ox1) / 2
+        ocy = (oy0 + oy1) / 2
+        base_h = max(1.0, by1 - by0)
+        other_h = max(1.0, oy1 - oy0)
+
+        same_row = abs(ocy - bcy) <= max(10.0, 0.75 * max(base_h, other_h))
+        horiz_gap = _horizontal_gap(base, other)
+        center_dx = abs(ocx - bcx)
+        center_dy = abs(ocy - bcy)
+        pair_is_gdt = _looks_like_gdt_fragment(base.text) or _looks_like_gdt_fragment(other.text)
+        either_has_numeric_payload = _span_has_numeric_payload(base.text) or _span_has_numeric_payload(other.text)
+        base_anchor_hint = _annotation_anchor_hint_from_text(base.text)
+        other_anchor_hint = _annotation_anchor_hint_from_text(other.text)
+        incompatible_anchor_pair = (
+            base_anchor_hint is not None
+            and other_anchor_hint is not None
+            and base_anchor_hint != other_anchor_hint
+        )
+
+        close_horiz_limit = 28.0 if pair_is_gdt else 20.0
+        center_dx_limit = 32.0 if pair_is_gdt else 28.0
+        stacked_dx_limit = 18.0 if pair_is_gdt else 14.0
+        stacked_dy_limit = 18.0 if pair_is_gdt else 14.0
+
+        if same_row and (horiz_gap <= close_horiz_limit or center_dx <= center_dx_limit):
+            if incompatible_anchor_pair:
+                return False
+            if pair_is_gdt or either_has_numeric_payload:
+                return True
+
+        if (
+            abs(ocx - bcx) <= stacked_dx_limit
+            and 0.0 < center_dy <= stacked_dy_limit
+            and (pair_is_gdt or either_has_numeric_payload)
+        ):
+            if incompatible_anchor_pair:
+                return False
+            if base_anchor_hint or other_anchor_hint:
+                return base_anchor_hint is not None and base_anchor_hint == other_anchor_hint
+            return _is_stacked_numeric_fragment(base.text) and _is_stacked_numeric_fragment(other.text)
+
+        return False
 
     # Collect unmatched candidate spans (filtered for drawing content area)
     unmatched_spans: List[TextSpan] = []
@@ -1342,36 +1563,26 @@ def detect_added_characteristics(
             gdt_consumed_keys.add(key)
             continue
 
-        x0, y0, x1, y1 = span.bbox_pdf
-        sy_center = (y0 + y1) / 2
-
-        # Collect companion spans on the same row (within 10 pt vertically,
-        # within 300 pt horizontally).
-        # Search ALL revB_spans (not just unmatched_spans) so that tolerance values
-        # and datum references that were already consumed by the main matching phase
-        # are still included in the FCF text.  Only unmatched companions are added
-        # to gdt_consumed_keys (to prevent Pass 1/2 from re-detecting them); matched
-        # companions are included for text purposes only.
         group_spans = [span]
         group_keys = [key]
-        # Traverse all revB_spans (not just unmatched_spans) for companion text so that
-        # tolerance values and datum refs already consumed by the main match phase are
-        # still included in the FCF group text.
-        for other in revB_spans:
-            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
-            if other_key == key or other_key in gdt_consumed_keys:
-                continue
-            ox0, oy0, ox1, oy1 = other.bbox_pdf
-            oy_center = (oy0 + oy1) / 2
-            if abs(oy_center - sy_center) > 10.0:
-                continue
-            # Must be horizontally close (within 300 pt)
-            if ox0 > x1 + 300.0 or ox1 < x0 - 300.0:
-                continue
-            group_spans.append(other)
-            # Only mark unmatched spans as consumed; matched spans remain available
-            if other_key not in matched_span_keys:
-                group_keys.append(other_key)
+        seen_group_keys = {key}
+        queue: List[TextSpan] = [span]
+        # Walk local companion geometry to a fixed point so the FCF keeps its
+        # own modifier/datum fragments without absorbing distant same-row content.
+        while queue:
+            current = queue.pop(0)
+            for other in revB_spans:
+                other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+                if other_key in seen_group_keys or other_key in gdt_consumed_keys:
+                    continue
+                if not _spans_are_annotation_companions(current, other):
+                    continue
+                group_spans.append(other)
+                seen_group_keys.add(other_key)
+                queue.append(other)
+                # Only mark unmatched spans as consumed; matched spans remain available
+                if other_key not in matched_span_keys:
+                    group_keys.append(other_key)
 
         # Sort group spans left-to-right and concatenate text
         group_spans.sort(key=lambda s: s.bbox_pdf[0])
@@ -1568,44 +1779,37 @@ def detect_added_characteristics(
     ) -> Tuple[str, Tuple[float, float, float, float], List[TextSpan]]:
         """Group companion spans for a standard added seed span.
 
-        Search all revB_spans for spans on the same visual row (within 10 pt
-        vertically) that are horizontally close (within 200 pt) to the seed span.
-        Exclude spans already consumed by GD&T or stacked-pair detection.
-        Exclude spans already matched to existing Rev A characteristics.
+        Walk local geometric companions to a fixed point so nearby fragments stay
+        together without sweeping in distant same-row annotations.
 
         Returns:
             (grouped_text, union_bbox, all_companion_spans_including_seed)
         """
-        sx0, sy0, sx1, sy1 = seed.bbox_pdf
-        sy_center = (sy0 + sy1) / 2
         seed_key = (seed.block_id, seed.line_id, seed.span_id, seed.bbox_pdf)
 
         group_spans = [seed]
-        companion_keys: Set[Tuple] = {seed_key}
+        seen_group_keys: Set[Tuple] = {seed_key}
+        queue: List[TextSpan] = [seed]
 
-        for other in revB_spans:
-            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
-            if other_key == seed_key or other_key in consumed_keys:
-                continue
-            # Only group unmatched companions; matched spans may be included for
-            # text purposes but should not be re-consumed
-            if other_key in matched_span_keys:
-                continue
-            ox0, oy0, ox1, oy1 = other.bbox_pdf
-            oy_center = (oy0 + oy1) / 2
-            # Same row: vertical centre within 10 pt
-            if abs(oy_center - sy_center) > 10.0:
-                continue
-            # Horizontally close: within 200 pt of the seed span extents
-            if ox0 > sx1 + 200.0 or ox1 < sx0 - 200.0:
-                continue
-            # Skip boilerplate companions
-            if span_is_excluded_for_annotation_search(
-                other, page_width=page_width, page_height=page_height
-            ):
-                continue
-            group_spans.append(other)
-            companion_keys.add(other_key)
+        while queue:
+            current = queue.pop(0)
+            for other in revB_spans:
+                other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+                if other_key in seen_group_keys or other_key in consumed_keys:
+                    continue
+                # Only group unmatched companions; matched spans may be included for
+                # text purposes but should not be re-consumed
+                if other_key in matched_span_keys:
+                    continue
+                if span_is_excluded_for_annotation_search(
+                    other, page_width=page_width, page_height=page_height
+                ):
+                    continue
+                if not _spans_are_annotation_companions(current, other):
+                    continue
+                group_spans.append(other)
+                seen_group_keys.add(other_key)
+                queue.append(other)
 
         # Sort left-to-right
         group_spans.sort(key=lambda s: s.bbox_pdf[0])
@@ -1633,7 +1837,7 @@ def detect_added_characteristics(
     # Prevents the same callout from generating multiple added items when the seed
     # span for a group is encountered multiple times (e.g., companion spans that
     # are individually dimension-like).
-    seen_grouped_evidence: Set[str] = set()
+    seen_grouped_evidence: Set[Tuple[str, Tuple[int, int, int, int]]] = set()
 
     # --- Pass 2: standard span-by-span detection ---
     for span in unmatched_spans:
@@ -1756,7 +1960,8 @@ def detect_added_characteristics(
         # Deduplicate by grouped evidence identity: if the same grouped callout
         # (same text + same bounding region) was already emitted from a companion
         # span in an earlier iteration, skip this seed.
-        _evidence_key = grouped_text.strip()
+        _rounded_group_bbox = tuple(int(round(v)) for v in grouped_union_bbox)
+        _evidence_key = (grouped_text.strip(), _rounded_group_bbox)
         if _evidence_key in seen_grouped_evidence:
             # Mark this span consumed so it doesn't generate a duplicate
             standard_consumed_keys.add(key)
@@ -2034,6 +2239,8 @@ def reconcile_removed_added_pairs(
         anchor = anchor_by_char_no.get(removed.char_no)
         if anchor is None:
             continue
+        removed_semantic_identity = _semantic_identity_from_text(anchor.requirement_raw)
+        removed_gdt_datums = _gdt_datum_refs_from_text(anchor.requirement_raw)
 
         # Removed-side centroid: req_bbox preferred, balloon_bbox fallback
         if anchor.req_bbox is not None:
@@ -2065,6 +2272,38 @@ def reconcile_removed_added_pairs(
             added_text = getattr(added, "added_requirement_text", None) or (added.added_span.text if added.added_span else "")
             added_type = classify_requirement_type(added_text)
             if are_requirement_types_incompatible(removed_type, added_type):
+                continue
+            added_semantic_identity = _semantic_identity_from_text(
+                added_text,
+                pdf_spans=getattr(added.added_span, "source_spans", None),
+            )
+            if _semantic_identities_conflict(removed_semantic_identity, added_semantic_identity):
+                continue
+            added_gdt_datums = _gdt_datum_refs_from_text(
+                added_text,
+                pdf_spans=getattr(added.added_span, "source_spans", None),
+            )
+            if (
+                removed_semantic_identity is not None
+                and removed_semantic_identity[0] == "gdt"
+                and removed_gdt_datums
+                and added_gdt_datums
+                and removed_gdt_datums != added_gdt_datums
+            ):
+                continue
+            removed_fp = parse_requirement(anchor.requirement_raw)
+            added_fp = parse_requirement(added_text)
+            removed_numerics = {value for value, _ in removed_fp.numeric_tokens}
+            added_numerics = {value for value, _ in added_fp.numeric_tokens}
+            removed_primary = max(removed_numerics) if removed_numerics else None
+            added_primary = max(added_numerics) if added_numerics else None
+            if (
+                removed_primary is not None
+                and added_primary is not None
+                and removed_primary != 0
+                and removed_primary != added_primary
+                and abs(removed_primary - added_primary) / abs(removed_primary) > 0.15
+            ):
                 continue
             # Closest-wins
             if dist < best_dist:

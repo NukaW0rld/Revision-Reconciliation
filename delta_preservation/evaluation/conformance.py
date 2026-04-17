@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -29,6 +30,7 @@ ADDED_POOL_TOKEN_PREFIX = "added"
 # 72 pt ≈ 1 inch; 100 pt provides a comfortable region without risking
 # cross-cluster confusion on typical aerospace drawings.
 ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT: float = 100.0
+_CONTROL_SPACING_RE = re.compile(r"([⌖◎⌓⌰⚪⏥⟂↧∅Ø])\s+(?=[∅Ø.\d])")
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +98,14 @@ def _normalize_requirement_text(requirement: str | None) -> str | None:
     if not cleaned:
         return None
 
-    return parse_requirement(cleaned).norm_text
+    normalized = parse_requirement(cleaned).norm_text
+    semantic_callout = extract_semantic_callout(pdf_spans=[], form3_requirement=cleaned)
+    if semantic_callout is not None and semantic_callout.normalized_text:
+        normalized = semantic_callout.normalized_text
+
+    # Added-row truth selection should not fail solely because one source
+    # inserts harmless spacing between a control symbol and its tolerance token.
+    return _CONTROL_SPACING_RE.sub(r"\1", normalized)
 
 
 def _truth_match_token(truth_row: GroundTruthCharacteristic, truth_index: int) -> int | str | None:

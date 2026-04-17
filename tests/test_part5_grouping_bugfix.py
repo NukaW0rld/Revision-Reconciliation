@@ -336,6 +336,59 @@ def test_assign_matches_prefers_same_source_owner_with_real_primary_signal_over_
     assert 3 not in matches
 
 
+def test_assign_matches_rejects_explicit_gdt_control_mismatch_despite_numeric_overlap():
+    circularity_anchor = _anchor("Circularity 0.002", char_no=5, x0=120.0, y0=120.0)
+    runout_span = _span(".002 A ⌰", block_id=92, line_id=0, span_id=0, x0=122.0, y0=122.0, width=24.0)
+
+    misleading_candidate = Candidate(
+        span=runout_span,
+        total_score=0.33,
+        location_score=0.82,
+        text_score=0.28,
+        context_score=0.0,
+        reasons=["matched: numerics: 100%, primary=0.002"],
+        source_span_keys=[_span_key(runout_span)],
+    )
+
+    matches = assign_matches(
+        [circularity_anchor],
+        {
+            5: [misleading_candidate],
+        },
+    )
+
+    assert 5 not in matches, (
+        "Expected explicit GD&T control mismatch (circularity vs total runout) to reject the weak match "
+        "even when numeric overlap is perfect"
+    )
+
+
+def test_assign_matches_rejects_position_row_with_conflicting_datum_set():
+    position_anchor = _anchor("⌖∅.015CAB", char_no=2, x0=140.0, y0=140.0)
+    wrong_position = _span(".015 D H ⌖∅", block_id=93, line_id=0, span_id=0, x0=144.0, y0=144.0, width=28.0)
+
+    misleading_candidate = Candidate(
+        span=wrong_position,
+        total_score=0.49,
+        location_score=0.61,
+        text_score=0.55,
+        context_score=0.0,
+        reasons=["matched: numerics: 100%, primary=0.015"],
+        source_span_keys=[_span_key(wrong_position)],
+    )
+
+    matches = assign_matches(
+        [position_anchor],
+        {
+            2: [misleading_candidate],
+        },
+    )
+
+    assert 2 not in matches, (
+        "Expected a position-row candidate with datum refs D/H to be rejected for anchor datum refs C/A/B"
+    )
+
+
 
 def test_shared_span_fallback_keeps_non_numeric_thru_all_companion_attached_to_used_callout():
     numeric_anchor = _anchor("Ø8", char_no=12, x0=50.0, y0=50.0)
@@ -459,4 +512,3 @@ def test_refine_match_display_text_picks_matching_gdt_fcf_when_group_contains_mu
     refine_match_display_text([anchor], {anchor.char_no: match})
 
     assert match.candidate.span.text == "⌓ 0.2 D"
-

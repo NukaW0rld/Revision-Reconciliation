@@ -577,6 +577,54 @@ class TestRemovedAddedReconciliation:
             "Type-incompatible removed item must stay 'removed'"
         )
 
+    def test_close_plain_diameter_pair_with_large_primary_mismatch_stays_separate(self):
+        """A close plain-diameter added row cannot reconcile when the primary values diverge heavily."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(31, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø.750")
+        added = self._added_item(
+            232,
+            added_bbox=(55.0, 51.0, 75.0, 59.0),
+            added_page=0,
+            requirement_raw="Ø.250 ±.008",
+            added_requirement_text="Ø.250 ±.008",
+        )
+        anchor = self._anchor_for(31, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="Ø.750", page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        removed_items = [r for r in result if r.char_no == 31]
+        added_items = [r for r in result if r.char_no == 232]
+        assert removed_items and removed_items[0].status == "removed", (
+            "Large primary-value mismatch should block close removed+added reconciliation"
+        )
+        assert added_items and added_items[0].status == "added", (
+            "The incompatible added diameter row must remain available as added"
+        )
+
+    def test_close_gdt_pair_with_conflicting_datum_sets_stays_separate(self):
+        """A nearby GD&T added row with the wrong datum set cannot reconcile into a removed anchor."""
+        from delta_preservation.reconcile.classify import reconcile_removed_added_pairs
+
+        removed = self._removed_item(32, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="⌖∅.015CAB")
+        added = self._added_item(
+            233,
+            added_bbox=(55.0, 51.0, 75.0, 59.0),
+            added_page=0,
+            requirement_raw="⌖∅ .015 D H",
+            added_requirement_text="⌖∅ .015 D H",
+        )
+        anchor = self._anchor_for(32, req_bbox=(50.0, 50.0, 70.0, 58.0), requirement_raw="⌖∅.015CAB", page=0)
+
+        result = reconcile_removed_added_pairs([removed, added], [anchor])
+        removed_items = [r for r in result if r.char_no == 32]
+        added_items = [r for r in result if r.char_no == 233]
+        assert removed_items and removed_items[0].status == "removed", (
+            "Datum-set mismatch should block close GD&T removed+added reconciliation"
+        )
+        assert added_items and added_items[0].status == "added", (
+            "The conflicting GD&T added row must remain available as added"
+        )
+
     # ------------------------------------------------------------------
     # Test 4: req_bbox=None uses balloon_bbox fallback
     # ------------------------------------------------------------------
