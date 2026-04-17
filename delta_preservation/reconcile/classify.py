@@ -1739,12 +1739,14 @@ def reconcile_removed_added_pairs(
     anchor_by_char_no: Dict[int, Anchor] = {a.char_no: a for a in anchors}
 
     # Partition items
+    # Use getattr with None fallback to tolerate legacy/fake DeltaItem objects
+    # (e.g., _FakeInternalDeltaItem in tests) that pre-date the CLS-02 metadata fields.
     removed_items = [it for it in items if it.status == "removed"]
     added_candidates = [
         it for it in items
         if it.status == "added"
-        and it.added_bbox is not None
-        and it.added_page is not None
+        and getattr(it, "added_bbox", None) is not None
+        and getattr(it, "added_page", None) is not None
     ]
 
     consumed_added_char_nos: set = set()
@@ -1771,17 +1773,17 @@ def reconcile_removed_added_pairs(
             if added.char_no in consumed_added_char_nos:
                 continue
             # Page gate
-            if added.added_page != anchor.page:
+            if getattr(added, "added_page", None) != anchor.page:
                 continue
             # Distance gate
-            ax0, ay0, ax1, ay1 = added.added_bbox
+            ax0, ay0, ax1, ay1 = getattr(added, "added_bbox")
             added_cx = (ax0 + ax1) / 2.0
             added_cy = (ay0 + ay1) / 2.0
             dist = math.sqrt((removed_cx - added_cx) ** 2 + (removed_cy - added_cy) ** 2)
             if dist > CLS02_MAX_DISTANCE_PT:
                 continue
             # Type gate
-            added_text = added.added_requirement_text or (added.added_span.text if added.added_span else "")
+            added_text = getattr(added, "added_requirement_text", None) or (added.added_span.text if added.added_span else "")
             added_type = classify_requirement_type(added_text)
             if are_requirement_types_incompatible(removed_type, added_type):
                 continue
