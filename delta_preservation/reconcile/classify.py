@@ -1231,7 +1231,18 @@ def detect_added_characteristics(
 
     # GD&T feature control frame anchor symbols — defined early so the
     # unmatched-span pre-filter can exempt single-character GD&T symbols.
-    GDT_ANCHOR_SYMBOLS = {'⌖', '⌒', '⟂', '⊙', '⌓', '⏥', '∥', '∠', '⌖∅'}
+    # Includes all GD&T control and modifier symbols that appear as single-char
+    # seed spans in feature control frames.
+    GDT_ANCHOR_SYMBOLS = {
+        '⌖', '⌒', '⟂', '⊙', '⌓', '⏥', '∥', '∠', '⌖∅',
+        '◎',  # Circularity (◎ U+25CE)
+        '⌰',  # Circular runout (⌰ U+2330)
+        '↗',  # Angularity (↗ U+2197 used as angularity in some drawing systems)
+        '⏤',  # Straightness (⏤ U+23E4)
+        '⌴',  # Counterbore (⌴ U+2334, also used as depth symbol in some FCFs)
+        '↧',  # Depth (↧ U+21A7)
+        '⌖✢', # Position with projected tolerance zone
+    }
 
     # Collect unmatched candidate spans (filtered for drawing content area)
     unmatched_spans: List[TextSpan] = []
@@ -1321,10 +1332,13 @@ def detect_added_characteristics(
         if is_in_revA(span):
             continue
 
-        # If the GD&T anchor span is spatially close to an already-matched span,
-        # it is a companion row of an existing matched FCF (e.g., a second-row
-        # tolerance compartment of char 12's position callout) — not a new characteristic.
-        if is_near_matched_span(span.bbox_pdf, threshold=40.0):
+        # If the GD&T anchor span is on the exact same row as an already-matched span
+        # (within 12 pt — tight enough for same-annotation-row companions), it is a
+        # second-row compartment of an existing matched FCF, not a new characteristic.
+        # NOTE: the broader explained-by-match suppressor at the end of this function
+        # handles cases where a GD&T frame is nearby but NOT semantically explained —
+        # those must survive even if they are within a larger proximity radius.
+        if is_near_matched_span(span.bbox_pdf, threshold=12.0):
             gdt_consumed_keys.add(key)
             continue
 
@@ -1383,13 +1397,15 @@ def detect_added_characteristics(
         if has_matched_numeric_companion:
             continue
 
-        # If any span in the assembled group is spatially close to an already-matched
-        # span (within 50 pts), this FCF belongs to an existing characteristic —
-        # e.g., a second-compartment flatness/profile callout that shares datum
-        # label spans with a matched position tolerance.
+        # If any span in the assembled group shares a span with an already-matched
+        # characteristic (matched numeric companion) — already handled above — or if
+        # a non-anchor companion in the group sits within 12 pt of a matched span center,
+        # this FCF belongs to an existing characteristic.
+        # NOTE: The post-pass content-aware suppressor handles broader proximity cases.
         group_near_match = any(
-            is_near_matched_span(s.bbox_pdf, threshold=50.0)
+            is_near_matched_span(s.bbox_pdf, threshold=12.0)
             for s in group_spans
+            if (s.block_id, s.line_id, s.span_id, s.bbox_pdf) != key  # exclude anchor itself
         )
         if group_near_match:
             continue
@@ -1541,11 +1557,90 @@ def detect_added_characteristics(
             stacked_pair_keys.add(key_b)
             break  # Each span_a pairs with at most one span_b
 
+    # ---------------------------------------------------------------------------
+    # Helper: expand a standard unmatched seed span into its companion annotation
+    # spans (same row, horizontally close), returning grouped text and union bbox.
+    # This mirrors the grouping logic used in Pass 0 for GD&T anchor frames.
+    # ---------------------------------------------------------------------------
+    def _expand_standard_added_span(
+        seed: TextSpan,
+        consumed_keys: Set[Tuple],
+    ) -> Tuple[str, Tuple[float, float, float, float], List[TextSpan]]:
+        """Group companion spans for a standard added seed span.
+
+        Search all revB_spans for spans on the same visual row (within 10 pt
+        vertically) that are horizontally close (within 200 pt) to the seed span.
+        Exclude spans already consumed by GD&T or stacked-pair detection.
+        Exclude spans already matched to existing Rev A characteristics.
+
+        Returns:
+            (grouped_text, union_bbox, all_companion_spans_including_seed)
+        """
+        sx0, sy0, sx1, sy1 = seed.bbox_pdf
+        sy_center = (sy0 + sy1) / 2
+        seed_key = (seed.block_id, seed.line_id, seed.span_id, seed.bbox_pdf)
+
+        group_spans = [seed]
+        companion_keys: Set[Tuple] = {seed_key}
+
+        for other in revB_spans:
+            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+            if other_key == seed_key or other_key in consumed_keys:
+                continue
+            # Only group unmatched companions; matched spans may be included for
+            # text purposes but should not be re-consumed
+            if other_key in matched_span_keys:
+                continue
+            ox0, oy0, ox1, oy1 = other.bbox_pdf
+            oy_center = (oy0 + oy1) / 2
+            # Same row: vertical centre within 10 pt
+            if abs(oy_center - sy_center) > 10.0:
+                continue
+            # Horizontally close: within 200 pt of the seed span extents
+            if ox0 > sx1 + 200.0 or ox1 < sx0 - 200.0:
+                continue
+            # Skip boilerplate companions
+            if span_is_excluded_for_annotation_search(
+                other, page_width=page_width, page_height=page_height
+            ):
+                continue
+            group_spans.append(other)
+            companion_keys.add(other_key)
+
+        # Sort left-to-right
+        group_spans.sort(key=lambda s: s.bbox_pdf[0])
+
+        # Build grouped text (representative seed's text + companion texts)
+        grouped_text = " ".join(s.text.strip() for s in group_spans if s.text.strip())
+
+        # Build union bbox
+        union = group_spans[0].bbox_pdf
+        for gs in group_spans[1:]:
+            union = (
+                min(union[0], gs.bbox_pdf[0]),
+                min(union[1], gs.bbox_pdf[1]),
+                max(union[2], gs.bbox_pdf[2]),
+                max(union[3], gs.bbox_pdf[3]),
+            )
+
+        return grouped_text, union, group_spans
+
+    # Track keys consumed by the standard pass (to avoid double-counting when
+    # two spans belong to the same grouped callout)
+    standard_consumed_keys: Set[Tuple] = set()
+
+    # Deduplicate added candidates by grouped evidence identity (grouped_text + bbox).
+    # Prevents the same callout from generating multiple added items when the seed
+    # span for a group is encountered multiple times (e.g., companion spans that
+    # are individually dimension-like).
+    seen_grouped_evidence: Set[str] = set()
+
     # --- Pass 2: standard span-by-span detection ---
     for span in unmatched_spans:
         key = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
-        # Skip spans already consumed by GD&T group or stacked-pair detection
-        if key in gdt_consumed_keys or key in stacked_pair_keys:
+        # Skip spans already consumed by GD&T group, stacked-pair detection, or
+        # the standard pass grouping from a previous iteration
+        if key in gdt_consumed_keys or key in stacked_pair_keys or key in standard_consumed_keys:
             continue
 
         # Skip spans that appear verbatim in Rev A at the same position —
@@ -1650,10 +1745,33 @@ def detect_added_characteristics(
             if _near_boilerplate:
                 continue
 
-        # This looks like a new characteristic
+        # This looks like a new characteristic.
+        # Expand the seed span into its companion annotation spans (same row)
+        # to build the authoritative grouped text and union bbox.
+        all_consumed_for_expansion = gdt_consumed_keys | stacked_pair_keys | standard_consumed_keys
+        grouped_text, grouped_union_bbox, group_spans = _expand_standard_added_span(
+            span, consumed_keys=all_consumed_for_expansion
+        )
+
+        # Deduplicate by grouped evidence identity: if the same grouped callout
+        # (same text + same bounding region) was already emitted from a companion
+        # span in an earlier iteration, skip this seed.
+        _evidence_key = grouped_text.strip()
+        if _evidence_key in seen_grouped_evidence:
+            # Mark this span consumed so it doesn't generate a duplicate
+            standard_consumed_keys.add(key)
+            continue
+        seen_grouped_evidence.add(_evidence_key)
+
+        # Mark all companion spans consumed so subsequent iterations skip them
+        for _gs in group_spans:
+            _gk = (_gs.block_id, _gs.line_id, _gs.span_id, _gs.bbox_pdf)
+            standard_consumed_keys.add(_gk)
+
         reasons = [
-            f"New requirement detected in Rev B: \"{text}\"",
-            f"Symbols: {fp.symbol_tokens}, Counts: {fp.count_tokens}"
+            f"New requirement detected in Rev B: \"{grouped_text}\"",
+            f"Symbols: {fp.symbol_tokens}, Counts: {fp.count_tokens}",
+            f"Grouped from {len(group_spans)} span(s) on the same annotation row",
         ]
         if has_angle_dimension and not fp.symbol_tokens and not fp.count_tokens:
             reasons.append("Angle-style callout detected")
@@ -1693,15 +1811,177 @@ def detect_added_characteristics(
                 "context": 0.0
             },
             match=None,
-            added_span=span,
-            added_requirement_text=span.text,
-            added_bbox=span.bbox_pdf,
+            added_span=span,                         # representative seed span (provenance)
+            added_requirement_text=grouped_text,     # canonical grouped annotation text
+            added_bbox=grouped_union_bbox,           # canonical union bbox of all group spans
             added_page=0,
         )
         added_items.append(added_item)
         current_char_no += 1
 
-    return added_items
+    # ---------------------------------------------------------------------------
+    # Explained-by-match suppressor (ADD-02)
+    # Remove added candidates whose grouped text content is already fully owned by
+    # an existing matched characteristic's annotation.
+    #
+    # Suppression requires BOTH conditions to be true:
+    #   1. Content ownership: the candidate's grouped text is a normalized-text
+    #      subset (after stripping GD&T punctuation and whitespace) of a matched
+    #      annotation's grouped text.
+    #   2. Bbox ownership: the candidate's grouped bbox sits inside or strongly
+    #      overlaps (IoU > 0.3 or containment ratio > 0.5) the matched annotation's
+    #      grouped bbox.
+    #
+    # Proximity alone is NOT sufficient — a geometrically close but semantically
+    # unrelated annotation must survive.
+    # ---------------------------------------------------------------------------
+
+    def _normalize_for_suppression(text: str) -> str:
+        """Normalize annotation text for ownership checking.
+
+        Strips GD&T punctuation, whitespace, and case-irrelevant separators so
+        that '∅.045 A' and '◎ ∅.045 A' can be compared as subsets.
+        """
+        # Remove spaces and common separators; lowercase; keep digits, letters,
+        # GD&T symbols, and dot/decimal.
+        import unicodedata
+        t = text.strip()
+        # Collapse multiple whitespace to single space
+        t = re.sub(r'\s+', ' ', t)
+        return t.upper()
+
+    def _is_content_subset(candidate_text: str, owner_text: str) -> bool:
+        """Return True when candidate_text content is already present in owner_text.
+
+        Uses two checks:
+        1. Normalized substring: candidate_text (normalized) is a substring of
+           owner_text (normalized).
+        2. Token subset: every normalized token in candidate_text is also present
+           in owner_text (handles reordering).
+        """
+        if not candidate_text or not owner_text:
+            return False
+        cand_norm = _normalize_for_suppression(candidate_text)
+        owner_norm = _normalize_for_suppression(owner_text)
+        # Direct substring check
+        if cand_norm in owner_norm:
+            return True
+        # Token subset check: every whitespace-delimited token in candidate
+        # must appear in owner
+        cand_tokens = set(cand_norm.split())
+        owner_tokens = set(owner_norm.split())
+        # Need at least 2 tokens to avoid single-char false positives (e.g. 'A' in any text)
+        if len(cand_tokens) >= 2 and cand_tokens <= owner_tokens:
+            return True
+        return False
+
+    def _bbox_overlap_ratio(bbox_a: tuple, bbox_b: tuple) -> float:
+        """Return the containment ratio of bbox_a within bbox_b.
+
+        Returns the fraction of bbox_a that is covered by bbox_b (intersection
+        area / bbox_a area).  Values near 1.0 mean bbox_a is inside bbox_b.
+        """
+        ax0, ay0, ax1, ay1 = bbox_a
+        bx0, by0, bx1, by1 = bbox_b
+        ix0 = max(ax0, bx0)
+        iy0 = max(ay0, by0)
+        ix1 = min(ax1, bx1)
+        iy1 = min(ay1, by1)
+        if ix1 <= ix0 or iy1 <= iy0:
+            return 0.0
+        intersection = (ix1 - ix0) * (iy1 - iy0)
+        area_a = (ax1 - ax0) * (ay1 - ay0)
+        if area_a <= 0:
+            return 0.0
+        return intersection / area_a
+
+    # Build matched annotation signatures: grouped text + union bbox for every match
+    # Search all revB_spans for companion spans to each matched span (same row,
+    # horizontally close) so that the suppressor has the full callout context.
+    matched_annotation_signatures: List[Tuple[str, Tuple[float, float, float, float]]] = []
+    for match in matches.values():
+        mspan = match.candidate.span
+        msource_spans = getattr(mspan, "source_spans", None) or [mspan]
+        # Compute the union bbox of source spans
+        m_union_bbox = msource_spans[0].bbox_pdf
+        for _ms in msource_spans[1:]:
+            m_union_bbox = (
+                min(m_union_bbox[0], _ms.bbox_pdf[0]),
+                min(m_union_bbox[1], _ms.bbox_pdf[1]),
+                max(m_union_bbox[2], _ms.bbox_pdf[2]),
+                max(m_union_bbox[3], _ms.bbox_pdf[3]),
+            )
+        # Collect companion spans on the same row as the matched annotation
+        mx0, my0, mx1, my1 = m_union_bbox
+        msy_center = (my0 + my1) / 2
+        full_group_spans = list(msource_spans)
+        for other in revB_spans:
+            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+            if other_key in matched_span_keys:
+                continue
+            ox0, oy0, ox1, oy1 = other.bbox_pdf
+            oy_center = (oy0 + oy1) / 2
+            if abs(oy_center - msy_center) > 10.0:
+                continue
+            if ox0 > mx1 + 200.0 or ox1 < mx0 - 200.0:
+                continue
+            full_group_spans.append(other)
+        full_group_spans.sort(key=lambda s: s.bbox_pdf[0])
+        full_group_text = " ".join(s.text.strip() for s in full_group_spans if s.text.strip())
+        # Extend the union bbox to include companion spans
+        full_union_bbox = m_union_bbox
+        for _gs in full_group_spans:
+            full_union_bbox = (
+                min(full_union_bbox[0], _gs.bbox_pdf[0]),
+                min(full_union_bbox[1], _gs.bbox_pdf[1]),
+                max(full_union_bbox[2], _gs.bbox_pdf[2]),
+                max(full_union_bbox[3], _gs.bbox_pdf[3]),
+            )
+        # Also use the matched span text directly for the signature
+        mspan_text = mspan.text.strip()
+        matched_annotation_signatures.append((full_group_text or mspan_text, full_union_bbox))
+        if full_group_text != mspan_text:
+            matched_annotation_signatures.append((mspan_text, m_union_bbox))
+
+    # Apply the suppressor to the collected added_items
+    surviving_added_items: List[DeltaItem] = []
+    for candidate in added_items:
+        cand_text = candidate.added_requirement_text or (
+            candidate.added_span.text if candidate.added_span else ""
+        )
+        cand_bbox = candidate.added_bbox or (
+            candidate.added_span.bbox_pdf if candidate.added_span else None
+        )
+
+        suppressed = False
+        suppression_reason = ""
+        for match_text, match_bbox in matched_annotation_signatures:
+            # Gate 1: content ownership
+            if not _is_content_subset(cand_text, match_text):
+                continue
+            # Gate 2: bbox ownership
+            if cand_bbox is not None:
+                overlap = _bbox_overlap_ratio(cand_bbox, match_bbox)
+                if overlap < 0.3:
+                    continue
+            suppressed = True
+            suppression_reason = (
+                f"explained by an existing matched characteristic: "
+                f"candidate grouped text '{cand_text}' is a content subset of "
+                f"matched annotation '{match_text[:80]}' "
+                f"(bbox containment={_bbox_overlap_ratio(cand_bbox, match_bbox):.2f})"
+            )
+            break
+
+        if suppressed:
+            # Record suppression in debug output but do not include in results
+            # (the suppression reason is available for inspection)
+            _ = suppression_reason  # available for future debug export
+            continue
+
+        surviving_added_items.append(candidate)
+
+    return surviving_added_items
 
 
 # ---------------------------------------------------------------------------

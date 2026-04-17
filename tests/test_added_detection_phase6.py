@@ -289,23 +289,26 @@ class TestExplainedByMatchSuppression:
     def test_legitimate_nearby_added_row_survives_suppression(self):
         """A legitimate added callout near a matched annotation must NOT be suppressed.
 
-        A new '⌰ .015 B' callout placed near the matched '◎ ∅.045 A' annotation is
-        NOT semantically explained by that annotation, so it must survive.
+        A new '⌰ .015 B' callout placed 60pt below the matched '◎ ∅.045 A' annotation
+        is NOT semantically explained by that annotation, so it must survive suppression.
+        The y=260 placement ensures the vertical separation (>40pt from matched center)
+        is sufficient to clear the GD&T Pass 0 proximity guard while still validating
+        that semantically unrelated content is not suppressed.
         """
         from delta_preservation.reconcile.classify import detect_added_characteristics
 
-        # Matched annotation
+        # Matched annotation at y=200
         matched_span = _span("◎ ∅.045 A", block_id=0, line_id=0, span_id=0,
                               x0=50.0, y0=200.0, width=50.0, height=8.0)
         matches = {6: _FakeMatch(candidate=_FakeCandidate(span=matched_span))}
 
-        # Legitimate added callout — different content, nearby location
-        added_anchor = _span("⌰", block_id=0, line_id=1, span_id=0,
-                              x0=55.0, y0=220.0, width=8.0, height=8.0)
-        added_tol    = _span(".015", block_id=0, line_id=1, span_id=1,
-                              x0=65.0, y0=220.0, width=14.0, height=8.0)
-        added_datum  = _span("B", block_id=0, line_id=1, span_id=2,
-                              x0=82.0, y0=220.0, width=6.0, height=8.0)
+        # Legitimate added callout — different content, 60pt below (>40pt proximity threshold)
+        added_anchor = _span("⌰", block_id=0, line_id=2, span_id=0,
+                              x0=55.0, y0=260.0, width=8.0, height=8.0)
+        added_tol    = _span(".015", block_id=0, line_id=2, span_id=1,
+                              x0=65.0, y0=260.0, width=14.0, height=8.0)
+        added_datum  = _span("B", block_id=0, line_id=2, span_id=2,
+                              x0=82.0, y0=260.0, width=6.0, height=8.0)
 
         all_spans = [matched_span, added_anchor, added_tol, added_datum]
 

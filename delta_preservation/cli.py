@@ -689,9 +689,14 @@ def run_pipeline(
 
         elif delta_internal.added_span is not None:
             span = delta_internal.added_span
-            base_bbox_b = span.bbox_pdf
+            # Use added_bbox (grouped union) as the base when available;
+            # fall back to the seed span bbox for legacy items without grouped evidence.
+            _added_bbox = getattr(delta_internal, "added_bbox", None)
+            base_bbox_b = _added_bbox if _added_bbox is not None else span.bbox_pdf
 
-            # Expand for added items too
+            # Expand for added items too — start from the grouped union bbox so that
+            # the coverage expansion captures any additional context around the full
+            # callout, not just around the seed span.
             expanded = expand_bbox_with_adjacent_spans(
                 center_bbox=base_bbox_b,
                 all_spans=revB_text_spans,
@@ -826,20 +831,50 @@ def run_pipeline(
         # the ⌴ counterbore symbol beside "Ø13.5", or a stacked tolerance suffix).
         # Sort left-to-right so the text reads in natural drawing order.
         requirement_revB = None
-        if revB_annotation_spans:
-            requirement_revB = _format_annotation_text(
-                revB_annotation_spans,
-                fallback_text=(delta_internal.match.candidate.span.text if delta_internal.match is not None else None),
-            )
-        if requirement_revB is None:
-            if delta_internal.match is not None:
-                requirement_revB = delta_internal.match.candidate.span.text
+        if delta_internal.status == "added":
+            # For added rows, use delta_internal.added_requirement_text (the canonical
+            # grouped callout text built by detect_added_characteristics) when available.
+            # Fall back to span-expansion text only for legacy items that predate the
+            # grouped contract (backward-compatible getattr with None default).
+            if getattr(delta_internal, "added_requirement_text", None):
+                requirement_revB = delta_internal.added_requirement_text
+            elif revB_annotation_spans:
+                requirement_revB = _format_annotation_text(
+                    revB_annotation_spans,
+                    fallback_text=(delta_internal.added_span.text if delta_internal.added_span is not None else None),
+                )
             elif delta_internal.added_span is not None:
-                requirement_revB = _format_annotation_text([delta_internal.added_span], fallback_text=delta_internal.added_span.text)
+                requirement_revB = _format_annotation_text(
+                    [delta_internal.added_span], fallback_text=delta_internal.added_span.text
+                )
+        else:
+            if revB_annotation_spans:
+                requirement_revB = _format_annotation_text(
+                    revB_annotation_spans,
+                    fallback_text=(delta_internal.match.candidate.span.text if delta_internal.match is not None else None),
+                )
+            if requirement_revB is None:
+                if delta_internal.match is not None:
+                    requirement_revB = delta_internal.match.candidate.span.text
+                elif delta_internal.added_span is not None:
+                    requirement_revB = _format_annotation_text([delta_internal.added_span], fallback_text=delta_internal.added_span.text)
 
         snippet_rule_family = "single_callout"
-        if is_notes_type_b or len(_dedupe_spans(revA_annotation_spans)) > 1 or len(_dedupe_spans(revB_annotation_spans)) > 1:
-            snippet_rule_family = "grouped_callout"
+        # For added rows with grouped evidence (delta_internal.added_bbox wider than the
+        # seed span, or delta_internal.added_requirement_text containing multiple tokens),
+        # emit snippet_rule_family="grouped_callout".
+        if delta_internal.status == "added":
+            _seed_span      = getattr(delta_internal, "added_span", None)
+            _added_req_text = getattr(delta_internal, "added_requirement_text", None)
+            _added_bbox_sf  = getattr(delta_internal, "added_bbox", None)
+            if _added_req_text and _added_bbox_sf and _seed_span is not None:
+                _seed_width    = _seed_span.bbox_pdf[2] - _seed_span.bbox_pdf[0]
+                _grouped_width = _added_bbox_sf[2] - _added_bbox_sf[0]
+                if _grouped_width > _seed_width or " " in _added_req_text:
+                    snippet_rule_family = "grouped_callout"
+        if snippet_rule_family == "single_callout":
+            if is_notes_type_b or len(_dedupe_spans(revA_annotation_spans)) > 1 or len(_dedupe_spans(revB_annotation_spans)) > 1:
+                snippet_rule_family = "grouped_callout"
 
         # Create Pydantic DeltaItem
         delta_pydantic = DeltaItem(
