@@ -306,6 +306,108 @@ class TestConfidenceFlagsCompatibility:
         )
 
 
+class TestAdjacencyBleed:
+    """CLS-01: slash-merged bleed spans must not cause false count_added positive."""
+
+    def test_part1_style_bleed_not_changed(self):
+        """part-1-style positive exemplar: counterbore span with slash-merged sibling.
+
+        Anchor: Counterbore Diameter (13.5 +/- 0.2 mm)
+        Span:   4 x Ø8 THRU ALL / ⌴ Ø13.5 ↧ 8.5
+
+        The span contains the anchor's numeric (13.5) in the second chunk, and the
+        first chunk contains a foreign count prefix (4 x).  This is adjacency bleed.
+        Status must NOT be 'changed' solely because of the bleed prefix, and the
+        bleed flag must be present in confidence_flags.
+        """
+        anchor = _anchor("Counterbore Diameter (13.5 +/- 0.2 mm)")
+        candidate = _span(
+            "4 x Ø8 THRU ALL / ⌴ Ø13.5 ↧ 8.5",
+            block_id=1, line_id=0, span_id=0, x0=12.0, y0=11.0, width=80.0
+        )
+        delta = _classify(anchor, candidate)
+        assert delta.status != "changed", (
+            f"Bleed should suppress count_added 'changed'; got '{delta.status}'"
+        )
+        assert "Rev B text may contain adjacent balloon content" in delta.confidence_flags, (
+            f"Bleed flag missing; confidence_flags={delta.confidence_flags!r}"
+        )
+
+    def test_part4_style_bleed_no_count_added(self):
+        """part-4-style positive exemplar: thread callout with slash-merged sibling.
+
+        Anchor: 1/4-20 UNC-2B
+        Span:   2X Ø.201 ↧ 0.50 / 1/4-20 UNC - 2B
+
+        The span contains the anchor keyword in the second chunk, and the first chunk
+        carries a foreign count prefix (2X).  Bleed must be detected and the bleed
+        flag must appear in confidence_flags.
+        """
+        anchor = _anchor("1/4-20 UNC-2B")
+        candidate = _span(
+            "2X Ø.201 ↧ 0.50 / 1/4-20 UNC - 2B",
+            block_id=2, line_id=0, span_id=0, x0=12.0, y0=11.0, width=80.0
+        )
+        delta = _classify(anchor, candidate)
+        assert "Rev B text may contain adjacent balloon content" in delta.confidence_flags, (
+            f"Bleed flag missing for part-4-style case; confidence_flags={delta.confidence_flags!r}"
+        )
+
+    def test_benign_slash_ratio_no_bleed(self):
+        """Benign slash ratio negative case: '70 / 30' for anchor '30 ±0.5 mm'.
+
+        The span is just a fractional ratio — both chunks share numeric context,
+        neither has a foreign count prefix.  No bleed flag expected.
+        """
+        anchor = _anchor("30 ±0.5 mm")
+        candidate = _span(
+            "70 / 30",
+            block_id=3, line_id=0, span_id=0, x0=12.0, y0=11.0, width=30.0
+        )
+        delta = _classify(anchor, candidate)
+        assert "Rev B text may contain adjacent balloon content" not in delta.confidence_flags, (
+            f"Bleed flag should not fire for benign ratio; confidence_flags={delta.confidence_flags!r}"
+        )
+
+    def test_legitimate_asymmetric_tolerance_no_bleed_stays_changed(self):
+        """Legitimate asymmetric tolerance negative case: '2X 22.0° +0.3° / −0.1°'.
+
+        The slash separates the plus/minus parts of an asymmetric tolerance, NOT
+        an adjacent balloon.  No bleed flag; status must remain 'changed'.
+        """
+        anchor = _anchor("2X 22.0° ±1°")
+        candidate = _span(
+            "2X 22.0° +0.3° / −0.1°",
+            block_id=4, line_id=0, span_id=0, x0=12.0, y0=11.0, width=60.0
+        )
+        delta = _classify(anchor, candidate)
+        assert "Rev B text may contain adjacent balloon content" not in delta.confidence_flags, (
+            f"Bleed flag should not fire for asymmetric tolerance; confidence_flags={delta.confidence_flags!r}"
+        )
+        assert delta.status == "changed", (
+            f"Asymmetric tolerance case must remain 'changed'; got '{delta.status}'"
+        )
+
+    def test_no_slash_regression_guard_stays_changed(self):
+        """No-slash regression guard: anchor 'Ø 8' + span '2X Ø 8'.
+
+        Original count_added detection must still fire when there is no slash.
+        Status must be 'changed' and no bleed flag.
+        """
+        anchor = _anchor("Ø 8")
+        candidate = _span(
+            "2X Ø 8",
+            block_id=5, line_id=0, span_id=0, x0=12.0, y0=11.0, width=30.0
+        )
+        delta = _classify(anchor, candidate)
+        assert delta.status == "changed", (
+            f"No-slash count_added must still be 'changed'; got '{delta.status}'"
+        )
+        assert "Rev B text may contain adjacent balloon content" not in delta.confidence_flags, (
+            f"Bleed flag must not fire for no-slash case; confidence_flags={delta.confidence_flags!r}"
+        )
+
+
 class TestToleranceOverlapThreshold:
     """Tolerance-only numeric changes in the 65-70% overlap band should be marked changed."""
 
