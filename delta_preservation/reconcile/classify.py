@@ -19,6 +19,38 @@ _BLEED_FLAG = "Rev B text may contain adjacent balloon content"
 # drawing-standard callouts are not mis-split.
 _BLEED_SPLIT_RE = re.compile(r"\s+/\s+")
 
+# ---------------------------------------------------------------------------
+# CLS-03: Asymmetric tolerance shape detection
+# ---------------------------------------------------------------------------
+
+# Matches asymmetric (bilateral_stacked / unilateral_stacked) tolerance forms
+# in raw requirement text.  Covers:
+#   - Standard decimals:  "+0.3 / -0.1",  "+0.3° / −0.1°"
+#   - Leading decimals:   "+.005 / -.003"
+#   - Unicode minus:      "+0.3 / −0.1" (U+2212)
+# The pattern requires an explicit sign on at least the first value so that
+# plain dimension ranges like "1.0 / 2.0" are NOT matched.
+_ASYMMETRIC_SHAPE_RE = re.compile(
+    r"[+\-]\s*\.?\d+(?:\.\d*)?[°]?"    # first signed tolerance value (leading-decimal OK)
+    r"\s*(?:/\s*)"                       # separator
+    r"[\-\u2212]\s*\.?\d+(?:\.\d*)?[°]?"  # second signed value (negative)
+)
+
+
+def _is_symmetric_to_asymmetric_kind_change(tolerance_comparison: "ToleranceComparison") -> bool:
+    """Return True when Rev A has a plus_minus (symmetric) kind and Rev B has a
+    bilateral_stacked or unilateral_stacked (asymmetric) kind.
+
+    This is the hallmark of a ±T → +a/−b formatting change that the classifier
+    must detect as 'changed' regardless of whether the absolute limits happen to
+    agree numerically (tolerances_match=True).
+    """
+    revA_kind = tolerance_comparison.revA_tolerance.kind
+    revB_kind = tolerance_comparison.revB_tolerance.kind
+    _symmetric = {"plus_minus"}
+    _asymmetric = {"bilateral_stacked", "unilateral_stacked"}
+    return revA_kind in _symmetric and revB_kind in _asymmetric
+
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
 from delta_preservation.reconcile.normalize import (
@@ -1026,7 +1058,29 @@ def classify_delta(
 
     # --- Tolerance refinement ---
     if tolerance_comparison is not None:
-        if tolerance_comparison.tolerances_match:
+        # CLS-03: Kind-transition pre-check — must run BEFORE tolerances_match boost.
+        # When Rev A uses symmetric (±T) notation and Rev B switches to asymmetric
+        # (+a/−b) notation, the tolerance KIND changed even if the absolute numeric
+        # limits happen to agree (e.g. ±1 == +1/−1).  Promote to 'changed' and record
+        # a kind-transition reason so reviewers can see the formatting change.
+        # This guard fires first so the tolerances_match branch below cannot override it.
+        # NOTE: the reason is appended regardless of current status to ensure traceability;
+        # we only promote status when it is not already 'changed'.
+        if _is_symmetric_to_asymmetric_kind_change(tolerance_comparison):
+            _kind_reason = (
+                f"Tolerance kind changed: {tolerance_comparison.revA_tolerance.kind} "
+                f"→ {tolerance_comparison.revB_tolerance.kind} "
+                f"(symmetric ± → asymmetric +/− kind transition)"
+            )
+            if status in ("unchanged", "uncertain"):
+                status = "changed"
+                confidence = max(confidence, 0.70)
+            # Always append the kind-transition reason for traceability,
+            # even when status was already 'changed' by an earlier branch.
+            reasons.append(_kind_reason)
+            reasons.extend(tolerance_comparison.reasons)
+            # Do NOT fall through to tolerances_match — the kind change dominates.
+        elif tolerance_comparison.tolerances_match:
             if status == "unchanged":
                 confidence += 0.05
                 reasons.extend(tolerance_comparison.reasons)
@@ -1044,6 +1098,24 @@ def classify_delta(
                 status = "changed"
                 reasons.append("Tolerance difference resolves uncertainty")
                 reasons.extend(tolerance_comparison.reasons)
+    else:
+        # CLS-03 fallback: when no tolerance_comparison is available, compare raw
+        # requirement text for a symmetric→asymmetric kind transition.
+        # Rev A is symmetric if it contains ± (or +/-); Rev B is asymmetric if it
+        # matches _ASYMMETRIC_SHAPE_RE (signed pair separated by /).
+        # Only promote 'unchanged' or 'uncertain' — never downgrade 'changed'.
+        if status in ("unchanged", "uncertain") and candidate is not None:
+            _anchor_raw = anchor.requirement_raw
+            _matched_raw = candidate.span.text
+            _revA_symmetric = bool(re.search(r"[±]|\+/-|\+/−", _anchor_raw))
+            _revB_asymmetric = bool(_ASYMMETRIC_SHAPE_RE.search(_matched_raw))
+            if _revA_symmetric and _revB_asymmetric:
+                status = "changed"
+                confidence = max(confidence, 0.65)
+                reasons.append(
+                    "Tolerance kind changed: symmetric ± (Rev A) → asymmetric +/− (Rev B) "
+                    "detected via raw text fallback (no tolerance_comparison available)"
+                )
 
     # Clip confidence
     confidence = max(0.0, min(1.0, confidence))
