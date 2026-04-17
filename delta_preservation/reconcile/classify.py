@@ -5,6 +5,20 @@ import re
 from typing import Optional, Dict, List, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
+# ---------------------------------------------------------------------------
+# CLS-01: Adjacency-bleed detection constants
+# ---------------------------------------------------------------------------
+
+# Advisory flag stored in DeltaItem.confidence_flags when the classifier
+# detects that the Rev B span may have been assembled from multiple adjacent
+# balloon annotations merged by the PDF extractor via a "/" separator.
+_BLEED_FLAG = "Rev B text may contain adjacent balloon content"
+
+# Regex that splits on whitespace-bounded slashes only (e.g. "A / B") so that
+# embedded fractions ("1/4-20"), ratios without spaces ("H7/p6"), and
+# drawing-standard callouts are not mis-split.
+_BLEED_SPLIT_RE = re.compile(r"\s+/\s+")
+
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
 from delta_preservation.reconcile.normalize import (
@@ -40,6 +54,96 @@ class AddedCharacteristic:
     requirement_text: str
     confidence: float
     reasons: List[str]
+
+
+def _looks_like_adjacency_bleed(span_text: str, anchor_text: str) -> bool:
+    """Return True when span_text appears to be a PDF-merged multi-balloon annotation.
+
+    Detection logic:
+    1. Split span_text on whitespace-bounded slashes (spaces on both sides).
+       Return False immediately if fewer than 2 chunks result — no bleed possible.
+    2. Parse anchor_text to extract its primary numeric token and non-stopword keywords.
+    3. A chunk is "anchor-bearing" only when it contains:
+       - the anchor's primary numeric token, OR
+       - at least two normalized non-stopword keywords from the anchor.
+    4. A *different* chunk is "foreign-count-bearing" when it:
+       - contains a count prefix like "2X" or "4 x", AND
+       - does NOT contain the anchor's primary numeric token.
+    5. Return True only when BOTH an anchor-bearing chunk and a foreign-count-bearing
+       chunk are found in different positions.
+
+    The whitespace-requirement in the split regex deliberately excludes:
+    - Embedded fractions: "1/4-20 UNC"
+    - Fit-code pairs: "H7/p6"
+    - Tolerance/note text without surrounding spaces
+    """
+    chunks = _BLEED_SPLIT_RE.split(span_text)
+    if len(chunks) < 2:
+        return False
+
+    anchor_fp = parse_requirement(anchor_text)
+    anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+    anchor_primary = max(anchor_numerics) if anchor_numerics else None
+
+    # Extract non-stopword keywords from the anchor's normalized text.
+    _stop = {"", "A", "AN", "THE", "OF", "IN", "AT", "X", "MM", "IN", "DIAMETER"}
+    anchor_kw = {
+        w for w in re.sub(r"[()\/\±\+\-]", " ", anchor_fp.norm_text.upper()).split()
+        if w not in _stop and not re.fullmatch(r"[\d.]+", w)
+    }
+
+    # Count-prefix pattern: "2X", "4 x", "2 X", etc.
+    _count_re = re.compile(r"\b\d+\s*[Xx]\b")
+
+    anchor_bearing_idx: Optional[int] = None
+    foreign_count_idx: Optional[int] = None
+
+    for idx, chunk in enumerate(chunks):
+        chunk_upper = chunk.upper()
+
+        # Check anchor-bearing: primary numeric OR ≥2 anchor keywords present
+        is_anchor_bearing = False
+        if anchor_primary is not None and str(anchor_primary) in chunk:
+            is_anchor_bearing = True
+        if not is_anchor_bearing and len(anchor_kw) >= 2:
+            chunk_words = set(re.sub(r"[()\/\±\+\-]", " ", chunk_upper).split())
+            if len(anchor_kw & chunk_words) >= 2:
+                is_anchor_bearing = True
+        # Also try numeric match via float comparison for cases like "13.5" in "Ø13.5"
+        if not is_anchor_bearing and anchor_primary is not None:
+            try:
+                chunk_fp = parse_requirement(chunk)
+                chunk_nums = {v for v, _ in chunk_fp.numeric_tokens}
+                if anchor_primary in chunk_nums:
+                    is_anchor_bearing = True
+            except Exception:
+                pass
+
+        if is_anchor_bearing:
+            if anchor_bearing_idx is None:
+                anchor_bearing_idx = idx
+            continue  # Don't also mark as foreign-count
+
+        # Check foreign-count-bearing: has count prefix AND lacks anchor primary
+        has_count_prefix = bool(_count_re.search(chunk))
+        lacks_anchor_primary = True
+        if anchor_primary is not None:
+            try:
+                chunk_fp = parse_requirement(chunk)
+                chunk_nums = {v for v, _ in chunk_fp.numeric_tokens}
+                if anchor_primary in chunk_nums:
+                    lacks_anchor_primary = False
+            except Exception:
+                pass
+        if has_count_prefix and lacks_anchor_primary:
+            if foreign_count_idx is None:
+                foreign_count_idx = idx
+
+    return (
+        anchor_bearing_idx is not None
+        and foreign_count_idx is not None
+        and anchor_bearing_idx != foreign_count_idx
+    )
 
 
 def classify_delta(
@@ -658,7 +762,10 @@ def classify_delta(
     
     # For symbols: check if anchor symbols appear in matched span
     symbol_match = anchor_symbols <= matched_symbols or not anchor_symbols
-    
+
+    # Accumulator for advisory confidence flags (populated by bleed detection etc.)
+    result_flags: List[str] = []
+
     # Classification decision tree
     # Priority 0 (early guard): zero numeric overlap AND primary values diverge
     # significantly → the matched candidate is almost certainly a grid/border label
@@ -739,6 +846,18 @@ def classify_delta(
             reasons.append(f"Count changed: {anchor_count} → {matched_count}")
         else:
             reasons.append(f"Count added in Rev B: {matched_count} (was absent in Rev A)")
+            # CLS-01: Adjacency-bleed suppression — only when count_added (not count_changed).
+            # If the Rev B span is a "/" -merged multi-balloon annotation, the foreign count
+            # prefix belongs to a neighbour characteristic, not to this anchor.  Suppress the
+            # false count_added signal: demote status to "unchanged" and record the bleed flag.
+            if _looks_like_adjacency_bleed(candidate.span.text, anchor.requirement_raw):
+                status = "unchanged"
+                confidence = max(0.55, confidence)
+                reasons.append(
+                    "Count-added suppressed: Rev B span appears to be a slash-merged "
+                    "multi-balloon annotation (adjacency bleed detected)"
+                )
+                result_flags = [_BLEED_FLAG]
     elif primary_matches:
         # Primary dimension value matches - this is the key indicator of unchanged
         # Even if tolerances differ or aren't visible in span, the main dimension is the same.
@@ -935,7 +1054,8 @@ def classify_delta(
             "text": numeric_overlap,  # Report numeric overlap as text score
             "context": context_score
         },
-        match=match_or_none
+        match=match_or_none,
+        confidence_flags=result_flags,
     )
 
 
