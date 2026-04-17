@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Optional, Dict, List, Set, Tuple, TYPE_CHECKING
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from delta_preservation.reconcile.anchors import Anchor
 from delta_preservation.reconcile.match import Match
@@ -30,6 +30,7 @@ class DeltaItem:
     component_scores: Dict[str, float]
     match: Optional[Match] = None
     added_span: Optional[TextSpan] = None  # For added characteristics
+    confidence_flags: List[str] = field(default_factory=list)
 
 
 @dataclass

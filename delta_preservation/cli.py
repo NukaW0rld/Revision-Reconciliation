@@ -844,6 +844,7 @@ def run_pipeline(
             status=delta_internal.status,
             confidence=delta_internal.confidence,
             reasons=delta_internal.reasons,
+            confidence_flags=getattr(delta_internal, "confidence_flags", []),
             scores=delta_internal.component_scores,
             revA=revA_evidence,
             revB=revB_evidence,

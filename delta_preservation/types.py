@@ -275,6 +275,7 @@ class DeltaItem(BaseModel):
     status: str = Field(..., description="Classification: unchanged/changed/removed/added/uncertain")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Classification confidence score")
     reasons: List[str] = Field(..., description="Human-readable explanations for classification")
+    confidence_flags: List[str] = Field(default_factory=list, description="Classifier advisory flags such as bleed warnings")
     scores: Dict[str, float] = Field(..., description="Component scores (location, text, context)")
     revA: Optional[Evidence] = Field(None, description="Rev A visual evidence")
     revB: Optional[Evidence] = Field(None, description="Rev B visual evidence")
