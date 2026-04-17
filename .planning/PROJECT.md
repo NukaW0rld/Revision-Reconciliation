@@ -14,6 +14,7 @@ Improve reconciliation accuracy across many parts through a consistent, evidence
 - Completed runs now load immutable `ground_truth.json`, apply canonical requirement and snippet evaluation, narrow manual review to exceptions, and emit `debug_report.json` with canonical, unresolved, and history-backed states.
 - Approved acceptable alternates are persisted separately from ground truth and can auto-conform later same-part reruns when the reviewed fingerprint matches exactly.
 - The milestone audit was accepted as tech debt because Phases 1 and 2 are missing `VERIFICATION.md` artifacts even though the current test suite is green.
+- Phase 05 (classification-logic-fixes) complete on 2026-04-16: CLS-01 adjacency bleed suppression, CLS-02 removed+added reconciliation post-pass, and CLS-03 asymmetric tolerance kind-transition detection all shipped. Test suite: 351 passed.
 
 ## Requirements
 
@@ -29,11 +30,11 @@ Improve reconciliation accuracy across many parts through a consistent, evidence
 ### Active
 
 - [ ] GD&T compact token parser correctly handles concatenated frames (e.g. `⌖∅0.35ABC`) without malformed-frame fallback
-- [ ] Adjacency bleed detection suppresses false count_added classification signal and surfaces a confidence flag
+- ✓ Adjacency bleed detection suppresses false count_added classification signal and surfaces a confidence flag — Validated in Phase 05: classification-logic-fixes
 - [ ] Added characteristics are generated for all ground-truth-added rows across all 9 parts
-- [ ] Removed+unmatched-added pairs at close spatial proximity are resolved as a single changed characteristic
+- ✓ Removed+unmatched-added pairs at close spatial proximity are resolved as a single changed characteristic — Validated in Phase 05: classification-logic-fixes
 - [ ] Spelled-out GD&T names (circularity, runout, total runout) are normalized to symbol equivalents before semantic comparison
-- [ ] Asymmetric tolerance change (±T → +a/−b) is correctly detected as changed
+- ✓ Asymmetric tolerance change (±T → +a/−b) is correctly detected as changed — Validated in Phase 05: classification-logic-fixes
 - [ ] Title block region is reliably excluded from characteristic search windows
 
 ### Out of Scope
@@ -98,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-13 — Milestone v1.1 started*
+*Last updated: 2026-04-16 — Phase 05 classification-logic-fixes complete*
