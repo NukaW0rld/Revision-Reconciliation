@@ -19,7 +19,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 **Milestone Goal:** Fix the concrete algorithm errors discovered across all 9 debug parts to improve aggregate classification accuracy. Every fix must generalize across all parts — no per-part hacks.
 
 - [ ] **Phase 4: GD&T Parser Fixes** - Correct compact token splitting, word-name normalization, and composite frame capture
-- [ ] **Phase 5: Classification Logic Fixes** - Suppress adjacency bleed false positives, resolve removed+added pairs as changed, detect asymmetric tolerance changes
+- [x] **Phase 5: Classification Logic Fixes** - Suppress adjacency bleed false positives, resolve removed+added pairs as changed, detect asymmetric tolerance changes (completed 2026-04-17)
 - [ ] **Phase 6: Added Characteristic Detection and Snippet Accuracy** - Fix missing added rows for parts 8/9, suppress false-positive added rows, exclude title block regions from search windows
 - [ ] **Phase 7: Regression Tests and Verification** - Add parametrized regression tests per fix cluster, cross-part benchmark, and full 9-part verification run
 
@@ -50,7 +50,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   - [x] 05-02-PLAN.md — CLS-01 adjacency-bleed suppressor with anchor-aware chunk verification and explicit slash-separated negative cases
   - [x] 05-03-PLAN.md — CLS-03 kind-transition pre-check plus broadened asymmetric fallback detection for leading-decimal forms
   - [x] 05-04-PLAN.md — CLS-02 removed+added reconciliation post-pass with explicit added metadata contract (text, bbox, page) and nearest-compatible merge rules
-  - [ ] 05-05-PLAN.md — Phase-5 regression harness using explicit snapshot exemplars plus synthetic CLS-02 packet-level regression coverage
+  - [x] 05-05-PLAN.md — Phase-5 regression harness using explicit snapshot exemplars plus synthetic CLS-02 packet-level regression coverage
 
 ### Phase 6: Added Characteristic Detection and Snippet Accuracy
 **Goal**: All ground-truth-added characteristics are present in pipeline output for every part, false-positive added rows are suppressed, and title block regions are reliably excluded from search windows so snippet matches land on actual drawing annotations.
@@ -81,6 +81,6 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 2. Debug Queue & Export | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 3. Accepted Alternates | v1.0 | 2/2 | Complete | 2026-04-12 |
 | 4. GD&T Parser Fixes | v1.1 | 0/TBD | Not started | - |
-| 5. Classification Logic Fixes | v1.1 | 4/5 | In Progress|  |
+| 5. Classification Logic Fixes | v1.1 | 5/5 | Complete   | 2026-04-17 |
 | 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 0/TBD | Not started | - |
 | 7. Regression Tests and Verification | v1.1 | 0/TBD | Not started | - |

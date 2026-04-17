@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: executing
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-04-17T00:53:27.825Z"
+status: verifying
+stopped_at: Completed 05-05-PLAN.md
+last_updated: "2026-04-17T00:58:05.897Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 
 Phase: 05 (classification-logic-fixes) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P02 | 3 | 2 tasks | 2 files |
 | Phase 05 P03 | 5 | 2 tasks | 2 files |
 | Phase 05 P04 | 4 | 3 tasks | 3 files |
+| Phase 05 P05 | 129 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Recent decisions affecting current work:
 - [Phase 05]: CLS-03 raw-text fallback uses _ASYMMETRIC_SHAPE_RE on anchor.requirement_raw vs candidate span when no tolerance_comparison is available
 - [Phase 05]: Use getattr fallback for added_bbox/added_page/added_requirement_text in reconcile_removed_added_pairs to tolerate legacy fake DeltaItem objects without CLS-02 metadata fields
 - [Phase 05]: CLS-02: req_bbox centroid with balloon_bbox fallback on removed side; added_bbox union centroid on added side; same-page gate and distance <= 150 pt gate; closest-wins one-to-one pairing
+- [Phase 05]: Phase 05-05: Snapshot tests use exact requirement_revB strings as lookup keys, not count caps or index offsets
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T00:53:27.823Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-04-17T00:58:05.894Z
+Stopped at: Completed 05-05-PLAN.md
 Resume file: None
