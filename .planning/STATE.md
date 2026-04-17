@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-17T00:47:03.632Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-04-17T00:53:27.825Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Phase: 05 (classification-logic-fixes) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P01 | 2 | 3 tasks | 5 files |
 | Phase 05 P02 | 3 | 2 tasks | 2 files |
 | Phase 05 P03 | 5 | 2 tasks | 2 files |
+| Phase 05 P04 | 4 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 05]: Bleed detection requires parse_requirement numeric token matching for anchor-bearing chunk, not string substring, to handle float formatting
 - [Phase 05]: Kind-transition reason always appended even when status already changed, for audit traceability in debug reports
 - [Phase 05]: CLS-03 raw-text fallback uses _ASYMMETRIC_SHAPE_RE on anchor.requirement_raw vs candidate span when no tolerance_comparison is available
+- [Phase 05]: Use getattr fallback for added_bbox/added_page/added_requirement_text in reconcile_removed_added_pairs to tolerate legacy fake DeltaItem objects without CLS-02 metadata fields
+- [Phase 05]: CLS-02: req_bbox centroid with balloon_bbox fallback on removed side; added_bbox union centroid on added side; same-page gate and distance <= 150 pt gate; closest-wins one-to-one pairing
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T00:47:03.630Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-04-17T00:53:27.823Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
