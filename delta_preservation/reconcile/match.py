@@ -24,6 +24,11 @@ from delta_preservation.reconcile.normalize import parse_requirement, classify_r
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.types import SemanticCallout
 from delta_preservation.vision.alignment import Transform
+from delta_preservation.reconcile.exclusion import (
+    estimate_page_dimensions,
+    is_boilerplate_candidate_text as _exclusion_is_boilerplate,
+    span_is_excluded_for_annotation_search,
+)
 
 
 @dataclass(frozen=True)
@@ -256,60 +261,14 @@ def _group_candidate_spans(seed_span: TextSpan, all_spans: List[TextSpan]) -> Gr
     )
 
 
-_TITLE_BLOCK_EXACT = frozenset({
-    "DATE", "TITLE", "NAME", "DRAWN", "CHECKED", "DESIGNED", "APPROVED",
-    "REV", "REV.", "REVISION", "MATERIAL", "MATERIALS", "FINISH",
-    "SCALE", "SHEET", "SIZE", "DWG NO.", "DWG NO", "WEIGHT",
-    "THIRD ANGLE PROJECTION", "FIRST ANGLE PROJECTION",
-    "DO NOT SCALE DRAWING", "DO NOT SCALE",
-    "BREAK ALL SHARP EDGES AND", "BREAK ALL SHARP EDGES", "REMOVE BURRS",
-    "DIMENSIONS ARE IN INCHES", "DIMENSIONS ARE IN MM",
-    "DIMENSIONS ARE IN MILLIMETERS",
-    "SURFACE FINISH", "PROPRIETARY", "CONFIDENTIAL",
-    "UNLESS OTHERWISE SPECIFIED", "UNLESS OTHERWISE SPECIFIED,",
-    "INTERPRET DRAWING PER", "INTERPRET DIMENSIONS PER",
-    "THIRD ANGLE", "DRAWING NO", "DRAWING NO.",
-    "MACHINING",
-})
-
-_TITLE_BLOCK_CONTAINS = (
-    "UNLESS OTHERWISE SPECIFIED",
-    "INTERPRET DIMENSIONING AND TOLERANCING",
-    "INTERPRET DRAWING PER",
-    "DO NOT SCALE",
-    "THIRD ANGLE",
-    "FIRST ANGLE",
-    "BREAK ALL SHARP",
-    "REMOVE BURRS",
-    "DIMENSIONS ARE IN",
-)
-
-_TITLE_BLOCK_PATTERNS = [
-    re.compile(r"^\s*\.X+\s*=\s*"),           # .X = ±.050, .XX = ±.020
-    re.compile(r"^\s*\d+\s+of\s+\d+\s*$"),    # "1 of 1", "2 of 3"
-    re.compile(r"^(ANGULAR|FRACTIONAL)\s*="),  # ANGULAR = ±0.3°
-    re.compile(r"^\d+\.\s+(QTY|ALL DIMS|MATL|FINISH|BREAK|INTERPRET)"),  # Notes block items
-]
-
+# ---------------------------------------------------------------------------
+# Thin wrappers — delegate to the shared exclusion module so that call sites
+# inside this file continue working without changes.
+# ---------------------------------------------------------------------------
 
 def _is_boilerplate_candidate_text(text: str) -> bool:
-    """Return True for general tolerance/title-block boilerplate text.
-
-    These spans often contain engineering numerics/symbols (e.g. "ANGULAR = ±0.3°")
-    but are not characteristic annotations and should never be matched.
-    """
-    upper = " ".join(text.strip().upper().split())
-    if not upper:
-        return False
-    if upper in _TITLE_BLOCK_EXACT:
-        return True
-    for phrase in _TITLE_BLOCK_CONTAINS:
-        if phrase in upper:
-            return True
-    for pat in _TITLE_BLOCK_PATTERNS:
-        if pat.match(upper):
-            return True
-    return False
+    """Thin wrapper around the shared exclusion helper (see exclusion.py)."""
+    return _exclusion_is_boilerplate(text)
 
 
 def _span_is_excluded_for_matching(
@@ -318,21 +277,10 @@ def _span_is_excluded_for_matching(
     page_width_est: float,
     page_height_est: float,
 ) -> bool:
-    """Return True when a span lies in a non-annotation boilerplate region."""
-    sx0, sy0, sx1, sy1 = span.bbox_pdf
-    span_cx = (sx0 + sx1) / 2
-    span_cy = (sy0 + sy1) / 2
-
-    if span_cx > page_width_est * 0.70 and span_cy > page_height_est * 0.85:
-        return True  # Title block
-    if span_cx > page_width_est * 0.75 and span_cy < page_height_est * 0.15:
-        return True  # Revision table
-    if page_height_est * 0.78 <= span_cy <= page_height_est * 0.92 and page_width_est * 0.25 <= span_cx <= page_width_est * 0.72:
-        if _is_boilerplate_candidate_text(span.text):
-            return True  # General tolerance/defaults block near bottom-centre
-    if _is_boilerplate_candidate_text(span.text):
-        return True
-    return False
+    """Thin wrapper that delegates to the shared span_is_excluded_for_annotation_search helper."""
+    return span_is_excluded_for_annotation_search(
+        span, page_width=page_width_est, page_height=page_height_est
+    )
 
 
 def generate_candidates(
@@ -421,20 +369,10 @@ def generate_candidates(
             if not any(abs(pred_x - ex) <= 5.0 and abs(pred_y - ey) <= 5.0 for ex, ey in predicted_centers):
                 predicted_centers.append((pred_x, pred_y))
     
-    # Estimate page dimensions from spans for exclusion-zone computations.
-    # These mirror the zones used by detect_added_characteristics so that
-    # title-block text (dates, revision labels, part numbers) is never selected
-    # as a candidate match — it would otherwise score well on location for
-    # non-numeric anchors (e.g., "THRU") because both have no numeric content.
-    # Use a floor of half a letter page (306×396 pt) so that the exclusion zones
-    # remain meaningful even when revB_spans contains only a few spans (e.g., in
-    # unit tests).  Real drawings always have wider/taller extent than the floor.
-    if revB_spans:
-        page_width_est = max(max(s.bbox_pdf[2] for s in revB_spans), 612.0)
-        page_height_est = max(max(s.bbox_pdf[3] for s in revB_spans), 792.0)
-    else:
-        page_width_est = 792.0
-        page_height_est = 612.0
+    # Estimate page dimensions from spans using the shared helper, which applies
+    # minimum-width/height floors so exclusion zones remain meaningful even in
+    # unit tests with only a few fabricated spans.
+    page_width_est, page_height_est = estimate_page_dimensions(revB_spans)
 
     def _nearest_predicted_distance(span_cx: float, span_cy: float) -> float:
         return min(

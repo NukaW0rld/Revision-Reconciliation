@@ -61,6 +61,10 @@ from delta_preservation.reconcile.normalize import (
 from delta_preservation.reconcile.semantic_compare import compare_semantic_callouts
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.types import SemanticCallout
+from delta_preservation.reconcile.exclusion import (
+    estimate_page_dimensions,
+    span_is_excluded_for_annotation_search,
+)
 
 if TYPE_CHECKING:
     from delta_preservation.reconcile.tolerance_pdf import ToleranceComparison
@@ -306,17 +310,14 @@ def classify_delta(
             and len(anchor.requirement_raw.strip()) >= 3
             and revB_text_spans
         ):
-            _page_w = max((s.bbox_pdf[2] for s in revB_text_spans), default=792.0)
-            _page_h = max((s.bbox_pdf[3] for s in revB_text_spans), default=612.0)
+            _page_w, _page_h = estimate_page_dimensions(revB_text_spans)
             _anchor_kw = anchor.requirement_raw.strip().upper().replace("\u2212", "-")
             for span in revB_text_spans:
-                _sx0, _sy0, _sx1, _sy1 = span.bbox_pdf
-                _scx = (_sx0 + _sx1) / 2
-                _scy = (_sy0 + _sy1) / 2
-                # Skip title block and revision table exclusion zones
-                if _scx > _page_w * 0.70 and _scy > _page_h * 0.85:
-                    continue
-                if _scx > _page_w * 0.75 and _scy < _page_h * 0.15:
+                # Skip title block, revision table, and boilerplate spans using
+                # the shared exclusion contract instead of local coordinate checks.
+                if span_is_excluded_for_annotation_search(
+                    span, page_width=_page_w, page_height=_page_h
+                ):
                     continue
                 # Skip spans already claimed by another surviving anchor so that
                 # keyword anchors (e.g. "THRU") don't wrongly match a grouped
@@ -324,14 +325,12 @@ def classify_delta(
                 _skw = (span.block_id, span.line_id, span.span_id, span.bbox_pdf)
                 if matched_span_keys_strong and _skw in matched_span_keys_strong:
                     continue
-                # Skip spans with boilerplate keywords
-                _st_upper = span.text.strip().upper()
-                if any(kw in _st_upper for kw in (
-                    "UNLESS", "SPECIFIED", "ANGULAR", "FRACTIONAL",
-                    "DRAWN", "CHECKED", "TITLE", "SCALE", "DATE",
-                )):
-                    continue
+                # Note: span_is_excluded_for_annotation_search (called above) already
+                # covers boilerplate keywords like UNLESS/SPECIFIED/ANGULAR/etc. via
+                # is_boilerplate_candidate_text().  The explicit keyword list that
+                # previously lived here has been replaced by the shared contract.
                 # Check if anchor keyword is a substring of the span text
+                _st_upper = span.text.strip().upper()
                 _st_norm = _st_upper.replace("\u2212", "-")
                 if _anchor_kw in _st_norm:
                     # When the anchor keyword is the entire span, or is a trailing
@@ -1209,22 +1208,19 @@ def detect_added_characteristics(
                     return True
         return False
 
-    # Define exclusion zones (revision table, title block)
-    # Revision table: typically top-right corner (x > 80% width, y < 15% height)
-    # Title block: typically bottom-right corner (x > 70% width, y > 85% height)
     def is_in_exclusion_zone(bbox: tuple) -> bool:
+        """Thin wrapper: delegates to the shared span_is_excluded_for_annotation_search
+        helper so that title-block, revision-table, and boilerplate-text exclusion is
+        consistent across all annotation-search callers."""
+        from delta_preservation.io.pdf import TextSpan as _TS
         x0, y0, x1, y1 = bbox
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-
-        # Revision table: top-right corner
-        if cx > page_width * 0.75 and cy < page_height * 0.15:
-            return True
-
-        # Title block: bottom-right corner
-        if cx > page_width * 0.70 and cy > page_height * 0.85:
-            return True
-
-        return False
+        # Synthesise a minimal TextSpan with an empty text (geometry-only check);
+        # boilerplate-text checks are handled separately in the span loop below via
+        # span_is_excluded_for_annotation_search(span, ...) which also inspects text.
+        _dummy = _TS(text="", bbox_pdf=bbox, font_size=0.0, block_id=0, line_id=0, span_id=0)
+        return span_is_excluded_for_annotation_search(
+            _dummy, page_width=page_width, page_height=page_height
+        )
 
     def is_inside_matched_group(bbox: tuple, tolerance: float = 8.0) -> bool:
         x0, y0, x1, y1 = bbox
@@ -1245,7 +1241,10 @@ def detect_added_characteristics(
             continue
         if is_inside_matched_group(span.bbox_pdf):
             continue
-        if is_in_exclusion_zone(span.bbox_pdf):
+        # Use the shared exclusion contract (covers geometry + boilerplate text).
+        if span_is_excluded_for_annotation_search(
+            span, page_width=page_width, page_height=page_height
+        ):
             continue
         text = span.text.strip()
         if len(text) < 2 and text not in GDT_ANCHOR_SYMBOLS:

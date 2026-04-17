@@ -178,16 +178,22 @@ class TestRescueAndAddedDetectionExclusion:
         The keyword rescue scan inside classify_delta() must use the shared
         exclusion helper.  A keyword anchor whose matching span is in the
         title-block region must not be rescued as 'unchanged'.
+
+        Uses portrait dimensions (612 × 792) so that estimate_page_dimensions()
+        can infer the page height correctly from span extents (the minimum-height
+        floor of 792 matches the actual page height, so exclusion-zone proportions
+        are correct).
         """
         from delta_preservation.reconcile.classify import classify_delta
-        from delta_preservation.reconcile.exclusion import estimate_page_dimensions
 
-        pw, ph = 792.0, 612.0
-        # Span text matches anchor keyword but sits in the bottom-right title block
+        # Use portrait page so that the 792-pt min_height floor matches the page.
+        pw, ph = 612.0, 792.0
+        # Span text matches anchor keyword but sits in the bottom-right title block:
+        # cx > 70% of pw  AND  cy > 85% of ph
         excluded_span = _span(
             "THRU",
-            cx=pw * 0.80,
-            cy=ph * 0.92,
+            cx=pw * 0.80,   # 489.6 > 0.70 * 612 = 428.4 ✓
+            cy=ph * 0.92,   # 728.6 > 0.85 * 792 = 673.2 ✓
             block_id=0,
             line_id=0,
             span_id=0,
@@ -216,15 +222,18 @@ class TestRescueAndAddedDetectionExclusion:
         raw x0/y0 coordinates; the shared helper uses span centres.
         This test passes an excluded span whose centre is in the title block
         and verifies no added row is generated.
+
+        Uses portrait dimensions (612 × 792) matching the shared helper's
+        min_height floor so proportional thresholds are correct.
         """
         from delta_preservation.reconcile.classify import detect_added_characteristics
 
-        pw, ph = 792.0, 612.0
-        # Span in title block region (bottom-right): centre at (0.80 * pw, 0.92 * ph)
+        pw, ph = 612.0, 792.0
+        # Span in title block region (bottom-right): cx > 70% pw AND cy > 85% ph
         title_block_span = _span(
             "Ø6.0",
-            cx=pw * 0.80,
-            cy=ph * 0.92,
+            cx=pw * 0.80,   # 489.6 > 0.70 * 612 = 428.4 ✓
+            cy=ph * 0.92,   # 728.6 > 0.85 * 792 = 673.2 ✓
             block_id=5,
             line_id=0,
             span_id=0,
@@ -245,9 +254,8 @@ class TestRescueAndAddedDetectionExclusion:
     # 3. detect_added_characteristics uses shared estimate_page_dimensions internally
     def test_added_detection_honours_estimate_page_dimensions(self):
         """
-        When page_width / page_height are supplied as defaults (612 / 792)
-        the exclusion zones should still reject revision-table spans.
-        This test verifies the contract is applied even with default page sizes.
+        With standard portrait page (612 × 792) the exclusion zones should
+        reject revision-table spans (top-right corner).
         """
         from delta_preservation.reconcile.classify import detect_added_characteristics
 
@@ -255,8 +263,8 @@ class TestRescueAndAddedDetectionExclusion:
         # Span in revision table: cx > 75% pw, cy < 15% ph
         revision_span = _span(
             "Ø5.0",
-            cx=pw * 0.85,
-            cy=ph * 0.08,
+            cx=pw * 0.85,   # 520.2 > 0.75 * 612 = 459.0 ✓
+            cy=ph * 0.08,   # 63.4 < 0.15 * 792 = 118.8 ✓
             block_id=6,
             line_id=0,
             span_id=0,

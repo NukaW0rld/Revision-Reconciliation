@@ -17,6 +17,10 @@ import math
 from delta_preservation.io.pdf import TextSpan
 from delta_preservation.vision.balloons import Balloon
 from delta_preservation.reconcile.normalize import parse_requirement
+from delta_preservation.reconcile.exclusion import (
+    estimate_page_dimensions,
+    span_is_excluded_for_annotation_search,
+)
 
 
 @dataclass
@@ -124,10 +128,9 @@ def build_revA_anchors(
         # Note: block_id in TextSpan corresponds to page index from PDF extraction
         page_spans = [s for s in revA_text_spans if s.block_id == page]
 
-        # Estimate page dimensions from text span extents for exclusion zones
-        # This approximation helps identify title blocks and revision tables
-        page_height = max(s.bbox_pdf[3] for s in page_spans) if page_spans else 1000
-        page_width = max(s.bbox_pdf[2] for s in page_spans) if page_spans else 1000
+        # Estimate page dimensions using the shared helper (applies min floors of
+        # 612 × 792 pt so exclusion zones are stable even with sparse span lists).
+        page_width, page_height = estimate_page_dimensions(page_spans)
 
         # Filter candidate spans for requirement text matching.
         # When a zone bbox is available, restrict candidates to spans within that
@@ -137,9 +140,13 @@ def build_revA_anchors(
         for span in page_spans:
             x0, y0, x1, y1 = span.bbox_pdf
 
-            # Skip title block regions (bottom 15% and right 20% of page)
-            # These areas typically contain part numbers, revision history, etc.
-            if y0 > page_height * 0.85 or x0 > page_width * 0.80:
+            # Skip boilerplate/title-block regions using the shared exclusion contract.
+            # This replaces the previous raw coordinate heuristic that only checked
+            # y0 > 85% and x0 > 80%, which missed bottom-centre tolerance blocks and
+            # used raw corners instead of span centres.
+            if span_is_excluded_for_annotation_search(
+                span, page_width=page_width, page_height=page_height
+            ):
                 continue
 
             # Skip very long spans (likely headers, notes, or revision text)
