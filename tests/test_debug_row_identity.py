@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 from sqlalchemy.orm import sessionmaker
 
+from delta_preservation.evaluation.conformance import select_truth_row_for_item
 from delta_preservation.evaluation.contracts import GroundTruthCharacteristic, GroundTruthPacket
+from delta_preservation.types import DeltaItem, Evidence
 from shop.models import Run
 from shop.services.review import build_debug_queue_state
 
@@ -245,3 +247,111 @@ def test_missing_added_silently_skipped_when_no_fixture(db_engine, tmp_path):
         # No exception was raised
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Queue-facing regression: duplicate added rows claim distinct truth indexes
+# Uses checked-in Part 9 ground-truth centers as the coordinate source.
+# ---------------------------------------------------------------------------
+
+# Part 9 ground-truth constants (from assets/part9/ground_truth.json)
+# Group A cluster around (162, 328), (178, 348), (156, 364)
+_P9_A0_REQ = "Ø.250 ±.008"
+_P9_A0_CENTER = (162.0, 328.0)
+_P9_A1_REQ = "⌖ ∅.015 D H"
+_P9_A1_CENTER = (178.0, 348.0)
+_P9_A2_REQ = "↧.50 ±.05"
+_P9_A2_CENTER = (156.0, 364.0)
+
+# Group B cluster around (602, 288), (618, 306), (594, 322)
+_P9_B0_REQ = "Ø.250 ±.008"
+_P9_B0_CENTER = (602.0, 288.0)
+_P9_B1_REQ = "⌖ ∅.015 D H"
+_P9_B1_CENTER = (618.0, 306.0)
+_P9_B2_REQ = "↧.50 ±.05"
+_P9_B2_CENTER = (594.0, 322.0)
+
+
+def _make_p9_added_truth(requirement: str, center_revB: tuple[float, float]) -> GroundTruthCharacteristic:
+    return GroundTruthCharacteristic(
+        char_no=None,
+        classification="added",
+        requirement_revB=requirement,
+        snippet_center_revA=None,
+        snippet_center_revB=center_revB,
+    )
+
+
+def _make_p9_added_item(requirement: str, bbox: list[float]) -> DeltaItem:
+    """Build a minimal added DeltaItem with revB bbox evidence."""
+    revB = Evidence(page=0, bbox=bbox, image_path=None)
+    return DeltaItem(
+        char_no=None,
+        status="added",
+        confidence=0.9,
+        reasons=["regression-test"],
+        scores={},
+        revA=None,
+        revB=revB,
+        requirement_revB=requirement,
+    )
+
+
+def test_duplicate_added_truth_rows_claim_distinct_indexes_from_revb_evidence():
+    """Queue-facing regression: two packet added rows with the same requirement text but
+    distinct revB.bbox regions must claim distinct truth indexes instead of both collapsing
+    into truth_ambiguity.
+
+    Validated against checked-in Part 9 ground-truth centers for Ø.250 ±.008,
+    ⌖ ∅.015 D H, and ↧.50 ±.05.
+    """
+    # Build the six duplicate truth rows from Part 9 ground truth
+    truth_rows = [
+        _make_p9_added_truth(_P9_A0_REQ, _P9_A0_CENTER),  # index 0
+        _make_p9_added_truth(_P9_A1_REQ, _P9_A1_CENTER),  # index 1
+        _make_p9_added_truth(_P9_A2_REQ, _P9_A2_CENTER),  # index 2
+        _make_p9_added_truth(_P9_B0_REQ, _P9_B0_CENTER),  # index 3
+        _make_p9_added_truth(_P9_B1_REQ, _P9_B1_CENTER),  # index 4
+        _make_p9_added_truth(_P9_B2_REQ, _P9_B2_CENTER),  # index 5
+    ]
+
+    # Validate requirement text matches at expected indexes
+    assert truth_rows[0].requirement_revB == _P9_A0_REQ
+    assert truth_rows[0].snippet_center_revB == _P9_A0_CENTER
+    assert truth_rows[3].requirement_revB == _P9_B0_REQ
+    assert truth_rows[3].snippet_center_revB == _P9_B0_CENTER
+
+    # Packet rows: group-A items have bbox around group-A centers
+    packet_a0 = _make_p9_added_item(_P9_A0_REQ, bbox=[130.0, 300.0, 200.0, 360.0])
+    packet_b0 = _make_p9_added_item(_P9_B0_REQ, bbox=[570.0, 260.0, 640.0, 320.0])
+    packet_a1 = _make_p9_added_item(_P9_A1_REQ, bbox=[150.0, 320.0, 210.0, 375.0])
+    packet_b1 = _make_p9_added_item(_P9_B1_REQ, bbox=[590.0, 280.0, 650.0, 330.0])
+    packet_a2 = _make_p9_added_item(_P9_A2_REQ, bbox=[125.0, 335.0, 190.0, 395.0])
+    packet_b2 = _make_p9_added_item(_P9_B2_REQ, bbox=[565.0, 295.0, 625.0, 350.0])
+
+    reserved: set[int] = set()
+    claimed_indexes: list[int] = []
+
+    # Process six packet rows sequentially (mimicking evaluate_packet_against_truth)
+    for packet_item in [packet_a0, packet_b0, packet_a1, packet_b1, packet_a2, packet_b2]:
+        selection = select_truth_row_for_item(packet_item, truth_rows, reserved_added_truth_indexes=reserved)
+        assert selection.truth_row is not None, (
+            f"Expected a truth row to be selected for requirement={packet_item.requirement_revB!r}, "
+            f"bbox={packet_item.revB.bbox if packet_item.revB else None!r}. "
+            f"Got ambiguity: {selection.ambiguity_message}"
+        )
+        assert selection.truth_index is not None
+        assert selection.truth_index not in claimed_indexes, (
+            f"Truth index {selection.truth_index} claimed twice — duplicate collapse detected"
+        )
+        claimed_indexes.append(selection.truth_index)
+        reserved.add(selection.truth_index)
+
+    # All six distinct truth indexes should be claimed
+    assert len(claimed_indexes) == 6, f"Expected 6 distinct claims, got {len(claimed_indexes)}: {claimed_indexes}"
+    assert len(set(claimed_indexes)) == 6, f"Duplicate index claims detected: {claimed_indexes}"
+
+    # Group-A packet items should claim group-A truth indexes (0,1,2)
+    # Group-B packet items should claim group-B truth indexes (3,4,5)
+    # (Order matches processing: a0→0, b0→3, a1→1, b1→4, a2→2, b2→5)
+    assert set(claimed_indexes) == {0, 1, 2, 3, 4, 5}
