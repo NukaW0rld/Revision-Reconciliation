@@ -49,7 +49,7 @@ from delta_preservation.vision.bbox_utils import (
 )
 from delta_preservation.reconcile.anchors import build_revA_anchors
 from delta_preservation.reconcile.match import _group_candidate_spans, generate_candidates, assign_matches, refine_match_display_text
-from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, DeltaItem as DeltaItemInternal
+from delta_preservation.reconcile.classify import classify_delta, detect_added_characteristics, reconcile_removed_added_pairs, DeltaItem as DeltaItemInternal
 from delta_preservation.reconcile.tolerance_pdf import export_run_tolerance_debug, extract_tolerances_for_items
 from delta_preservation.reconcile.normalize import extract_semantic_callout
 from delta_preservation.types import (
@@ -506,6 +506,9 @@ def run_pipeline(
     )
     delta_items_internal.extend(added_items)
     print(f"  Found {len(added_items)} added characteristics in Rev B")
+
+    # CLS-02 post-pass: reconcile close-proximity removed+added pairs → changed
+    delta_items_internal = reconcile_removed_added_pairs(delta_items_internal, anchors)
 
     export_run_tolerance_debug(
         debug_dir=debug_dir,
