@@ -44,7 +44,7 @@ class _FakeMatch:
 
 
 class _FakeInternalDeltaItem:
-    def __init__(self, *, char_no: int, status: str, confidence: float, reasons, component_scores, match=None, added_span=None):
+    def __init__(self, *, char_no: int, status: str, confidence: float, reasons, component_scores, match=None, added_span=None, confidence_flags=None):
         self.char_no = char_no
         self.status = status
         self.confidence = confidence
@@ -52,6 +52,7 @@ class _FakeInternalDeltaItem:
         self.component_scores = component_scores
         self.match = match
         self.added_span = added_span
+        self.confidence_flags = list(confidence_flags or [])
 
 
 class _PipelineTestCase:
