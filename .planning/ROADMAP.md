@@ -47,7 +47,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   4. No previously-passing characteristics across the 9-part corpus regress to a wrong classification after these fixes are applied.
 **Plans**: 5 plans
   - [x] 05-01-PLAN.md — Wave 0 scaffold: confidence_flags on both DeltaItem models, CLI getattr fallback for legacy test doubles, and inline compatibility tests
-  - [ ] 05-02-PLAN.md — CLS-01 adjacency-bleed suppressor with anchor-aware chunk verification and explicit slash-separated negative cases
+  - [x] 05-02-PLAN.md — CLS-01 adjacency-bleed suppressor with anchor-aware chunk verification and explicit slash-separated negative cases
   - [ ] 05-03-PLAN.md — CLS-03 kind-transition pre-check plus broadened asymmetric fallback detection for leading-decimal forms
   - [ ] 05-04-PLAN.md — CLS-02 removed+added reconciliation post-pass with explicit added metadata contract (text, bbox, page) and nearest-compatible merge rules
   - [ ] 05-05-PLAN.md — Phase-5 regression harness using explicit snapshot exemplars plus synthetic CLS-02 packet-level regression coverage
