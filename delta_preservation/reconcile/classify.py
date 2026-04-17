@@ -77,6 +77,10 @@ class DeltaItem:
     match: Optional[Match] = None
     added_span: Optional[TextSpan] = None  # For added characteristics
     confidence_flags: List[str] = field(default_factory=list)
+    # Internal-only CLS-02 metadata: not persisted to the Pydantic packet
+    added_requirement_text: Optional[str] = None
+    added_bbox: Optional[Tuple[float, float, float, float]] = None
+    added_page: Optional[int] = None
 
 
 @dataclass
@@ -1395,7 +1399,16 @@ def detect_added_characteristics(
             f"New GD&T feature control frame in Rev B: \"{group_text}\"",
             "GD&T control symbol detected",
         ]
-        added_items.append(DeltaItem(
+        # Compute union bbox of the entire group for CLS-02 distance gating
+        _gdt_union_bbox = group_spans[0].bbox_pdf
+        for _gs in group_spans[1:]:
+            _gdt_union_bbox = (
+                min(_gdt_union_bbox[0], _gs.bbox_pdf[0]),
+                min(_gdt_union_bbox[1], _gs.bbox_pdf[1]),
+                max(_gdt_union_bbox[2], _gs.bbox_pdf[2]),
+                max(_gdt_union_bbox[3], _gs.bbox_pdf[3]),
+            )
+        _gdt_item = DeltaItem(
             char_no=current_char_no,
             status="added",
             confidence=0.75,
@@ -1403,7 +1416,11 @@ def detect_added_characteristics(
             component_scores={"location": 0.0, "text": 1.0, "context": 0.0},
             match=None,
             added_span=group_spans[0],
-        ))
+            added_requirement_text=group_text,
+            added_bbox=_gdt_union_bbox,
+            added_page=0,
+        )
+        added_items.append(_gdt_item)
         current_char_no += 1
 
     # --- Pass 1: detect stacked tolerance-limit pairs ---
@@ -1488,12 +1505,20 @@ def detect_added_characteristics(
                 break
             # Use the upper span as the representative span
             upper_span = span_a if val_a >= val_b else span_b
+            lower_span = span_b if val_a >= val_b else span_a
             reasons = [
                 f"New stacked-limits dimension in Rev B: {pair_text}",
                 f"Interpreted as {nominal:.4g} \u00b1 {half_tol:.4g}",
                 "Leading-decimal stacked tolerance limits detected",
             ]
             confidence = 0.65
+            # Union bbox of the pair for CLS-02 distance gating
+            _pair_union_bbox = (
+                min(upper_span.bbox_pdf[0], lower_span.bbox_pdf[0]),
+                min(upper_span.bbox_pdf[1], lower_span.bbox_pdf[1]),
+                max(upper_span.bbox_pdf[2], lower_span.bbox_pdf[2]),
+                max(upper_span.bbox_pdf[3], lower_span.bbox_pdf[3]),
+            )
 
             added_item = DeltaItem(
                 char_no=current_char_no,
@@ -1506,7 +1531,10 @@ def detect_added_characteristics(
                     "context": 0.0
                 },
                 match=None,
-                added_span=upper_span
+                added_span=upper_span,
+                added_requirement_text=pair_text,
+                added_bbox=_pair_union_bbox,
+                added_page=0,
             )
             added_items.append(added_item)
             current_char_no += 1
@@ -1666,9 +1694,116 @@ def detect_added_characteristics(
                 "context": 0.0
             },
             match=None,
-            added_span=span
+            added_span=span,
+            added_requirement_text=span.text,
+            added_bbox=span.bbox_pdf,
+            added_page=0,
         )
         added_items.append(added_item)
         current_char_no += 1
 
     return added_items
+
+
+# ---------------------------------------------------------------------------
+# CLS-02: Removed+Added reconciliation post-pass
+# ---------------------------------------------------------------------------
+
+# Maximum Euclidean distance (in PDF points) between removed-side and added-side
+# centroids for the pair to be eligible for reconciliation.
+CLS02_MAX_DISTANCE_PT = 150.0
+
+
+def reconcile_removed_added_pairs(
+    items: List[DeltaItem],
+    anchors: List[Anchor],
+) -> List[DeltaItem]:
+    """Post-pass that collapses close-proximity removed+added pairs into 'changed' rows.
+
+    Contract:
+    - Build anchor_by_char_no from the supplied anchors list.
+    - Only consider removed items that have a matching anchor.
+    - Only consider added items that have added_bbox and added_page set.
+    - Removed-side point: centroid of anchor.req_bbox if present,
+      otherwise centroid of anchor.balloon_bbox.
+    - Added-side point: centroid of added_bbox.
+    - Page gate: anchor.page must equal added_page.
+    - Distance gate: Euclidean distance <= CLS02_MAX_DISTANCE_PT.
+    - Type gate: classify_requirement_type on both sides must be compatible
+      (not incompatible per are_requirement_types_incompatible).
+    - Resolve one-to-one by selecting the nearest compatible added item.
+    - Rewrite the removed item in place: status='changed', attach added_span,
+      append reconciliation reasons, raise confidence to at least 0.70.
+    - Return a new list that omits consumed added items.
+    """
+    anchor_by_char_no: Dict[int, Anchor] = {a.char_no: a for a in anchors}
+
+    # Partition items
+    removed_items = [it for it in items if it.status == "removed"]
+    added_candidates = [
+        it for it in items
+        if it.status == "added"
+        and it.added_bbox is not None
+        and it.added_page is not None
+    ]
+
+    consumed_added_char_nos: set = set()
+
+    for removed in removed_items:
+        anchor = anchor_by_char_no.get(removed.char_no)
+        if anchor is None:
+            continue
+
+        # Removed-side centroid: req_bbox preferred, balloon_bbox fallback
+        if anchor.req_bbox is not None:
+            rx0, ry0, rx1, ry1 = anchor.req_bbox
+        else:
+            rx0, ry0, rx1, ry1 = anchor.balloon_bbox
+        removed_cx = (rx0 + rx1) / 2.0
+        removed_cy = (ry0 + ry1) / 2.0
+
+        removed_type = classify_requirement_type(anchor.requirement_raw)
+
+        best_added = None
+        best_dist = float("inf")
+
+        for added in added_candidates:
+            if added.char_no in consumed_added_char_nos:
+                continue
+            # Page gate
+            if added.added_page != anchor.page:
+                continue
+            # Distance gate
+            ax0, ay0, ax1, ay1 = added.added_bbox
+            added_cx = (ax0 + ax1) / 2.0
+            added_cy = (ay0 + ay1) / 2.0
+            dist = math.sqrt((removed_cx - added_cx) ** 2 + (removed_cy - added_cy) ** 2)
+            if dist > CLS02_MAX_DISTANCE_PT:
+                continue
+            # Type gate
+            added_text = added.added_requirement_text or (added.added_span.text if added.added_span else "")
+            added_type = classify_requirement_type(added_text)
+            if are_requirement_types_incompatible(removed_type, added_type):
+                continue
+            # Closest-wins
+            if dist < best_dist:
+                best_dist = dist
+                best_added = added
+
+        if best_added is None:
+            continue
+
+        # Rewrite the removed item in place
+        removed.status = "changed"
+        removed.confidence = max(removed.confidence, 0.70)
+        removed.added_span = best_added.added_span
+        removed.reasons.append(
+            f"reconciled removed+added pair: char_no={removed.char_no} merged with "
+            f"added char_no={best_added.char_no} "
+            f"(distance={best_dist:.1f} pt, removed_type={removed_type}, "
+            f"added_type={classify_requirement_type(best_added.added_requirement_text or '')})"
+        )
+        consumed_added_char_nos.add(best_added.char_no)
+
+    # Return new list omitting consumed added items
+    return [it for it in items if not (it.status == "added" and it.char_no in consumed_added_char_nos)]
