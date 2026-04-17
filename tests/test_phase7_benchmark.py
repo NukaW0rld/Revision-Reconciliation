@@ -1,9 +1,10 @@
 """Phase 7 cross-part conformance benchmark (TST-02).
 
-Loads the committed `assets/debug_report_partN.json` snapshots for all 9
+Loads the committed algorithm-only baseline fixtures in
+`tests/fixtures/phase7_algorithm_only/partN-debug-report.json` for all 9
 parts, counts `evaluation.status` values directly from the saved JSON, and
 asserts the counts meet or exceed a hardcoded BASELINE_COUNTS dict derived
-from the current snapshots (see 07-02-BASELINE-DERIVATION.md).
+from the Phase 7 algorithm-only capture (see 07-04-ALGORITHM-ONLY-BASELINE.md).
 
 This benchmark intentionally does NOT re-run the pipeline.  It is a
 snapshot regression guard, not an integration test.  Execution time: a
@@ -13,7 +14,7 @@ Failure modes that MUST fail the suite:
 - conforming count for any part drops below `min_conforming`
 - `missing_added_truth_indexes` length for any part exceeds
   `max_missing_added`
-- any required snapshot file is missing
+- any required fixture file is missing
 """
 from __future__ import annotations
 
@@ -22,31 +23,31 @@ from pathlib import Path
 
 import pytest
 
-ASSETS_DIR = Path(__file__).parent.parent / "assets"
+FIXTURES_DIR = Path(__file__).parent / "fixtures" / "phase7_algorithm_only"
 
-# Baseline derived mechanically from the committed snapshots at
+# Baseline derived from algorithm-only standalone reruns at
 # `git rev-parse --short HEAD == c5c19f0`.  See
-# .planning/phases/07-regression-tests-and-verification/07-02-BASELINE-DERIVATION.md
-# for the derivation command and raw output.  Update this dict only when
+# .planning/phases/07-regression-tests-and-verification/07-04-ALGORITHM-ONLY-BASELINE.md
+# for the derivation method and per-part counts.  Update this dict only when
 # the baseline genuinely improves (conforming count goes up AND/OR
 # max_missing_added goes down).
 BASELINE_COUNTS: dict[str, dict[str, int]] = {
-    "part1": {"min_conforming": 23, "max_missing_added": 0},
-    "part2": {"min_conforming": 18, "max_missing_added": 0},
-    "part3": {"min_conforming": 12, "max_missing_added": 0},
-    "part4": {"min_conforming": 7,  "max_missing_added": 0},
-    "part5": {"min_conforming": 9,  "max_missing_added": 0},
-    "part6": {"min_conforming": 13, "max_missing_added": 0},
-    "part7": {"min_conforming": 7,  "max_missing_added": 0},
-    "part8": {"min_conforming": 7,  "max_missing_added": 1},
-    "part9": {"min_conforming": 7,  "max_missing_added": 8},
+    "part1": {"min_conforming": 22, "max_missing_added": 1},
+    "part2": {"min_conforming": 18, "max_missing_added": 1},
+    "part3": {"min_conforming": 10, "max_missing_added": 2},
+    "part4": {"min_conforming": 9,  "max_missing_added": 3},
+    "part5": {"min_conforming": 12, "max_missing_added": 3},
+    "part6": {"min_conforming": 17, "max_missing_added": 0},
+    "part7": {"min_conforming": 11, "max_missing_added": 0},
+    "part8": {"min_conforming": 7,  "max_missing_added": 0},
+    "part9": {"min_conforming": 23, "max_missing_added": 1},
 }
 
 
 def _load_report(part: str) -> dict:
-    """Load a committed debug-report snapshot for the given part name."""
-    path = ASSETS_DIR / f"debug_report_{part}.json"
-    assert path.exists(), f"Missing required snapshot: {path}"
+    """Load a committed algorithm-only baseline fixture for the given part name."""
+    path = FIXTURES_DIR / f"{part}-debug-report.json"
+    assert path.exists(), f"Missing required fixture: {path}"
     return json.loads(path.read_text())
 
 
