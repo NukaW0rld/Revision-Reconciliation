@@ -61,7 +61,11 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   2. A raw PDF span whose content is fully explained by an existing matched characteristic does not produce a spurious added-characteristic row.
   3. No characteristic search window captures text from the title block or revision table; any previously-failing `snippet_outside_revA` cases caused by title-block capture are resolved.
   4. The aggregate added-characteristic count across all 9 parts matches or exceeds the ground-truth added count with no false-positive increase.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [x] 06-01-PLAN.md — Wave 1 shared exclusion contract across anchors, matching, rescue scans, and added detection
+  - [ ] 06-02-PLAN.md — Wave 2 grouped added-evidence contract plus explained-by-match false-positive suppression
+  - [ ] 06-03-PLAN.md — Wave 3 deterministic duplicate added-truth claiming from packet Rev B evidence
+  - [ ] 06-04-PLAN.md — Wave 4 read-only Part 8 / Part 9 asset-backed regression harness
 
 ### Phase 7: Regression Tests and Verification
 **Goal**: Every fix cluster from Phases 4-6 is covered by at least one fast parametrized pytest case, a cross-part benchmark guards aggregate accuracy, and a full 9-part ground-truth re-run confirms no regressions against the pre-fix baseline.
@@ -82,5 +86,5 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 3. Accepted Alternates | v1.0 | 2/2 | Complete | 2026-04-12 |
 | 4. GD&T Parser Fixes | v1.1 | 0/TBD | Not started | - |
 | 5. Classification Logic Fixes | v1.1 | 5/5 | Complete   | 2026-04-17 |
-| 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 0/TBD | Not started | - |
+| 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 0/4 | Planned | - |
 | 7. Regression Tests and Verification | v1.1 | 0/TBD | Not started | - |

@@ -45,13 +45,13 @@ canonical and must never be edited by the pipeline.
   every part in the debug corpus. Parts 8 and 9 currently show missing_added_truth_indexes;
   after this fix those lists must be empty on a clean run.
 
-- [ ] **ADD-02**: Spurious added-characteristic rows (false positives where a raw PDF span
+- [x] **ADD-02**: Spurious added-characteristic rows (false positives where a raw PDF span
   fragment is incorrectly classified as a new characteristic) are suppressed when the span's
   content is already fully explained by an existing matched characteristic.
 
 ### Snippet / Location
 
-- [ ] **SNP-01**: Title block regions (bottom-right corner, revision table) are reliably
+- [x] **SNP-01**: Title block regions (bottom-right corner, revision table) are reliably
   excluded from the search window for all characteristic types, eliminating the pattern of
   `snippet_outside_revA` mismatches where the algorithm latches onto title-block text instead
   of the correct drawing annotation.
