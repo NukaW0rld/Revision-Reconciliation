@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Phase 04 planned
-last_updated: "2026-04-14T19:17:09.045Z"
-last_activity: 2026-04-14 -- Phase 04 execution started
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-17T00:35:06.300Z"
+last_activity: 2026-04-17
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 7
+  completed_plans: 3
+  percent: 43
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Phase 04 — gd-t-parser-fixes
+**Current focus:** Phase 05 — classification-logic-fixes
 
 ## Current Position
 
-Phase: 04 (gd-t-parser-fixes) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 04
-Last activity: 2026-04-14 -- Phase 04 execution started
+Phase: 05 (classification-logic-fixes) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -53,6 +53,8 @@ Progress: [░░░░░░░░░░] 0%
 - Last 5 plans: 2 min, 3 min, 9 min
 - Trend: Stable
 
+| Phase 05 P01 | 2 | 3 tasks | 5 files |
+
 ## Accumulated Context
 
 ### Decisions
@@ -63,6 +65,8 @@ Recent decisions affecting current work:
 - Every algorithm fix must generalize across all 9 debug-corpus parts — no per-part hacks
 - Ground truth files are canonical references and must never be auto-edited by the pipeline
 - Phases 4-6 fix concrete algorithm errors; Phase 7 locks in regression coverage before close
+- [Phase 05-01]: Use field(default_factory=list) on internal DeltaItem dataclass to guarantee independent mutable defaults per instance
+- [Phase 05-01]: Use getattr(delta_internal, 'confidence_flags', []) in CLI to tolerate legacy/fake internal objects without the attribute
 
 ### Pending Todos
 
@@ -81,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T16:07:17.288Z
-Stopped at: Phase 04 planned
-Resume file: .planning/phases/04-gd-t-parser-fixes/04-01-PLAN.md
+Last session: 2026-04-17T00:35:06.297Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None

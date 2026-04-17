@@ -25,17 +25,17 @@ canonical and must never be edited by the pipeline.
 
 ### Classification Logic
 
-- [ ] **CLS-01**: When a matched Rev B span contains a `/`-separated multi-balloon bleed
+- [x] **CLS-01**: When a matched Rev B span contains a `/`-separated multi-balloon bleed
   (adjacent balloon content merged into one PDF text span), the `count_added` false-positive
   signal is suppressed and the item is tagged with a "Rev B text may contain adjacent balloon
   content" confidence flag instead of being mis-classified as changed.
 
-- [ ] **CLS-02**: When no Rev B match is found for a Rev A characteristic (candidate "removed")
+- [x] **CLS-02**: When no Rev B match is found for a Rev A characteristic (candidate "removed")
   and an unmatched added characteristic exists at a spatially close location on the same page,
   the pair is resolved as a single "changed" characteristic rather than a separate
   removed + added pair.
 
-- [ ] **CLS-03**: A symmetric tolerance that changes to an asymmetric form (e.g. `±1°` →
+- [x] **CLS-03**: A symmetric tolerance that changes to an asymmetric form (e.g. `±1°` →
   `+0.3° / −0.1°`) is correctly detected as a tolerance change and classified as "changed",
   not "unchanged" on the basis of a matching primary dimension.
 
