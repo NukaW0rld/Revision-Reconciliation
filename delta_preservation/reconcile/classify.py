@@ -2342,6 +2342,11 @@ def reconcile_removed_added_pairs(
                 and removed_gdt_datums != added_gdt_datums
             ):
                 continue
+            # Primary-value dimensional guard for CLS-02 reconciliation:
+            # reject removed+added merges whose primary (max) numerics differ
+            # by more than 10%.  Tightened from 15% to block e.g. Ø35.2/Ø34.8
+            # (primary=35.2) merging with 3X Ø18 ↧30 (primary=30) where the
+            # relative gap was 14.8% — just under the old 15% threshold.
             removed_fp = parse_requirement(anchor.requirement_raw)
             added_fp = parse_requirement(added_text)
             removed_numerics = {value for value, _ in removed_fp.numeric_tokens}
@@ -2353,7 +2358,7 @@ def reconcile_removed_added_pairs(
                 and added_primary is not None
                 and removed_primary != 0
                 and removed_primary != added_primary
-                and abs(removed_primary - added_primary) / abs(removed_primary) > 0.15
+                and abs(removed_primary - added_primary) / abs(removed_primary) > 0.10
             ):
                 continue
             # Closest-wins

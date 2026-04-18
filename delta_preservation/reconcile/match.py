@@ -303,11 +303,16 @@ def _candidate_is_dimensionally_compatible(
     """Return True when the candidate carries the anchor's primary numeric value.
 
     Used by assign_matches() to block obvious cross-characteristic mis-assignments
-    where a grouped candidate's only numeric payload is dimensionally unrelated to
-    the anchor (e.g., an anchor of Ø35.2 / Ø34.8 trying to claim a 3X Ø18 ↧30
+    where a **grouped** candidate's only numeric payload is dimensionally unrelated
+    to the anchor (e.g., an anchor of Ø35.2 / Ø34.8 trying to claim a 3X Ø18 ↧30
     callout that carries no 35.x value anywhere in its source spans).
 
-    The check is intentionally permissive:
+    The check is intentionally narrow — it only fires for grouped candidates
+    (those with ``source_spans``).  Single-span candidates pass through
+    normal scoring which already handles compatibility; blocking them would
+    break legitimate GD&T tolerance matches (e.g., ``⌖∅.015`` anchors).
+
+    Additional permissive rules:
       * Anchors with no numeric tokens (notes, pure symbols) are always compatible.
       * Candidates from the global page-wide fallback are always compatible here
         (they already go through the wrong-copy guard).
@@ -316,6 +321,11 @@ def _candidate_is_dimensionally_compatible(
         is compatible.  Only candidates with no numeric overlap at all are
         rejected.
     """
+    # Only apply to grouped candidates (the specific failure case)
+    source_spans = getattr(candidate.span, "source_spans", None) or []
+    if not source_spans:
+        return True
+
     anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
     if not anchor_numerics:
         return True
@@ -328,7 +338,6 @@ def _candidate_is_dimensionally_compatible(
     candidate_numerics = {v for v, _ in candidate_fp.numeric_tokens}
 
     # Also union in numerics from every source_span in a grouped candidate
-    source_spans = getattr(candidate.span, "source_spans", None) or []
     for src in source_spans:
         src_fp = parse_requirement(src.text)
         candidate_numerics.update(v for v, _ in src_fp.numeric_tokens)
