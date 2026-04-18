@@ -123,7 +123,7 @@ The original 07-03 run compared against `assets/debug_report_partN.json` (web-ex
 | Part 3 | conforming=12, missing_added=0 | conforming=10, missing_added=2 | Algorithm baseline is 10 — no regression |
 | Part 8 | conforming=7, review_needed=5, missing_added=1 | conforming=7, review_needed=7, missing_added=0 | review_needed=7 is correct algorithm-only baseline |
 
-### Verification parity restored
+## Verification parity restored
 
 The authoritative baseline is the standalone `c5c19f0` algorithm-only fixture set, not the web-exported `assets/debug_report_partN.json` files. All 9 parts pass against this corrected baseline. Zero true regressions.
 
@@ -140,6 +140,36 @@ All three phase requirements satisfied:
 - TST-01: Per-cluster regression coverage across all 9 Phase 4-6 fix clusters, CLS-03 gap filled
 - TST-02: Cross-part benchmark anchored to algorithm-only fixtures, 20 tests pass
 - VER-01: 9-part verification complete, parity artifacts resolved, zero true regressions
+
+---
+
+## Phase 9 Closure Note (2026-04-18)
+
+The authoritative algorithm-only fixture set (`tests/fixtures/phase7_algorithm_only/`) now
+has **zero missing-added rows** across 8 of the 9 corpus parts after Phase 9 Plans 01-03:
+
+| Part | Phase 7 missing-added | Phase 9 missing-added | Change |
+|------|----------------------|----------------------|--------|
+| part1 | [38] | [] | closed |
+| part2 | [22] | [] | closed |
+| part3 | [19, 20] | [] | closed |
+| part4 | [11, 14, 15] | [] | closed |
+| part5 | [16, 17, 18] | [16, 17] | partial (2 deferred) |
+| part6 | [] | [] | unchanged |
+| part7 | [] | [] | unchanged |
+| part8 | [] | [] | unchanged |
+| part9 | [42] | [] | closed |
+
+Part 5 indexes 16 (`800`) and 17 (`3X Ø18 ↧30`) are explicitly deferred architectural items
+(near-boilerplate proximity filter and matching-layer mis-assignment respectively) — see
+09-02-SUMMARY.md for full rationale.
+
+`tests/test_phase7_benchmark.py::BASELINE_COUNTS` has been updated so `max_missing_added = 0`
+for all parts except Part 5 (`max_missing_added = 2`).  All 20 benchmark tests pass.
+
+Phase 9 plans: 09-01-PLAN.md (token contract + leading-zero normalization), 09-02-PLAN.md
+(detector-side owner signatures + GD&T anchors + surface-finish grouping), 09-03-PLAN.md
+(fixture refresh + material-modifier spacing normalization + traceability closure).
 
 ---
 

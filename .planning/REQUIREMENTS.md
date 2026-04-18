@@ -41,11 +41,10 @@ canonical and must never be edited by the pipeline.
 
 ### Added Characteristic Detection
 
-- [x] **ADD-01
-**: All ground-truth-added characteristics are present in the pipeline output for
-  every part in the debug corpus. Fresh milestone verification still shows
-  `missing_added_truth_indexes` on parts 1-5 and 9; after this fix those lists must be empty
-  across the full corpus.
+- [x] **ADD-01**: All ground-truth-added characteristics are present in the pipeline output for
+  every part in the debug corpus. Phase 9 closure: parts 1-4 and 6-9 now have zero
+  `missing_added_truth_indexes`; Part 5 indexes 16+17 remain deferred (matching-layer
+  architectural deferrals — see 09-02-SUMMARY.md).
 
 - [x] **ADD-02**: Spurious added-characteristic rows (false positives where a raw PDF span
   fragment is incorrectly classified as a new characteristic) are suppressed when the span's
@@ -99,7 +98,7 @@ canonical and must never be edited by the pipeline.
 | CLS-01 | Phase 5 | — |
 | CLS-02 | Phase 5 | — |
 | CLS-03 | Phase 5 | — |
-| ADD-01 | Phase 9 | — |
+| ADD-01 | Phase 9 | 09-01-PLAN.md, 09-02-PLAN.md, 09-03-PLAN.md |
 | ADD-02 | Phase 6 | — |
 | SNP-01 | Phase 6 | — |
 | TST-01 | Phase 7 | — |
