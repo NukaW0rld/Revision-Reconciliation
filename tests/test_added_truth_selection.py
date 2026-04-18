@@ -329,3 +329,42 @@ class TestDuplicateAddedTruthSelection:
         selection = _sel(item, truth_rows, reserved={0})
         assert selection.truth_row is not None
         assert selection.truth_index == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 9 Plan 01 — Task 1 regression
+# ---------------------------------------------------------------------------
+
+def test_added_truth_match_token_uses_added_pool_prefix_even_when_truth_row_has_char_no():
+    """An added truth row with a legacy char_no must still yield the canonical added:<index>
+    token, not the integer char_no.
+
+    This guards against the Part 1 accounting false-miss where the truth row carries
+    char_no=39 but the evaluator must emit ``added:0`` so that
+    _load_missing_added_truth_items in review.py can resolve the claim correctly.
+    """
+    from delta_preservation.evaluation.conformance import _truth_match_token
+    from delta_preservation.evaluation.contracts import GroundTruthCharacteristic
+
+    # Simulate a legacy added truth row that still carries a char_no (as Part 1 does).
+    truth_row = GroundTruthCharacteristic(
+        char_no=39,
+        classification="added",
+        requirement_revB="2 x 5 X 45.0°",
+        snippet_center_revA=None,
+        snippet_center_revB=(100.0, 200.0),
+    )
+
+    token = _truth_match_token(truth_row, truth_index=0)
+    assert token == "added:0", (
+        f"Expected canonical added token 'added:0' but got {token!r}. "
+        "Added rows must use the ADDED_POOL_TOKEN_PREFIX regardless of legacy char_no."
+    )
+
+    # Also check that the full selection flow yields the same token.
+    item = _make_added_item("2 x 5 X 45.0°")
+    selection = _sel(item, [truth_row])
+    assert selection.matched_truth_char_no == "added:0", (
+        f"select_truth_row_for_item must emit 'added:0' for an added truth row with char_no=39; "
+        f"got {selection.matched_truth_char_no!r}"
+    )

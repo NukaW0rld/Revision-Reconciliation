@@ -570,20 +570,32 @@ def _load_missing_added_truth_items(
     if not truth_added_rows:
         return []
 
-    # Collect matched added token indexes from packet evaluations
+    # Build a lookup from legacy char_no integer → truth_index for added rows so
+    # packets serialized before the canonical ``added:<index>`` token contract was
+    # enforced can still claim their truth rows correctly.
+    added_char_no_to_truth_index: dict[int, int] = {
+        ch.char_no: i
+        for i, ch in enumerate(truth_packet.characteristics)
+        if ch.classification == "added" and ch.char_no is not None
+    }
+
+    # Collect matched added token indexes from packet evaluations.
+    # Accept both the canonical string form ``added:<index>`` and a legacy integer
+    # token when that integer is the char_no of an added truth row.
     claimed: set[int] = set()
     for _item, delta_item in packet_rows:
         if delta_item.evaluation is None:
             continue
         token = delta_item.evaluation.matched_truth_char_no
-        if not isinstance(token, str):
-            continue
-        if token.startswith(f"{ADDED_POOL_TOKEN_PREFIX}:"):
+        if isinstance(token, str) and token.startswith(f"{ADDED_POOL_TOKEN_PREFIX}:"):
             try:
                 idx = int(token.split(":", 1)[1])
                 claimed.add(idx)
             except (ValueError, IndexError):
                 pass
+        elif isinstance(token, int) and token in added_char_no_to_truth_index:
+            # Legacy integer token that resolves to an added truth row.
+            claimed.add(added_char_no_to_truth_index[token])
 
     rows: list[MissingAddedTruthItem] = []
     for truth_index, truth_row in truth_added_rows:

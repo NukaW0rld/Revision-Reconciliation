@@ -101,7 +101,11 @@ def _normalize_requirement_text(requirement: str | None) -> str | None:
     normalized = parse_requirement(cleaned).norm_text
     semantic_callout = extract_semantic_callout(pdf_spans=[], form3_requirement=cleaned)
     if semantic_callout is not None and semantic_callout.normalized_text:
-        normalized = semantic_callout.normalized_text
+        # Semantic fallback may preserve source casing for non-parsed/freeform
+        # notes. Canonicalize it to the same uppercase, collapsed-whitespace
+        # contract used by parse_requirement so equivalent note text compares
+        # equal during ground-truth evaluation.
+        normalized = " ".join(semantic_callout.normalized_text.upper().split())
 
     # Added-row truth selection should not fail solely because one source
     # inserts harmless spacing between a control symbol and its tolerance token.
@@ -109,8 +113,16 @@ def _normalize_requirement_text(requirement: str | None) -> str | None:
 
 
 def _truth_match_token(truth_row: GroundTruthCharacteristic, truth_index: int) -> int | str | None:
-    """Return the serialized truth reference for a matched truth row."""
+    """Return the serialized truth reference for a matched truth row.
 
+    Added rows always use the canonical ``added:<index>`` token regardless of
+    whether the truth row also carries a legacy ``char_no``.  This prevents
+    debug-queue accounting from losing the claim when ``_load_missing_added_truth_items``
+    checks only for string tokens shaped like ``added:<index>``.
+    """
+
+    if truth_row.classification == "added":
+        return f"{ADDED_POOL_TOKEN_PREFIX}:{truth_index}"
     if truth_row.char_no is not None:
         return truth_row.char_no
     return f"{ADDED_POOL_TOKEN_PREFIX}:{truth_index}"

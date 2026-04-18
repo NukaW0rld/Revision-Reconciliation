@@ -297,6 +297,64 @@ def _make_p9_added_item(requirement: str, bbox: list[float]) -> DeltaItem:
     )
 
 
+def test_missing_added_accepts_legacy_int_token_for_added_truth_row_char_no(db_engine, tmp_path):
+    """_load_missing_added_truth_items must treat a legacy integer matched_truth_char_no
+    as a claim when that integer is the char_no of an added truth row.
+
+    This regression guards the Part 1 false-miss: the evaluator previously emitted
+    integer 39 for an added truth row with char_no=39, but the review collector only
+    accepted string tokens shaped like 'added:<index>', so the row incorrectly appeared
+    as missing_added.  After the fix both token shapes must produce an empty
+    missing_added_truth_indexes list.
+    """
+    # Packet emits a legacy integer matched_truth_char_no=39 (old token shape)
+    items = [
+        {
+            "char_no": None,
+            "status": "added",
+            "confidence": 0.80,
+            "requirement_revB": "2 x 5 X 45.0°",
+            "scores": {},
+            "reasons": [],
+            "revA": None,
+            "revB": None,
+            "evaluation": {
+                "status": "conforming",
+                "matched_truth_char_no": 39,   # legacy integer token
+                "snippet_conforms": True,
+                "mismatches": [],
+            },
+        }
+    ]
+    db, run = _seed_run(db_engine, tmp_path, items=items)
+
+    # Ground truth has one added row that still carries the legacy char_no=39
+    truth_packet = GroundTruthPacket(
+        part_name="part1-legacy",
+        general_notes="",
+        characteristics=[
+            GroundTruthCharacteristic(
+                char_no=39,
+                classification="added",
+                requirement_revB="2 x 5 X 45.0°",
+                snippet_center_revA=None,
+                snippet_center_revB=(100.0, 200.0),
+            )
+        ],
+    )
+
+    try:
+        with patch("shop.services.review.load_ground_truth_packet", return_value=truth_packet):
+            queue_state = build_debug_queue_state(db, run)
+
+        assert queue_state["missing_added_truth_indexes"] == [], (
+            "Legacy integer token 39 should resolve to the added truth row with char_no=39 "
+            "and not appear as a missing added row."
+        )
+    finally:
+        db.close()
+
+
 def test_duplicate_added_truth_rows_claim_distinct_indexes_from_revb_evidence():
     """Queue-facing regression: two packet added rows with the same requirement text but
     distinct revB.bbox regions must claim distinct truth indexes instead of both collapsing
