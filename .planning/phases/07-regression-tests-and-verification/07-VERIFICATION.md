@@ -171,7 +171,21 @@ Phase 9 plans: 09-01-PLAN.md (token contract + leading-zero normalization), 09-0
 (detector-side owner signatures + GD&T anchors + surface-finish grouping), 09-03-PLAN.md
 (fixture refresh + material-modifier spacing normalization + traceability closure).
 
+### Phase 9 Full-Corpus Closure Follow-up (2026-04-18)
+
+After Plans 04 and 05, the Part 5 deferral is resolved. Plan 04 replaced the
+120 pt omni-directional boilerplate proximity sweep with a zone-aware check
+(`span_is_excluded_for_annotation_search` + same-row companion check), closing
+index 16 (`800`). Plan 05 added `_candidate_is_dimensionally_compatible` in
+`assign_matches` (grouped-only), source-span pruning, and tightened the CLS-02
+primary-value threshold from 15% to 10%, closing index 17 (`3X Ø18 ↧30`).
+
+The algorithm-only fixture set now shows **zero missing-added rows for all 9
+parts**. `BASELINE_COUNTS` in `tests/test_phase7_benchmark.py` encodes
+`max_missing_added=0` for every part. Part 5 conforming improved 13→14,
+Part 8 improved 7→8. Part 2 decreased 19→18 (no added-truth regression).
+
 ---
 
-_Verified: 2026-04-17_
+_Verified: 2026-04-17 (initial), 2026-04-18 (Phase 9 full-corpus closure follow-up)_
 _Verifier: Claude (gsd-verifier)_

@@ -1,9 +1,9 @@
 # 07-04 Algorithm-Only Baseline
 
-**Provenance:** Baseline commit: 8a611c9 (post-Phase-9 closure)
-**Capture method:** `uv run python run.py partN` from repo root (HEAD = 8a611c9, after Phase 9 Plans 01-03)
-**Captured:** 2026-04-18 (Phase 9 Plan 03 refresh)
-**Prior baseline commit:** c5c19f0 (Phase 7 original capture)
+**Provenance:** Baseline commit: db265b5 (post-Phase-9 full-corpus closure)
+**Capture method:** `uv run python run.py partN` from repo root (HEAD = db265b5, after Phase 9 Plans 01-05)
+**Captured:** 2026-04-18 (Phase 9 Plan 06 refresh)
+**Prior baseline commit:** 8a611c9 (Phase 9 Plans 01-03), c5c19f0 (Phase 7 original capture)
 
 ## Why this baseline exists
 
@@ -18,37 +18,25 @@ the comparison was actually against a stale, pre-Phase-6 snapshot.
 This document records the algorithm-only baseline derived from running the
 standalone pipeline.  Phase 7 (c5c19f0 → c3980fe) added only planning
 documents and test scaffolding — no algorithm source files changed.  Phase 9
-(Plans 01-03) then closed the remaining missing-added misses by fixing the
-canonical token contract, leading-zero normalization, detector-side owner
-signatures, GD&T anchor symbols, surface-finish grouping, and
-material-modifier spacing normalization.
+(Plans 01-05) closed all remaining missing-added misses: canonical token
+contract, leading-zero normalization, detector-side owner signatures, GD&T
+anchor symbols, surface-finish grouping, material-modifier spacing
+normalization, zone-aware boilerplate filter, and dimensional-incompatibility
+guard in the matching layer.
 
-## Baseline counts (Phase 9 post-closure — HEAD 8a611c9)
+## Baseline counts (Phase 9 full-corpus closure — HEAD db265b5)
 
 | Part | Conforming | Review-Needed | Missing-Added (indexes) |
 |------|-----------|---------------|------------------------|
 | part1 | 22 | 17 | 0 |
-| part2 | 19 | 4  | 0 |
+| part2 | 18 | 6  | 0 |
 | part3 | 10 | 11 | 0 |
 | part4 | 9  | 10 | 0 |
-| part5 | 13 | 5  | 2 ([16, 17]) |
+| part5 | 14 | 6  | 0 |
 | part6 | 20 | 1  | 0 |
 | part7 | 11 | 7  | 0 |
-| part8 | 7  | 7  | 0 |
+| part8 | 8  | 6  | 0 |
 | part9 | 23 | 16 | 0 |
-
-### Part 5 deferred items
-
-Part 5 indexes 16 (`800`) and 17 (`3X Ø18 ↧30`) remain unclaimed:
-
-- **Index 16 (`800`)**: Filtered by the near-boilerplate proximity check —
-  `UNLESS OTHERWISE SPECIFIED` text is ~54 pt away, within the 120 pt
-  threshold.  Reducing the threshold risks false positives; deferred.
-- **Index 17 (`3X Ø18 ↧30`)**: All three source spans are matched to char 1
-  (`Ø35.2 / Ø34.8`) by the matching layer before Pass 0 can detect them.
-  Requires a matching-layer architectural fix outside Phase 9 scope.
-
-Both were explicitly deferred in Phase 9 Plan 02 (see 09-02-SUMMARY.md).
 
 ## Improvements over the Phase 7 (c5c19f0) baseline
 
@@ -58,11 +46,28 @@ Both were explicitly deferred in Phase 9 Plan 02 (see 09-02-SUMMARY.md).
 | part2 | 18 | 19 | 1 ([22]) | 0 |
 | part3 | 10 | 10 | 2 ([19, 20]) | 0 |
 | part4 | 9  | 9  | 3 ([11, 14, 15]) | 0 |
-| part5 | 12 | 13 | 3 ([16, 17, 18]) | 2 ([16, 17]) |
+| part5 | 12 | 14 | 3 ([16, 17, 18]) | 0 |
 | part6 | 17 | 20 | 0 | 0 |
 | part7 | 11 | 11 | 0 | 0 |
-| part8 | 7  | 7  | 0 | 0 |
+| part8 | 7  | 8  | 0 | 0 |
 | part9 | 23 | 23 | 1 ([42]) | 0 |
+
+## Phase 9 full-corpus closure
+
+Part 5 indexes 16 (`800`) and 17 (`3X Ø18 ↧30`), previously deferred as
+architectural gaps, are now closed:
+
+- **Index 16 (`800`)**: Closed by Plan 04 — zone-aware boilerplate filter
+  replaced the overly broad 120 pt proximity sweep with
+  `span_is_excluded_for_annotation_search` plus a tight same-row companion
+  check.  The drawing-body integer is no longer suppressed.
+- **Index 17 (`3X Ø18 ↧30`)**: Closed by Plan 05 —
+  `_candidate_is_dimensionally_compatible` guard in `assign_matches` prevents
+  grouped candidates from claiming dimensionally unrelated anchors, and
+  source-span pruning frees foreign sub-spans for added detection.  CLS-02
+  primary-value threshold tightened from 15% to 10%.
+
+`max_missing_added=0` now holds for every part.
 
 ## Historical Phase 6 assets
 
