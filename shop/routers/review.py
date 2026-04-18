@@ -17,6 +17,7 @@ from shop.services.review import (
     attempt_sign_off,
     build_debug_queue_state,
     build_run_debug_summary,
+    build_signoff_gate_state,
     debug_internals_by_char,
     debug_internals_by_item_id,
     debug_verdict_state,
@@ -109,6 +110,7 @@ def review_queue(
     read_only = run.status == "signed_off"
     is_amendment = bool(run.parent_run_id)
     error = request.query_params.get("error")
+    signoff_gate_state = build_signoff_gate_state(db, run) if not debug else None
     nav = _get_nav_context(db, user)
     return templates.TemplateResponse(request, "review/queue.html", {
         "run": run,
@@ -134,6 +136,7 @@ def review_queue(
         "debug_total": debug_total,
         "missing_added_truth_indexes": missing_added_truth_indexes,
         "debug_notes": debug_notes,
+        "signoff_gate_state": signoff_gate_state,
         **nav,
     })
 
@@ -605,6 +608,10 @@ def sign_off_confirm(
     )
     if pending > 0:
         return RedirectResponse(f"/review/{run_id}?error=pending_items", status_code=302)
+    # Check debug exception gate — must be clear before sign-off
+    gate = build_signoff_gate_state(db, run)
+    if not gate["debug_gate_clear"]:
+        return RedirectResponse(f"/review/{run_id}?error=debug_exceptions_pending", status_code=302)
     success = attempt_sign_off(db, run, user.id)
     if success:
         return RedirectResponse(f"/review/{run_id}/generating", status_code=302)

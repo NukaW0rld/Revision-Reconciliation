@@ -1117,3 +1117,138 @@ def test_review_queue_surfaces_packet_confidence_flags_on_standard_item_cards(
     assert "Packet Advisories" in html, (
         "Normal review queue must show 'Packet Advisories' section header when flags are present"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 10 Plan 02 — sign-off gate: debug exceptions block even with 0 pending
+# ---------------------------------------------------------------------------
+
+def test_sign_off_blocks_when_debug_exceptions_remain_even_with_zero_pending_items(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """SIGNOFF-DBG-01: sign-off is blocked when unresolved debug exceptions exist,
+    even when all normal review items are approved (pending == 0).
+
+    The router must redirect to ?error=debug_exceptions_pending in that case,
+    distinct from the ?error=pending_items redirect.
+    """
+    from unittest.mock import patch
+    from shop.models import ReviewItem
+    from shop.services.review import build_run_debug_summary
+
+    _login_engineer(client, db_engine, engineer_user)
+
+    # One review_needed exception item — this ensures debug_report_ready=False
+    packet = {
+        "run_id": "signoff-dbg-gate-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 55,
+                "status": "changed",
+                "confidence": 0.61,
+                "reasons": ["text differs"],
+                "scores": {},
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 55,
+                    "snippet_conforms": False,
+                    "mismatches": [{"code": "classification_mismatch", "message": "text differs"}],
+                },
+            }
+        ],
+    }
+    run_id = _make_run_with_packet_data(tmp_path, db_engine, packet, status="reviewing")
+
+    # Seed review items so we can approve them
+    client.get(f"/review/{run_id}", follow_redirects=False)
+
+    # Approve all normal review items (pending → 0)
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        items = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).all()
+        for item in items:
+            item.reviewer_decision = "approved"
+        db.commit()
+    finally:
+        db.close()
+
+    # Attempt sign-off with 0 pending items but 1 unresolved debug exception
+    resp = client.post(f"/review/{run_id}/sign-off/confirm", follow_redirects=False)
+    assert resp.status_code == 302, f"Expected 302 redirect, got {resp.status_code}"
+    location = resp.headers["location"]
+    assert "debug_exceptions_pending" in location, (
+        f"Expected redirect with error=debug_exceptions_pending, got: {location}"
+    )
+    assert "pending_items" not in location, (
+        "Must not conflate debug gate with pending_items error"
+    )
+
+
+def test_review_queue_signoff_footer_shows_debug_exception_gate(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """SIGNOFF-DBG-02: the normal review queue footer shows the debug-exception gate
+    message and disables the sign-off CTA when unresolved debug exceptions remain,
+    even when all review items are approved.
+    """
+    from shop.models import ReviewItem
+
+    _login_engineer(client, db_engine, engineer_user)
+
+    packet = {
+        "run_id": "signoff-dbg-footer-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 66,
+                "status": "changed",
+                "confidence": 0.58,
+                "reasons": ["mismatch"],
+                "scores": {},
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 66,
+                    "snippet_conforms": False,
+                    "mismatches": [{"code": "classification_mismatch", "message": "mismatch"}],
+                },
+            }
+        ],
+    }
+    run_id = _make_run_with_packet_data(tmp_path, db_engine, packet, status="reviewing")
+
+    # Seed and approve all items so pending == 0
+    client.get(f"/review/{run_id}", follow_redirects=False)
+    TestingSession = sessionmaker(bind=db_engine)
+    db = TestingSession()
+    try:
+        items = db.query(ReviewItem).filter(ReviewItem.run_id == run_id).all()
+        for item in items:
+            item.reviewer_decision = "approved"
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.get(f"/review/{run_id}", follow_redirects=False)
+    assert resp.status_code == 200, resp.text
+    html = resp.text
+
+    # Footer must show the debug exception gate message
+    assert "Resolve debug exceptions before sign-off" in html, (
+        "Footer must display debug exception gate message when exceptions remain"
+    )
+    # Sign-off CTA must be disabled
+    signoff_footer_section = html.split("signoff-footer")[1] if "signoff-footer" in html else html
+    assert "disabled" in signoff_footer_section, (
+        "Sign-off CTA must be disabled when debug exceptions remain"
+    )
+    # Must NOT show the enabled sign-off button
+    assert 'onclick="document.getElementById(\'signoff-modal\').showModal()"' not in html or \
+        "disabled" in signoff_footer_section, (
+        "Sign-off button must not be enabled when debug exceptions remain"
+    )

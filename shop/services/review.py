@@ -708,6 +708,44 @@ def debug_internals_by_item_id(db: Session, run: Run) -> dict[int, dict]:
     return result
 
 
+def build_signoff_gate_state(db: Session, run: Run) -> dict:
+    """Return a template-safe sign-off gate summary combining all blockers.
+
+    The returned dict carries:
+    - ``pending_count``            — normal review items still undecided
+    - ``unresolved_exception_count`` — debug exceptions without a verdict
+    - ``debug_gate_clear``         — True only when exceptions == 0
+    - ``debug_queue_url``          — link to the debug queue when exceptions remain
+    - ``can_sign_off``             — True only when both gates are clear
+    """
+    # Normal review pending count
+    from shop.models import ReviewItem  # local import avoids circular at module level
+    pending_count = (
+        db.query(ReviewItem)
+        .filter(ReviewItem.run_id == run.id, ReviewItem.reviewer_decision == None)  # noqa: E711
+        .count()
+    )
+
+    # Debug exception state (reuse existing summary)
+    try:
+        debug_summary = build_run_debug_summary(db, run)
+        unresolved_exception_count = debug_summary["unresolved_exception_count"]
+    except Exception:
+        # If debug summary can't be built (no packet yet), treat as 0 unresolved
+        unresolved_exception_count = 0
+
+    debug_gate_clear = unresolved_exception_count == 0
+    can_sign_off = pending_count == 0 and debug_gate_clear
+
+    return {
+        "pending_count": pending_count,
+        "unresolved_exception_count": unresolved_exception_count,
+        "debug_gate_clear": debug_gate_clear,
+        "debug_queue_url": f"/review/{run.id}?debug=1" if not debug_gate_clear else None,
+        "can_sign_off": can_sign_off,
+    }
+
+
 def advisory_flags_by_item_id(db: Session, run: Run) -> "dict[int, list[str]]":
     """Return packet-native confidence_flags lists keyed by ReviewItem.id.
 
