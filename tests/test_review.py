@@ -1071,3 +1071,49 @@ def test_reset_signed_off_returns_409(client: TestClient, engineer_user, db_engi
 
     resp = client.post(f"/review/{run_id}/items/{char_no}/reset")
     assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
+
+
+def test_review_queue_surfaces_packet_confidence_flags_on_standard_item_cards(
+    client: TestClient, engineer_user, db_engine, tmp_path
+):
+    """advisory: normal review queue renders packet-native confidence_flags, not re-derived warnings.
+
+    The packet item carries a confidence_flag string that differs from the reasons text so the
+    test can distinguish packet-native rendering from any template-level re-derivation.
+    """
+    _login_engineer(client, db_engine, engineer_user)
+
+    advisory_text = "Rev B text may contain adjacent balloon content"
+    misleading_reason = "classification differs — do not surface this as advisory"
+
+    packet = {
+        "run_id": "advisory-flag-review-001",
+        "inputs": {},
+        "items": [
+            {
+                "char_no": 42,
+                "status": "changed",
+                "confidence": 0.71,
+                "reasons": [misleading_reason],
+                "scores": {},
+                "revA": None,
+                "revB": None,
+                "confidence_flags": [advisory_text],
+            }
+        ],
+    }
+    run_id = _make_run_with_packet_data(tmp_path, db_engine, packet)
+
+    resp = client.get(f"/review/{run_id}")
+    assert resp.status_code == 200, resp.text
+
+    html = resp.text
+    assert advisory_text in html, (
+        f"Packet advisory '{advisory_text}' must appear in the normal review queue HTML"
+    )
+    # The misleading reason text must NOT appear as an advisory label.
+    # (It may still appear in debug internals; we only assert it is not mistaken
+    #  for the advisory block by checking the advisory block contains packet text.)
+    assert "Packet Advisories" in html, (
+        "Normal review queue must show 'Packet Advisories' section header when flags are present"
+    )

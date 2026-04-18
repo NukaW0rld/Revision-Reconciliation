@@ -84,6 +84,18 @@
         </div>
       {% endif %}
 
+      {% set _debug_flags = item_advisory_flags if item_advisory_flags is defined else (advisory_flags.get(item.id, []) if advisory_flags is defined else []) %}
+      {% if _debug_flags %}
+      <div class="border border-warning/40 bg-warning/5 px-3 py-2 rounded">
+        <p class="text-xs font-mono text-warning uppercase tracking-widest mb-1">Packet Advisories</p>
+        <ul class="space-y-1">
+          {% for flag in _debug_flags %}
+          <li class="text-sm font-mono text-base-content">{{ flag }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
       <section class="border border-error/30 bg-error/5 p-4 rounded">
         <p class="text-xs font-mono text-error uppercase tracking-widest mb-2">Mismatch Summary</p>
         {% if debug_internal and debug_internal.mismatches %}

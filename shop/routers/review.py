@@ -12,6 +12,7 @@ from shop.models import User, Run, ReviewItem
 from shop.services.alternate_history import sync_accepted_alternate_history
 from shop.services.review import (
     DebugVerdictValidationError,
+    advisory_flags_by_item_id,
     assemble_debug_report_payload,
     attempt_sign_off,
     build_debug_queue_state,
@@ -74,6 +75,8 @@ def review_queue(
         all_items or debug_queue_state.get("packet_declares_items")
     ):
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
+    # advisory_flags: dict[ReviewItem.id, list[str]] — packet-native confidence_flags per row
+    advisory_flags = advisory_flags_by_item_id(db, run)
     semantic_contracts = semantic_contracts_by_char(run)
     debug_semantic_contracts = semantic_contracts_by_item_id(db, run) if debug else {}
     debug_internals = debug_internals_by_item_id(db, run) if debug else {}
@@ -113,6 +116,7 @@ def review_queue(
         "items": visible_items,
         "semantic_contracts": semantic_contracts,
         "debug_semantic_contracts": debug_semantic_contracts,
+        "advisory_flags": advisory_flags,
         "user": user,
         "pending": pending,
         "approved": approved,
@@ -161,6 +165,7 @@ def _render_debug_item_card(
     debug_internal = debug_internals_by_item_id(db, run).get(item.id)
     saved_verdict = debug_progress["by_item_id"].get(item.id)
     debug_form = {**(saved_verdict or {}), **(form_values or {})}
+    item_advisory_flags = advisory_flags_by_item_id(db, run).get(item.id, [])
     return templates.TemplateResponse(
         request,
         "review/_item_card_debug.html",
@@ -184,6 +189,7 @@ def _render_debug_item_card(
             "error": error,
             "debug_mode": True,
             "oob_update": oob_update,
+            "item_advisory_flags": item_advisory_flags,
         },
         status_code=status_code,
     )

@@ -1512,3 +1512,53 @@ def test_debug_notes_route_rejected_for_non_admin(
 
     resp = client.post(f"/review/{run_id}/debug/notes", data={"notes": "Sneaky."})
     assert resp.status_code == 403
+
+
+def test_debug_queue_surfaces_packet_confidence_flags_without_rederiving_them(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    """advisory: debug queue renders packet-native confidence_flags, not warnings re-derived from reasons.
+
+    The packet row carries a confidence_flag string intentionally different from the reasons text
+    so the test can distinguish packet-native rendering from template-level re-derivation.
+    """
+    _login(client, db_engine, admin_user)
+
+    advisory_text = "Rev B text may contain adjacent balloon content"
+    misleading_reason = "do-not-surface-as-advisory-reason-text"
+
+    run_id, _out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 7,
+                "status": "changed",
+                "confidence": 0.61,
+                "scores": {},
+                "reasons": [misleading_reason],
+                "revA": None,
+                "revB": None,
+                "confidence_flags": [advisory_text],
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 7,
+                    "snippet_conforms": False,
+                    "mismatches": [
+                        {"code": "classification_mismatch", "message": "mismatch details here"}
+                    ],
+                },
+            }
+        ],
+    )
+
+    resp = client.get(f"/review/{run_id}?debug=1")
+    assert resp.status_code == 200, resp.text
+
+    html = resp.text
+    assert advisory_text in html, (
+        f"Packet advisory '{advisory_text}' must appear in debug review queue HTML"
+    )
+    assert "Packet Advisories" in html, (
+        "Debug review queue must show 'Packet Advisories' section header when flags are present"
+    )

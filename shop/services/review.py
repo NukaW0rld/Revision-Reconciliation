@@ -708,6 +708,23 @@ def debug_internals_by_item_id(db: Session, run: Run) -> dict[int, dict]:
     return result
 
 
+def advisory_flags_by_item_id(db: Session, run: Run) -> "dict[int, list[str]]":
+    """Return packet-native confidence_flags lists keyed by ReviewItem.id.
+
+    Uses the existing packet/review join from build_debug_queue_state so that
+    duplicate and None char_no rows keep the correct advisory state.
+    Legacy packet rows that omit confidence_flags yield an empty list.
+    """
+    try:
+        queue_state = build_debug_queue_state(db, run, activate_review=False)
+    except DebugVerdictValidationError:
+        return {}
+    result: dict[int, list[str]] = {}
+    for item, delta_item in queue_state["packet_rows"]:
+        result[item.id] = list(getattr(delta_item, "confidence_flags", None) or [])
+    return result
+
+
 def build_run_debug_summary(db: Session, run: Run) -> dict:
     """Return status-page debug summary grouped into conforming and exception rows."""
     queue_state = build_debug_queue_state(db, run, activate_review=False)
@@ -733,6 +750,7 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
             "saved_verdict": verdicts_by_item_id.get(item.id, {}).get("verdict"),
             "mismatches": mismatches,
             "packet_item": raw_item,
+            "confidence_flags": list(getattr(delta_item, "confidence_flags", None) or []),
         }
         if delta_item.evaluation is not None and delta_item.evaluation.status == "conforming":
             conforming_rows.append(row)
@@ -757,6 +775,7 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
             "mismatches": [_missing_added_mismatch(missing_item.truth_index)],
             "packet_item": None,
             "row_state": "missing_added_truth",
+            "confidence_flags": [],
         })
 
     unresolved_exception_count = len(exception_rows) - resolved_exception_count
