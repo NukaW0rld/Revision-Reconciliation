@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part3_2026-04-17T13-42-13_4b33147c",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part3_2026-04-18T12-05-33_4b33147c",
   "part_name": "part3",
   "items": [
     {
@@ -1551,11 +1551,82 @@
     {
       "char_no": 20,
       "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"\u2335 \u00d8.531 X\u00a082.0\u00b0\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          274.9936065673828,
+          321.6949462890625,
+          514.9936065673828,
+          561.6949462890625
+        ],
+        "image_path": "snippets/char_020_revB_p0.png"
+      },
+      "requirement_revB": "\u2335 \u00d8.531 X\u00a082.0\u00b0",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:41/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "\u2335",
+        "normalized_text": "\u2335",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": "added:19",
+        "truth_match": {
+          "truth_index": 19,
+          "matched_truth_char_no": "added:19",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 21,
+      "status": "added",
       "confidence": 0.7,
       "reasons": [
-        "New requirement detected in Rev B: \"1000 Ra\"",
+        "New requirement detected in Rev B: \"FINISH TURN 1000 Ra\"",
         "Symbols: [], Counts: []",
-        "Grouped from 1 span(s) on the same annotation row",
+        "Grouped from 2 span(s) on the same annotation row",
         "Surface finish annotation detected (Ra indicator)"
       ],
       "confidence_flags": [],
@@ -1567,14 +1638,14 @@
       "revB": {
         "page": 0,
         "bbox": [
-          117.26192474365234,
-          -55.02789306640625,
-          357.26192474365234,
-          184.97210693359375
+          131.99750518798828,
+          -61.549102783203125,
+          371.9975051879883,
+          178.45089721679688
         ],
-        "image_path": "snippets/char_020_revB_p0.png"
+        "image_path": "snippets/char_021_revB_p0.png"
       },
-      "requirement_revB": "1000 Ra",
+      "requirement_revB": "FINISH TURN 1000 Ra",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1609,21 +1680,26 @@
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
         "status": "review_needed",
+        "matched_truth_char_no": "added:20",
+        "truth_match": {
+          "truth_index": 20,
+          "matched_truth_char_no": "added:20",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
         "snippet_conforms": false,
         "mismatches": [
           {
-            "code": "truth_ambiguity",
-            "message": "no canonical added truth row matched the packet requirement text; snippet matching is deferred"
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
           }
         ],
         "conformance_source": "ground_truth"
       }
     }
   ],
-  "missing_added_truth_indexes": [
-    19,
-    20
-  ],
+  "missing_added_truth_indexes": [],
   "conforming_count": 10,
-  "review_needed_count": 10
+  "review_needed_count": 11
 }

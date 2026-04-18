@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part4_2026-04-17T13-42-13_fa1bdd68",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part4_2026-04-18T12-04-26_fa1bdd68",
   "part_name": "part4",
   "items": [
     {
@@ -483,7 +483,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X \u00d8.201 \u21a70.50 != \u00d8.500 THRU"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X \u00d8.201 \u21a7.50 != \u00d8.500 THRU"
           }
         ],
         "conformance_source": "ground_truth"
@@ -887,6 +887,69 @@
       }
     },
     {
+      "char_no": 12,
+      "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"2X \u00d8.201 \u21a7 0.50\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          231.49240112304688,
+          255.82955932617188,
+          471.4924011230469,
+          495.8295593261719
+        ],
+        "image_path": "snippets/char_012_revB_p0.png"
+      },
+      "requirement_revB": "2X \u00d8.201 \u21a7 0.50",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:40/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "2X \u00d8.201",
+        "normalized_text": "2X \u00d8.201",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "truth_ambiguity",
+            "message": "no canonical added truth row matched the packet requirement text; snippet matching is deferred"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
       "char_no": 13,
       "status": "added",
       "confidence": 0.75,
@@ -943,6 +1006,77 @@
         "truth_match": {
           "truth_index": 12,
           "matched_truth_char_no": "added:12",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 14,
+      "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"\u2316\u2205 .005 \u24c2 A  B  C\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          406.71807861328125,
+          265.2095947265625,
+          647.7722778320312,
+          505.2095947265625
+        ],
+        "image_path": "snippets/char_014_revB_p0.png"
+      },
+      "requirement_revB": "\u2316\u2205 .005 \u24c2 A  B  C",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:53/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "error",
+          "parser_family": "gdt",
+          "reason_code": "gdt_malformed_frame",
+          "detail": "recognized GD&T control symbol but missing tolerance segment"
+        },
+        "raw_text": "\u2316\u2205",
+        "normalized_text": "\u2316\u2205",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": "added:11",
+        "truth_match": {
+          "truth_index": 11,
+          "matched_truth_char_no": "added:11",
           "classification": "added"
         },
         "classification_conforms": true,
@@ -1164,13 +1298,155 @@
         ],
         "conformance_source": "ground_truth"
       }
+    },
+    {
+      "char_no": 18,
+      "status": "added",
+      "confidence": 0.55,
+      "reasons": [
+        "New requirement detected in Rev B: \"1.250\"",
+        "Symbols: [], Counts: []",
+        "Grouped from 1 span(s) on the same annotation row",
+        "Plain decimal dimension annotation detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          170.7262420654297,
+          506.92071533203125,
+          410.7262420654297,
+          746.9207153320312
+        ],
+        "image_path": "snippets/char_018_revB_p0.png"
+      },
+      "requirement_revB": "1.250",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:49/line:0/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "1.250",
+        "normalized_text": "1.250",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "single_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": "added:14",
+        "truth_match": {
+          "truth_index": 14,
+          "matched_truth_char_no": "added:14",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 19,
+      "status": "added",
+      "confidence": 0.55,
+      "reasons": [
+        "New requirement detected in Rev B: \"1.250\"",
+        "Symbols: [], Counts: []",
+        "Grouped from 1 span(s) on the same annotation row",
+        "Plain decimal dimension annotation detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          260.1302185058594,
+          506.92071533203125,
+          500.1302185058594,
+          746.9207153320312
+        ],
+        "image_path": "snippets/char_019_revB_p0.png"
+      },
+      "requirement_revB": "1.250",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:49/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "1.250",
+        "normalized_text": "1.250",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "single_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": "added:15",
+        "truth_match": {
+          "truth_index": 15,
+          "matched_truth_char_no": "added:15",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
     }
   ],
-  "missing_added_truth_indexes": [
-    11,
-    14,
-    15
-  ],
+  "missing_added_truth_indexes": [],
   "conforming_count": 9,
-  "review_needed_count": 6
+  "review_needed_count": 10
 }

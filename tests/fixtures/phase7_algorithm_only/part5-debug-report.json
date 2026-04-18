@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part5_2026-04-17T13-42-19_afabdf77",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part5_2026-04-18T12-04-26_afabdf77",
   "part_name": "part5",
   "items": [
     {
@@ -251,7 +251,7 @@
         "mismatches": [
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d835 +0.2 / -0 != \u00d835 +0.2 / \u22120"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d835 +.2 / -0 != \u00d835 +.2 / \u22120"
           }
         ],
         "conformance_source": "ground_truth"
@@ -574,7 +574,7 @@
         "mismatches": [
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d820 +0.05 / -0.1 != \u00d820 +0.1 / \u22120.05"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d820 +.05 / -.1 != \u00d820 +.1 / \u2212.05"
           }
         ],
         "conformance_source": "ground_truth"
@@ -658,7 +658,7 @@
         "mismatches": [
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d820 +0.1 / -0.05 != \u00d820 +0.1 / \u22120.05"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u00d820 +.1 / -.05 != \u00d820 +.1 / \u2212.05"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1009,11 +1009,77 @@
       }
     },
     {
+      "char_no": 13,
+      "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"M20x2.5 \u2212 6H \u21a7 6\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          127.08910369873047,
+          -39.37337112426758,
+          367.08910369873047,
+          200.62662887573242
+        ],
+        "image_path": "snippets/char_013_revB_p0.png"
+      },
+      "requirement_revB": "M20x2.5 \u2212 6H \u21a7 6",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:56/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "M20x2.5 \u2212 6H",
+        "normalized_text": "M20x2.5 \u2212 6H",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": "added:18",
+        "truth_match": {
+          "truth_index": 18,
+          "matched_truth_char_no": "added:18",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
       "char_no": 14,
       "status": "added",
       "confidence": 0.85,
       "reasons": [
-        "New requirement detected in Rev B: \"\u00d820 +0.05 \u22120.1\"",
+        "New requirement detected in Rev B: \"+0.05 \u00d820 \u22120.1\"",
         "Symbols: ['\u00d8'], Counts: []",
         "Grouped from 3 span(s) on the same annotation row"
       ],
@@ -1033,7 +1099,7 @@
         ],
         "image_path": "snippets/char_014_revB_p0.png"
       },
-      "requirement_revB": "\u00d820 +0.05 \u22120.1",
+      "requirement_revB": "+0.05 \u00d820 \u22120.1",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1347,9 +1413,8 @@
   ],
   "missing_added_truth_indexes": [
     16,
-    17,
-    18
+    17
   ],
-  "conforming_count": 12,
+  "conforming_count": 13,
   "review_needed_count": 5
 }

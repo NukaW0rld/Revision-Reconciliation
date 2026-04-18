@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part9_2026-04-17T13-42-27_f898d419",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part9_2026-04-18T12-05-45_f898d419",
   "part_name": "part9",
   "items": [
     {
@@ -518,16 +518,12 @@
           "classification": "unchanged"
         },
         "classification_conforms": false,
-        "requirement_conforms": false,
+        "requirement_conforms": true,
         "snippet_conforms": true,
         "mismatches": [
           {
             "code": "classification_mismatch",
             "message": "packet classification changed does not match canonical truth unchanged"
-          },
-          {
-            "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/gdt_malformed_frame; normalized requirement mismatch: \u2316\u2205.02\u24c2 F != \u2316\u2205.02 \u24c2 F"
           }
         ],
         "conformance_source": "ground_truth"
@@ -2700,6 +2696,77 @@
       }
     },
     {
+      "char_no": 37,
+      "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"\u23e5 .01\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          604.974853515625,
+          327.134521484375,
+          844.974853515625,
+          567.134521484375
+        ],
+        "image_path": "snippets/char_037_revB_p0.png"
+      },
+      "requirement_revB": "\u23e5 .01",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:46/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "error",
+          "parser_family": "gdt",
+          "reason_code": "gdt_malformed_frame",
+          "detail": "recognized GD&T control symbol but missing tolerance segment"
+        },
+        "raw_text": "\u23e5",
+        "normalized_text": "\u23e5",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "review_needed",
+        "matched_truth_char_no": "added:42",
+        "truth_match": {
+          "truth_index": 42,
+          "matched_truth_char_no": "added:42",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": false,
+        "mismatches": [
+          {
+            "code": "snippet_missing_revA",
+            "message": "truth expects revA snippet evidence but the packet row has none"
+          }
+        ],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
       "char_no": 38,
       "status": "added",
       "confidence": 0.75,
@@ -3128,9 +3195,7 @@
       }
     }
   ],
-  "missing_added_truth_indexes": [
-    42
-  ],
+  "missing_added_truth_indexes": [],
   "conforming_count": 23,
-  "review_needed_count": 15
+  "review_needed_count": 16
 }

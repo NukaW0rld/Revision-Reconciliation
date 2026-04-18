@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part2_2026-04-17T13-42-12_95484c30",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part2_2026-04-18T12-05-33_95484c30",
   "part_name": "part2",
   "items": [
     {
@@ -1390,14 +1390,17 @@
       },
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
-        "status": "review_needed",
-        "snippet_conforms": false,
-        "mismatches": [
-          {
-            "code": "truth_ambiguity",
-            "message": "no canonical added truth row matched the packet requirement text; snippet matching is deferred"
-          }
-        ],
+        "status": "conforming",
+        "matched_truth_char_no": "added:22",
+        "truth_match": {
+          "truth_index": 22,
+          "matched_truth_char_no": "added:22",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
         "conformance_source": "ground_truth"
       }
     },
@@ -1746,9 +1749,7 @@
       }
     }
   ],
-  "missing_added_truth_indexes": [
-    22
-  ],
-  "conforming_count": 18,
-  "review_needed_count": 5
+  "missing_added_truth_indexes": [],
+  "conforming_count": 19,
+  "review_needed_count": 4
 }

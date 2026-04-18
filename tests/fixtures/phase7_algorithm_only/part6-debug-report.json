@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part6_2026-04-17T13-42-19_308ac275",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part6_2026-04-18T12-05-45_308ac275",
   "part_name": "part6",
   "items": [
     {
@@ -491,7 +491,7 @@
       },
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
-        "status": "review_needed",
+        "status": "conforming",
         "matched_truth_char_no": 6,
         "truth_match": {
           "truth_index": 5,
@@ -499,14 +499,9 @@
           "classification": "changed"
         },
         "classification_conforms": true,
-        "requirement_conforms": false,
+        "requirement_conforms": true,
         "snippet_conforms": true,
-        "mismatches": [
-          {
-            "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/gdt_malformed_frame; normalized requirement mismatch: \u2316\u2205.02\u24c1 A B != \u2316\u2205.02 \u24c1 A B"
-          }
-        ],
+        "mismatches": [],
         "conformance_source": "ground_truth"
       }
     },
@@ -666,7 +661,7 @@
       },
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
-        "status": "review_needed",
+        "status": "conforming",
         "matched_truth_char_no": 8,
         "truth_match": {
           "truth_index": 7,
@@ -674,14 +669,9 @@
           "classification": "changed"
         },
         "classification_conforms": true,
-        "requirement_conforms": false,
+        "requirement_conforms": true,
         "snippet_conforms": true,
-        "mismatches": [
-          {
-            "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/gdt_malformed_frame; normalized requirement mismatch: \u27c2\u2205.01\u24c1 A != \u27c2\u2205.01 \u24c1 A"
-          }
-        ],
+        "mismatches": [],
         "conformance_source": "ground_truth"
       }
     },
@@ -842,7 +832,7 @@
       },
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
-        "status": "review_needed",
+        "status": "conforming",
         "matched_truth_char_no": 10,
         "truth_match": {
           "truth_index": 9,
@@ -850,14 +840,9 @@
           "classification": "unchanged"
         },
         "classification_conforms": true,
-        "requirement_conforms": false,
+        "requirement_conforms": true,
         "snippet_conforms": true,
-        "mismatches": [
-          {
-            "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/gdt_malformed_frame; normalized requirement mismatch: \u2316\u2205.05\u24c2 D B C != \u2316\u2205.05 \u24c2 D B C"
-          }
-        ],
+        "mismatches": [],
         "conformance_source": "ground_truth"
       }
     },
@@ -1780,6 +1765,6 @@
     }
   ],
   "missing_added_truth_indexes": [],
-  "conforming_count": 17,
-  "review_needed_count": 4
+  "conforming_count": 20,
+  "review_needed_count": 1
 }

@@ -26,21 +26,28 @@ import pytest
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "phase7_algorithm_only"
 
 # Baseline derived from algorithm-only standalone reruns at
-# `git rev-parse --short HEAD == c5c19f0`.  See
+# `git rev-parse --short HEAD == 8a611c9`.  See
 # .planning/phases/07-regression-tests-and-verification/07-04-ALGORITHM-ONLY-BASELINE.md
 # for the derivation method and per-part counts.  Update this dict only when
 # the baseline genuinely improves (conforming count goes up AND/OR
 # max_missing_added goes down).
+#
+# Phase 9 closure (plans 01-03): all parts except part5 now have zero missing-added rows.
+# Part5 indexes 16 ("800") and 17 ("3X Ø18 ↧30") remain deferred — see
+# .planning/phases/09-full-corpus-added-characteristic-closure/09-02-SUMMARY.md
+# (architectural deferrals: matching mis-assignment and near-boilerplate proximity filter).
+# Part6 conforming count increased from 17 to 20 due to _MODIFIER_SPACING_RE normalization
+# fix closing Ⓛ/Ⓜ modifier spacing mismatches (Plan 03 Rule 1 fix).
 BASELINE_COUNTS: dict[str, dict[str, int]] = {
-    "part1": {"min_conforming": 22, "max_missing_added": 1},
-    "part2": {"min_conforming": 18, "max_missing_added": 1},
-    "part3": {"min_conforming": 10, "max_missing_added": 2},
-    "part4": {"min_conforming": 9,  "max_missing_added": 3},
-    "part5": {"min_conforming": 12, "max_missing_added": 3},
-    "part6": {"min_conforming": 17, "max_missing_added": 0},
+    "part1": {"min_conforming": 22, "max_missing_added": 0},
+    "part2": {"min_conforming": 19, "max_missing_added": 0},
+    "part3": {"min_conforming": 10, "max_missing_added": 0},
+    "part4": {"min_conforming": 9,  "max_missing_added": 0},
+    "part5": {"min_conforming": 13, "max_missing_added": 2},
+    "part6": {"min_conforming": 20, "max_missing_added": 0},
     "part7": {"min_conforming": 11, "max_missing_added": 0},
     "part8": {"min_conforming": 7,  "max_missing_added": 0},
-    "part9": {"min_conforming": 23, "max_missing_added": 1},
+    "part9": {"min_conforming": 23, "max_missing_added": 0},
 }
 
 

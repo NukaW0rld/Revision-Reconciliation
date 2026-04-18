@@ -31,6 +31,10 @@ ADDED_POOL_TOKEN_PREFIX = "added"
 # cross-cluster confusion on typical aerospace drawings.
 ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT: float = 100.0
 _CONTROL_SPACING_RE = re.compile(r"([⌖◎⌓⌰⚪⏥⟂↧∅Ø])\s+(?=[∅Ø.\d])")
+# Normalizes spaces before GD&T material-condition modifier symbols (Ⓜ Ⓛ Ⓟ) that appear
+# immediately after a tolerance value.  The PDF text layer and Form 3 sources often differ in
+# whether a space is present, e.g. packet ``∅.005 Ⓜ`` vs truth ``∅.005Ⓜ``.
+_MODIFIER_SPACING_RE = re.compile(r"([\d.])\s+([ⒺⓁⓂⓅⓈ])")
 
 # Normalizes leading-zero variants in decimal tokens where the integer part is exactly 0,
 # e.g. ``0.635`` → ``.635``, ``+0.50`` → ``+.50``, ``-0.05`` → ``-.05``.
@@ -116,6 +120,11 @@ def _normalize_requirement_text(requirement: str | None) -> str | None:
     # Added-row truth selection should not fail solely because one source
     # inserts harmless spacing between a control symbol and its tolerance token.
     normalized = _CONTROL_SPACING_RE.sub(r"\1", normalized)
+
+    # Collapse spaces between a digit/decimal and a GD&T material-condition
+    # modifier symbol (Ⓜ MMC, Ⓛ LMC, Ⓟ projected zone, etc.) so that
+    # ``∅.005 Ⓜ`` (packet) and ``∅.005Ⓜ`` (truth Form 3) compare equal.
+    normalized = _MODIFIER_SPACING_RE.sub(r"\1\2", normalized)
 
     # Normalize leading-zero variants in pure-decimal tokens (integer part == 0)
     # so that ``0.635 / 0.615`` and ``.635 / .615`` compare equal.  Tokens where

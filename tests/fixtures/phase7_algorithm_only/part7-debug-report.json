@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "c5c19f0",
-  "packet_run_id": "part7_2026-04-17T13-42-20_b59b305d",
+  "baseline_commit": "8a611c9",
+  "packet_run_id": "part7_2026-04-18T12-05-45_b59b305d",
   "part_name": "part7",
   "items": [
     {
@@ -332,7 +332,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X 22.0\u00b0 +0.3\u00b0 \u22120.1\u00b0 != 2X 22.0\u00b0 +0.3\u00b0 / \u22120.1\u00b0"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X 22.0\u00b0 +.3\u00b0 \u2212.1\u00b0 != 2X 22.0\u00b0 +.3\u00b0 / \u2212.1\u00b0"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1196,7 +1196,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/fit_malformed; normalized requirement mismatch: 4X M12 x 1.75 - 6H \u21a725.0 \u00b10.50 != \u21a74X M12 x 1.75 - 6H 25.0 \u00b10.50"
+            "message": "semantic comparison fallback: left semantic state error/fit_malformed; normalized requirement mismatch: 4X M12 X 1.75 - 6H \u21a725.0 \u00b1.50 != \u21a74X M12 X 1.75 - 6H 25.0 \u00b1.50"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1357,6 +1357,72 @@
     {
       "char_no": 17,
       "status": "added",
+      "confidence": 0.75,
+      "reasons": [
+        "New GD&T feature control frame in Rev B: \"\u2335 X 90\u00b0 \u00b11\u00b0\"",
+        "GD&T control symbol detected"
+      ],
+      "confidence_flags": [],
+      "scores": {
+        "location": 0.0,
+        "text": 1.0,
+        "context": 0.0
+      },
+      "revB": {
+        "page": 0,
+        "bbox": [
+          56.816688537597656,
+          392.7344055175781,
+          296.81668853759766,
+          632.7344055175781
+        ],
+        "image_path": "snippets/char_017_revB_p0.png"
+      },
+      "requirement_revB": "\u2335 X 90\u00b0 \u00b11\u00b0",
+      "semantic_callout": {
+        "provenance": {
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:43/line:1/span:0",
+          "notes": [
+            "PDF-derived spans are authoritative for semantic extraction."
+          ]
+        },
+        "status": {
+          "state": "empty",
+          "parser_family": "surface_finish",
+          "reason_code": "surface_finish_no_match",
+          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
+        },
+        "raw_text": "\u2335",
+        "normalized_text": "\u2335",
+        "metadata": {
+          "dispatcher": "semantic_dispatch",
+          "authority_source": "pdf",
+          "context_alignment": "pdf_only",
+          "form3_context_supplied": "false",
+          "planned_families": "gdt,weld,surface_finish,fit"
+        }
+      },
+      "snippet_rule_family": "grouped_callout",
+      "evaluation": {
+        "status": "conforming",
+        "matched_truth_char_no": "added:16",
+        "truth_match": {
+          "truth_index": 16,
+          "matched_truth_char_no": "added:16",
+          "classification": "added"
+        },
+        "classification_conforms": true,
+        "requirement_conforms": true,
+        "snippet_conforms": true,
+        "mismatches": [],
+        "conformance_source": "ground_truth"
+      }
+    },
+    {
+      "char_no": 18,
+      "status": "added",
       "confidence": 0.95,
       "reasons": [
         "New requirement detected in Rev B: \"30X \u00d820\u00b10.3\"",
@@ -1377,7 +1443,7 @@
           297.55921173095703,
           617.5791931152344
         ],
-        "image_path": "snippets/char_017_revB_p0.png"
+        "image_path": "snippets/char_018_revB_p0.png"
       },
       "requirement_revB": "30X \u00d820\u00b10.3",
       "semantic_callout": {
@@ -1412,74 +1478,6 @@
         "truth_match": {
           "truth_index": 15,
           "matched_truth_char_no": "added:15",
-          "classification": "added"
-        },
-        "classification_conforms": true,
-        "requirement_conforms": true,
-        "snippet_conforms": true,
-        "mismatches": [],
-        "conformance_source": "ground_truth"
-      }
-    },
-    {
-      "char_no": 18,
-      "status": "added",
-      "confidence": 0.6,
-      "reasons": [
-        "New requirement detected in Rev B: \"\u2335 X 90\u00b0 \u00b11\u00b0\"",
-        "Symbols: [], Counts: []",
-        "Grouped from 2 span(s) on the same annotation row",
-        "Angle-style callout detected"
-      ],
-      "confidence_flags": [],
-      "scores": {
-        "location": 0.0,
-        "text": 1.0,
-        "context": 0.0
-      },
-      "revB": {
-        "page": 0,
-        "bbox": [
-          56.816688537597656,
-          392.7344055175781,
-          296.81668853759766,
-          632.7344055175781
-        ],
-        "image_path": "snippets/char_018_revB_p0.png"
-      },
-      "requirement_revB": "\u2335 X 90\u00b0 \u00b11\u00b0",
-      "semantic_callout": {
-        "provenance": {
-          "authority": "pdf",
-          "source_type": "drawing_pdf",
-          "source_ref": "pdf:block:43/line:1/span:1",
-          "notes": [
-            "PDF-derived spans are authoritative for semantic extraction."
-          ]
-        },
-        "status": {
-          "state": "empty",
-          "parser_family": "surface_finish",
-          "reason_code": "surface_finish_no_match",
-          "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
-        },
-        "raw_text": "X 90\u00b0 \u00b11\u00b0",
-        "normalized_text": "X 90\u00b0 \u00b11\u00b0",
-        "metadata": {
-          "dispatcher": "semantic_dispatch",
-          "authority_source": "pdf",
-          "context_alignment": "pdf_only",
-          "form3_context_supplied": "false",
-          "planned_families": "gdt,weld,surface_finish,fit"
-        }
-      },
-      "snippet_rule_family": "grouped_callout",
-      "evaluation": {
-        "status": "conforming",
-        "matched_truth_char_no": "added:16",
-        "truth_match": {
-          "truth_index": 16,
-          "matched_truth_char_no": "added:16",
           "classification": "added"
         },
         "classification_conforms": true,
