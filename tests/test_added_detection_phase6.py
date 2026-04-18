@@ -465,6 +465,130 @@ class TestExplainedByMatchSuppression:
             f"but got {texts!r}. If proximity filter is too broad, this is a false positive."
         )
 
+    def test_part9_flatness_survives_when_unrelated_same_row_match_exists(self):
+        """The Part 9 added `⏥ .01` row must not be falsely suppressed by an unrelated
+        matched owner that shares the same horizontal row.
+
+        Root cause (confirmed): matched-owner signatures previously swept same-row
+        unmatched spans within ±200 pt into the owner's synthetic text/bbox.  This
+        caused the independent block-46 flatness frame to be absorbed into matched
+        char 8's signature (`4X INDIVIDUALLY 2X CR.50±.02 ⏥ .01`), after which the
+        content-subset gate fired and suppressed the real added flatness row.
+
+        After the fix, owner signatures may only include companion spans (via
+        _spans_are_annotation_companions), so the block-46 flatness frame is NOT pulled
+        into the unrelated owner and survives as a distinct added row.
+
+        Geometry mirrors the Part 9 live state:
+          - matched char 8 owner span: x≈[335, 440], y≈438-456 (block 33 area)
+          - added flatness candidate: x≈[712, 750], y≈438-456 (block 46 area, ~376 pt away)
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        # Matched owner span for char 8 — '2X CR.50±.02' at block 33 area
+        matched_owner = _span(
+            "2X CR.50±.02",
+            block_id=33, line_id=1, span_id=0,
+            x0=335.0, y0=438.0, width=105.0, height=18.0,
+        )
+
+        # Separate same-row contextual span that belongs to char 8's annotation
+        # (would be legitimately grouped as a companion)
+        context_span = _span(
+            "4X INDIVIDUALLY",
+            block_id=33, line_id=0, span_id=0,
+            x0=335.0, y0=420.0, width=90.0, height=14.0,
+        )
+
+        # The independent added flatness frame at block 46 — ~376 pt to the right
+        flatness_symbol = _span(
+            "⏥",
+            block_id=46, line_id=1, span_id=0,
+            x0=712.0, y0=440.0, width=14.0, height=14.0,
+        )
+        flatness_tol = _span(
+            ".01",
+            block_id=46, line_id=1, span_id=1,
+            x0=728.0, y0=440.0, width=20.0, height=14.0,
+        )
+
+        matches = {8: _FakeMatch(candidate=_FakeCandidate(span=matched_owner))}
+        all_spans = [context_span, matched_owner, flatness_symbol, flatness_tol]
+
+        added = detect_added_characteristics(
+            revB_spans=all_spans,
+            matches=matches,
+            next_char_no=35,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        flatness_found = any("⏥" in t for t in texts)
+        assert flatness_found, (
+            f"Part 9 regression: added '⏥ .01' row was falsely suppressed by the "
+            f"unrelated matched char-8 owner. After owner-signature narrowing it must "
+            f"survive as an independent added row. Got: {texts!r}"
+        )
+
+    def test_part8_fragment_still_suppressed_after_owner_signature_narrowing(self):
+        """After narrowing matched-owner signature construction, a true explained
+        fragment must still be suppressed.
+
+        Reproduces the Part 8 pattern: '◎ ∅.045 A' is a matched annotation; '.045 A'
+        appears as an unmatched span on a stacked row immediately below — it IS a
+        companion to the matched spans and must be absorbed into the owner signature,
+        then suppressed when it surfaces as an added candidate.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+        from delta_preservation.io.pdf import TextSpan as TS
+
+        # Part 8 matched annotation: ◎ ∅.045 A grouped span
+        class _GroupedSpan(TS):
+            def __init__(self, source_spans, **kwargs):
+                super().__init__(**kwargs)
+                self.source_spans = source_spans
+
+        matched_anchor = _span("◎", block_id=0, line_id=0, span_id=0,
+                                x0=50.0, y0=200.0, width=8.0, height=8.0)
+        matched_tol    = _span("∅.045", block_id=0, line_id=0, span_id=1,
+                                x0=60.0, y0=200.0, width=18.0, height=8.0)
+        matched_datum  = _span("A", block_id=0, line_id=0, span_id=2,
+                                x0=80.0, y0=200.0, width=6.0, height=8.0)
+
+        grouped = _GroupedSpan(
+            source_spans=[matched_anchor, matched_tol, matched_datum],
+            text="◎ ∅.045 A",
+            bbox_pdf=(50.0, 200.0, 86.0, 208.0),
+            font_size=10.0,
+            block_id=0,
+            line_id=0,
+            span_id=0,
+        )
+
+        # Fragment span: stacked immediately below the matched group — companion distance
+        fragment_span = _span(".045 A", block_id=0, line_id=1, span_id=0,
+                               x0=60.0, y0=210.0, width=24.0, height=8.0)
+
+        matches = {6: _FakeMatch(candidate=_FakeCandidate(span=grouped))}
+        all_spans = [matched_anchor, matched_tol, matched_datum, fragment_span]
+
+        added = detect_added_characteristics(
+            revB_spans=all_spans,
+            matches=matches,
+            next_char_no=20,
+            page_width=612.0,
+            page_height=792.0,
+        )
+
+        fragment_texts = [it.added_requirement_text or "" for it in added]
+        spurious = [t for t in fragment_texts if ".045 A" in t and "◎" not in t]
+        assert not spurious, (
+            f"Part 8 regression: '.045 A' fragment survived suppression after owner "
+            f"signature narrowing — narrower signatures must still absorb true stacked "
+            f"companion fragments. Got added texts: {fragment_texts!r}"
+        )
+
 
 # ===========================================================================
 # Class 3: TestAddedPacketAssembly

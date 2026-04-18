@@ -179,7 +179,13 @@ def _semantic_identities_conflict(
     if left is None and right is None:
         return False
     if left is None or right is None:
-        return True
+        # CLS-02 uses grouped added evidence. A grouped added string can carry an
+        # extra GD&T fragment even when the removed-side anchor is a plain
+        # dimension and the numeric/type gates already prove compatibility for
+        # the relevant chunk. Treat one-sided semantic identity as informative,
+        # not a hard conflict, and only reject when both sides express
+        # incompatible semantic families/details.
+        return False
     left_family, left_detail = left
     right_family, right_detail = right
     if left_family != right_family:
@@ -2116,21 +2122,31 @@ def detect_added_characteristics(
                 max(m_union_bbox[2], _ms.bbox_pdf[2]),
                 max(m_union_bbox[3], _ms.bbox_pdf[3]),
             )
-        # Collect companion spans on the same row as the matched annotation
-        mx0, my0, mx1, my1 = m_union_bbox
-        msy_center = (my0 + my1) / 2
+        # Collect companion spans that are annotation companions to the matched spans.
+        # Only include unmatched spans that satisfy _spans_are_annotation_companions
+        # when walked from the matched source spans to a fixed point.  The old ±200 pt
+        # same-row horizontal window is intentionally removed: it was too broad and
+        # absorbed unrelated same-row annotations (e.g. the Part 9 flatness frame) into
+        # a matched owner's synthetic signature, causing false suppression.
         full_group_spans = list(msource_spans)
-        for other in revB_spans:
-            other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
-            if other_key in matched_span_keys:
-                continue
-            ox0, oy0, ox1, oy1 = other.bbox_pdf
-            oy_center = (oy0 + oy1) / 2
-            if abs(oy_center - msy_center) > 10.0:
-                continue
-            if ox0 > mx1 + 200.0 or ox1 < mx0 - 200.0:
-                continue
-            full_group_spans.append(other)
+        newly_added = True
+        while newly_added:
+            newly_added = False
+            for other in revB_spans:
+                other_key = (other.block_id, other.line_id, other.span_id, other.bbox_pdf)
+                if other_key in matched_span_keys:
+                    continue
+                # Skip spans already in the group
+                if any(
+                    (s.block_id, s.line_id, s.span_id, s.bbox_pdf) == other_key
+                    for s in full_group_spans
+                ):
+                    continue
+                # Accept only if this span is a companion to at least one span already in
+                # the group (fixed-point walk so transitively adjacent companions are included)
+                if any(_spans_are_annotation_companions(base, other) for base in full_group_spans):
+                    full_group_spans.append(other)
+                    newly_added = True
         full_group_spans.sort(key=lambda s: s.bbox_pdf[0])
         full_group_text = " ".join(s.text.strip() for s in full_group_spans if s.text.strip())
         # Extend the union bbox to include companion spans
