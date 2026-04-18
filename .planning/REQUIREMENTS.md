@@ -41,7 +41,8 @@ canonical and must never be edited by the pipeline.
 
 ### Added Characteristic Detection
 
-- [ ] **ADD-01**: All ground-truth-added characteristics are present in the pipeline output for
+- [x] **ADD-01
+**: All ground-truth-added characteristics are present in the pipeline output for
   every part in the debug corpus. Fresh milestone verification still shows
   `missing_added_truth_indexes` on parts 1-5 and 9; after this fix those lists must be empty
   across the full corpus.

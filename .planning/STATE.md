@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: verifying
-stopped_at: Phase 9 context gathered (assumptions mode)
-last_updated: "2026-04-18T16:12:31.250Z"
-last_activity: 2026-04-17 -- Phase 8 execution complete
+status: executing
+stopped_at: Completed 09-01-PLAN.md — canonical added-row token contract and leading-zero normalization
+last_updated: "2026-04-18T16:40:17.522Z"
+last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 18
-  completed_plans: 18
-  percent: 100
+  total_plans: 21
+  completed_plans: 19
+  percent: 90
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Phase 08 complete; GDT-01/02/03 verified, traceability restored
+**Current focus:** Phase --phase — 09
 
 ## Current Position
 
-Phase: 08 (gd-t-verification-recovery) — COMPLETE
-Plan: 2 of 2
-Status: Complete — all plans executed, verification passed
-Last activity: 2026-04-17 -- Phase 8 execution complete
+Phase: --phase (09) — EXECUTING
+Plan: 1 of --name
+Status: Executing Phase --phase
+Last activity: 2026-04-18 -- Phase --phase execution started
 
-Progress: [██████████] 100%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100%
 | Phase 06 P02 | 11 | 3 tasks | 3 files |
 | Phase 06 P03 | 4 | 2 tasks | 3 files |
 | Phase 06 P04 | 3 | 1 tasks | 1 files |
+| Phase 09 P01 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [Phase 06-03]: Use 100.0 pt as ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT — comfortable radius preventing cross-cluster confusion on aerospace drawings
 - [Phase 06-03]: Two-stage tie-break: bbox containment first, then nearest-center within threshold; conservative ambiguity when evidence is missing or non-unique
 - [Phase 06]: Phase-6 regression harness uses exact exemplar strings and canonical centers from checked-in assets, not vague count assertions (T-06-09 / T-06-10)
+- [Phase 09-01]: _truth_match_token always returns added:<index> for classification=added rows, even when truth row carries legacy char_no
+- [Phase 09-01]: _load_missing_added_truth_items accepts legacy integer tokens only when they resolve to added truth rows in the fixture
+- [Phase 09-01]: Leading-zero stripping restricted to 0.<digits> tokens so whole-number integer parts remain unchanged
 
 ### Pending Todos
 
@@ -109,6 +113,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 9 context gathered (assumptions mode)
-Resume file: --resume-file
+Last session: 2026-04-18T16:40:17.515Z
+Stopped at: Completed 09-01-PLAN.md — canonical added-row token contract and leading-zero normalization
+Resume file: None
+
+**Planned Phase:** 09 (Full-Corpus Added Characteristic Closure) — 3 plans — 2026-04-18T16:30:19.536Z
