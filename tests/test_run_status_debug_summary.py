@@ -268,3 +268,64 @@ def test_status_page_surfaces_missing_added_truth_blockers(
     assert "Missing truth row index" in resp.text
     assert "0." in resp.text
     assert "Download debug_report.json" not in resp.text
+
+
+def test_status_page_surfaces_confidence_flags_for_exception_rows(
+    client: TestClient, admin_user, db_engine, tmp_path
+):
+    """advisory: run status page shows confidence_flags text alongside exception rows.
+
+    Asserts:
+    - The packet advisory string is visible in the debug summary area.
+    - The unresolved-exception CTA ('Open Exception Queue') is still present.
+    - The debug summary counts are correct (1 unresolved exception).
+    """
+    _login(client, db_engine, admin_user)
+
+    advisory_text = "Rev B text may contain adjacent balloon content"
+
+    run_id = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 99,
+                "status": "changed",
+                "confidence": 0.55,
+                "requirement_revB": "Advisory exception row",
+                "scores": {},
+                "reasons": ["classification differs"],
+                "revA": None,
+                "revB": None,
+                "confidence_flags": [advisory_text],
+                "evaluation": {
+                    "status": "review_needed",
+                    "matched_truth_char_no": 99,
+                    "snippet_conforms": False,
+                    "mismatches": [
+                        {"code": "classification_mismatch", "message": "classification differs"}
+                    ],
+                },
+            }
+        ],
+    )
+
+    with patch("shop.services.review.load_ground_truth_packet", side_effect=Exception("no truth")):
+        resp = client.get(f"/runs/{run_id}")
+
+    assert resp.status_code == 200, resp.text
+    html = resp.text
+
+    # Advisory text must appear in the status page debug summary area.
+    assert advisory_text in html, (
+        f"Packet advisory '{advisory_text}' must appear on the run status page debug summary"
+    )
+
+    # Unresolved-exception CTA must still be present (not replaced by advisory surfacing).
+    assert "Open Exception Queue" in html, (
+        "Status page must retain the 'Open Exception Queue' CTA when exceptions are unresolved"
+    )
+
+    # Counts must reflect the seeded state: 1 unresolved exception.
+    assert "Unresolved exceptions:" in html
+    assert "1" in html
