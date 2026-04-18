@@ -1562,3 +1562,109 @@ def test_debug_queue_surfaces_packet_confidence_flags_without_rederiving_them(
     assert "Packet Advisories" in html, (
         "Debug review queue must show 'Packet Advisories' section header when flags are present"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 10 Plan 02 — signed debug snapshot metadata
+# ---------------------------------------------------------------------------
+
+def test_attempt_sign_off_persists_signed_debug_snapshot_metadata(db_engine, tmp_path):
+    """SIGNOFF-DBG-03: a successful sign-off stores packet version metadata and a
+    versioned signed debug snapshot at output_dir/packets/v{N}-debug-report.json.
+
+    The matching packet_versions entry must carry debug_snapshot_path, debug_total,
+    and unresolved_exception_count=0 so signed artifacts capture the cleared state.
+    """
+    from unittest.mock import patch
+    from shop.services.review import attempt_sign_off, open_review_queue, save_debug_verdict
+    from shop.models import ReviewItem
+
+    # Seed a run with one conforming item (no debug exceptions → gate is clear)
+    run_id, out_dir = _seed_run(
+        db_engine,
+        tmp_path,
+        items=[
+            {
+                "char_no": 77,
+                "status": "unchanged",
+                "confidence": 0.95,
+                "reasons": [],
+                "scores": {},
+                "revA": None,
+                "revB": None,
+                "evaluation": {
+                    "status": "conforming",
+                    "matched_truth_char_no": 77,
+                    "snippet_conforms": True,
+                    "mismatches": [],
+                },
+            }
+        ],
+        status="reviewing",
+    )
+
+    Session = sessionmaker(bind=db_engine)
+    db = Session()
+    try:
+        run = db.query(Run).filter(Run.id == run_id).first()
+
+        # Seed review queue and approve all items so pending == 0
+        items = open_review_queue(db, run)
+        for item in items:
+            item.reviewer_decision = "approved"
+        db.commit()
+        db.refresh(run)
+
+        # Perform sign-off (mock PDF generation so no real WeasyPrint call needed)
+        with patch("shop.services.exports.generate_and_store_audit_packet") as mock_gen:
+            # Simulate generate_and_store_audit_packet writing a packet_versions entry
+            def _fake_generate(db_, run_):
+                existing = list(run_.packet_versions or [])
+                version = len(existing) + 1
+                packets_dir = Path(run_.output_dir) / "packets"
+                packets_dir.mkdir(parents=True, exist_ok=True)
+                fake_pdf = packets_dir / f"v{version}.pdf"
+                fake_pdf.write_bytes(b"%PDF-1.4 fake")
+                run_.packet_versions = existing + [{
+                    "version": version,
+                    "type": "original",
+                    "path": str(fake_pdf),
+                    "signed_at": "2026-01-01T00:00:00",
+                }]
+                db_.add(run_)
+
+            mock_gen.side_effect = _fake_generate
+            result = attempt_sign_off(db, run, reviewer_id=1)
+
+        assert result is True, "attempt_sign_off must return True on success"
+        db.refresh(run)
+        assert run.status == "signed_off"
+
+        # The signed packet version entry must carry debug snapshot metadata
+        assert run.packet_versions is not None
+        assert len(run.packet_versions) >= 1
+        signed_version = run.packet_versions[-1]
+        assert "debug_snapshot_path" in signed_version, (
+            "packet_versions entry must include debug_snapshot_path after sign-off"
+        )
+        assert "debug_total" in signed_version, (
+            "packet_versions entry must include debug_total after sign-off"
+        )
+        assert "unresolved_exception_count" in signed_version, (
+            "packet_versions entry must include unresolved_exception_count after sign-off"
+        )
+        assert signed_version["unresolved_exception_count"] == 0, (
+            "unresolved_exception_count must be 0 — snapshot captures cleared state"
+        )
+
+        # The snapshot file must exist on disk
+        snapshot_path = Path(signed_version["debug_snapshot_path"])
+        assert snapshot_path.exists(), (
+            f"Signed debug snapshot file must exist at {snapshot_path}"
+        )
+        snapshot_data = json.loads(snapshot_path.read_text())
+        assert "items" in snapshot_data
+        assert snapshot_data["run_id"] == run_id
+
+    finally:
+        db.close()

@@ -726,10 +726,23 @@ def build_signoff_gate_state(db: Session, run: Run) -> dict:
         .count()
     )
 
-    # Debug exception state (reuse existing summary)
+    # Debug exception state — use the strict review_needed + missing-added contract
+    # (D-01: only review_needed rows and unresolved synthetic missing-added rows block)
     try:
-        debug_summary = build_run_debug_summary(db, run)
-        unresolved_exception_count = debug_summary["unresolved_exception_count"]
+        queue_state = build_debug_queue_state(db, run, activate_review=False)
+        verdicts_by_item_id = load_debug_verdicts_for_render(run)
+        exception_items = queue_state["exception_items"]
+        missing_added_truth_items = queue_state.get("missing_added_truth_items", [])
+        # Count unresolved: exception rows without a saved verdict
+        unresolved_from_exceptions = sum(
+            1 for item in exception_items
+            if item.id not in verdicts_by_item_id
+        )
+        unresolved_from_missing = sum(
+            1 for item in missing_added_truth_items
+            if item.id not in verdicts_by_item_id
+        )
+        unresolved_exception_count = unresolved_from_exceptions + unresolved_from_missing
     except Exception:
         # If debug summary can't be built (no packet yet), treat as 0 unresolved
         unresolved_exception_count = 0
@@ -828,6 +841,61 @@ def build_run_debug_summary(db: Session, run: Run) -> dict:
     }
 
 
+def write_signed_debug_snapshot(db: Session, run: Run, version: int) -> str | None:
+    """Capture a versioned signed debug snapshot and record its metadata on the packet version entry.
+
+    The snapshot is written to output_dir/packets/v{version}-debug-report.json before
+    run.status flips to signed_off. Metadata (debug_snapshot_path, debug_total,
+    unresolved_exception_count) is merged into the matching packet_versions entry.
+
+    Returns the snapshot path string, or None if the snapshot could not be written
+    (non-fatal — caller continues with sign-off).
+    """
+    if not run.output_dir:
+        return None
+    try:
+        payload = assemble_debug_report_payload(db, run)
+    except Exception:
+        return None
+
+    packets_dir = Path(run.output_dir) / "packets"
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_filename = f"v{version}-debug-report.json"
+    snapshot_path = packets_dir / snapshot_filename
+
+    try:
+        with NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=packets_dir,
+            prefix=f"v{version}-debug-report.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp_file:
+            json.dump(payload, tmp_file, indent=2, ensure_ascii=False)
+            tmp_file.write("\n")
+            tmp_path = Path(tmp_file.name)
+        tmp_path.replace(snapshot_path)
+    except Exception:
+        return None
+
+    # Record snapshot metadata on the matching packet_versions entry
+    existing_versions = list(run.packet_versions or [])
+    updated_versions = []
+    for entry in existing_versions:
+        if entry.get("version") == version:
+            entry = dict(entry)
+            entry["debug_snapshot_path"] = str(snapshot_path)
+            entry["debug_total"] = payload.get("debug_total", 0)
+            entry["unresolved_exception_count"] = 0  # snapshot captured at cleared state
+        updated_versions.append(entry)
+    run.packet_versions = updated_versions
+    db.add(run)
+    # Caller (attempt_sign_off) controls the commit
+
+    return str(snapshot_path)
+
+
 def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
     """Atomic sign-off using two-phase write pattern.
 
@@ -835,9 +903,16 @@ def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
     Returns False on any failure (run.status rolled back to 'reviewing').
 
     SIGNOFF-03: Returns False immediately if run is already signed_off.
+    Phase 10: Returns False (without mutating run) when unresolved debug exceptions remain.
     """
     if run.status == "signed_off":
         return False  # Immutability guard — never re-sign
+
+    # Phase 10 preflight: enforce debug exception gate before any status mutation
+    gate = build_signoff_gate_state(db, run)
+    if not gate["can_sign_off"]:
+        # Do not mutate run.status, signed_at, or signed_by_id
+        return False
 
     # Phase 1: mark as in-progress (visible to SSE polling)
     run.status = "signing_off"
@@ -850,6 +925,10 @@ def attempt_sign_off(db: Session, run: Run, reviewer_id: int) -> bool:
         # Phase 4: generate and persist audit packet PDF (raises on failure → caught below)
         from shop.services.exports import generate_and_store_audit_packet
         generate_and_store_audit_packet(db, run)
+        # Phase 10: capture signed debug snapshot before flipping to signed_off
+        existing_versions = run.packet_versions or []
+        version = len(existing_versions)  # generate_and_store_audit_packet already appended
+        write_signed_debug_snapshot(db, run, version)
         run.status = "signed_off"
         db.commit()
         return True
