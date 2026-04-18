@@ -783,3 +783,205 @@ def _simulate_cli_snippet_rule_family(
             return "grouped_callout"
 
     return "single_callout"
+
+
+# ===========================================================================
+# Class 4: TestPhase9ExemplarFamilies
+# ===========================================================================
+
+
+class TestPhase9ExemplarFamilies:
+    """Detector-side closure for the Parts 3-5 miss families identified in Phase 9.
+
+    Each test uses exact exemplar strings from the Phase 9 debug notes so the
+    result is grep-verifiable and directly tied to the confirmed root cause.
+
+    Tests cover:
+      - Part 3: surface-finish multi-line grouping (FINISH TURN 1000 Ra)
+      - Part 3: countersink GD&T symbol added (⌵ Ø.531 X 82.0°)
+      - Part 4: position callout with modifier and datum refs (⌖ ∅.005Ⓜ A B C)
+      - Part 5: threaded-hole with depth callout (3X Ø18 ↧30, M20x2.5 − 6H ↧6)
+    """
+
+    def test_surface_finish_multiline_grouping_produces_finish_turn_1000_ra(self):
+        """Surface-finish seed '1000 Ra' must group same-block prefix 'FINISH TURN'.
+
+        Root cause: 'FINISH TURN' has no numeric payload so it never passed the
+        companion geometry check.  After the surface-finish same-block expansion,
+        the prefix row is swept in and the canonical callout becomes 'FINISH TURN
+        1000 Ra' — the exact string required by Part 3 truth_index 20.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        # Two spans in the same PDF block (block_id=47): prefix on line 0, Ra value on line 1
+        prefix_span = _span(
+            "FINISH TURN",
+            block_id=47, line_id=0, span_id=0,
+            x0=214.0, y0=44.0, width=75.0, height=16.0,
+        )
+        value_span = _span(
+            "1000 Ra",
+            block_id=47, line_id=1, span_id=0,
+            x0=214.0, y0=57.0, width=45.0, height=16.0,
+        )
+
+        added = detect_added_characteristics(
+            revB_spans=[prefix_span, value_span],
+            matches={},
+            next_char_no=20,
+            page_width=784.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("FINISH TURN 1000 Ra" in t for t in texts), (
+            f"Expected grouped surface-finish callout 'FINISH TURN 1000 Ra' but got {texts!r}; "
+            "surface-finish same-block expansion did not sweep the prefix row"
+        )
+
+    def test_countersink_symbol_detected_as_gdt_anchor_for_csink_callout(self):
+        """The countersink symbol ⌵ must be treated as a GD&T anchor in Pass 0.
+
+        Root cause: ⌵ was not in GDT_ANCHOR_SYMBOLS, so Pass 0 never seeded from it.
+        Instead, 'Ø.531 X 82.0°' entered Pass 2 and was filtered by the near-matched-span
+        proximity check (17.7 pt from a matched 'Ø.266 THRU' center).  After adding ⌵ to
+        GDT_ANCHOR_SYMBOLS, Pass 0 seeds from ⌵ (41.6 pt from the match — passes 12 pt
+        guard) and groups the companion diameter/angle span into the full callout.
+
+        Exemplar from Part 3 ground_truth truth_index 19: '⌵ Ø.531 X 82.0°'
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        # Matched span Ø.266 THRU at block 41, line 0 — becomes a matched candidate
+        matched_thru = _span(
+            "Ø.266 THRU",
+            block_id=41, line_id=0, span_id=0,
+            x0=361.6, y0=418.5, width=68.4, height=15.9,
+        )
+
+        # Countersink annotation: ⌵ + Ø.531 X 82.0° on line 1 of the same block
+        csink_sym = _span(
+            "⌵",
+            block_id=41, line_id=1, span_id=0,
+            x0=346.6, y0=433.0, width=21.2, height=17.5,
+        )
+        csink_dim = _span(
+            "Ø.531 X\xa082.0°",
+            block_id=41, line_id=1, span_id=1,
+            x0=367.7, y0=433.2, width=75.7, height=15.9,
+        )
+
+        matches = {5: _FakeMatch(candidate=_FakeCandidate(span=matched_thru))}
+        all_spans = [matched_thru, csink_sym, csink_dim]
+
+        added = detect_added_characteristics(
+            revB_spans=all_spans,
+            matches=matches,
+            next_char_no=20,
+            page_width=784.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("⌵" in t and ("Ø.531" in t or "82.0" in t) for t in texts), (
+            f"Expected countersink callout '⌵ Ø.531 X 82.0°' to be detected but got {texts!r}; "
+            "⌵ must be in GDT_ANCHOR_SYMBOLS so Pass 0 seeds from it"
+        )
+
+    def test_position_callout_with_modifier_and_datums_detected(self):
+        """A position feature control frame with MMC modifier and datum references is detected.
+
+        Exemplar from Part 4 ground_truth truth_index 11: '⌖ ∅.005Ⓜ A B C'
+
+        The anchor ⌖ is already in GDT_ANCHOR_SYMBOLS.  This test confirms that the
+        Ⓜ modifier and datum letter spans are grouped as companions and the full callout
+        text survives the explained-by-match suppressor when no matched owner explains it.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        anchor = _span("⌖", block_id=10, line_id=0, span_id=0, x0=200.0, y0=384.0, width=10.0, height=10.0)
+        diam   = _span("∅.005", block_id=10, line_id=0, span_id=1, x0=212.0, y0=384.0, width=22.0, height=10.0)
+        mmc    = _span("Ⓜ", block_id=10, line_id=0, span_id=2, x0=236.0, y0=384.0, width=10.0, height=10.0)
+        datA   = _span("A", block_id=10, line_id=0, span_id=3, x0=248.0, y0=384.0, width=8.0, height=10.0)
+        datB   = _span("B", block_id=10, line_id=0, span_id=4, x0=258.0, y0=384.0, width=8.0, height=10.0)
+        datC   = _span("C", block_id=10, line_id=0, span_id=5, x0=268.0, y0=384.0, width=8.0, height=10.0)
+
+        added = detect_added_characteristics(
+            revB_spans=[anchor, diam, mmc, datA, datB, datC],
+            matches={},
+            next_char_no=12,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("⌖" in t and "∅.005" in t and "Ⓜ" in t and "A" in t and "B" in t and "C" in t for t in texts), (
+            f"Expected '⌖ ∅.005Ⓜ A B C' callout but got {texts!r}; "
+            "position frame with MMC modifier and datum refs must be fully grouped"
+        )
+
+    def test_3x_hole_with_depth_callout_detected(self):
+        """A 3X hole count with depth callout '3X Ø18 ↧30' is detected.
+
+        Exemplar from Part 5 ground_truth truth_index 17: '3X Ø18 ↧30'
+
+        The ↧ is a GDT anchor symbol that seeds Pass 0.  When '3X Ø18' is not
+        pre-matched, the companion walk groups it with ↧ and '30' to form the full
+        callout.  This test verifies the detection with unmatched spans.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        count_sym = _span("3X Ø18 ", block_id=56, line_id=0, span_id=0, x0=212.8, y0=57.6, width=43.4, height=15.9)
+        depth_sym = _span("↧", block_id=56, line_id=0, span_id=1, x0=256.2, y0=57.4, width=12.1, height=17.5)
+        depth_val = _span("30", block_id=56, line_id=0, span_id=2, x0=268.3, y0=57.6, width=13.8, height=15.9)
+
+        added = detect_added_characteristics(
+            revB_spans=[count_sym, depth_sym, depth_val],
+            matches={},
+            next_char_no=18,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("↧" in t and "18" in t and "30" in t for t in texts), (
+            f"Expected depth callout containing '3X Ø18 ↧30' elements but got {texts!r}; "
+            "↧ anchor must group the count/diameter and depth value companions"
+        )
+        # Verify literal fragment of the exemplar string appears
+        assert any("3X Ø18" in t for t in texts), (
+            f"Expected '3X Ø18' prefix in grouped text but got {texts!r}"
+        )
+
+    def test_threaded_hole_with_depth_m20_detected(self):
+        """A threaded hole callout 'M20x2.5 − 6H ↧6' is detected and grouped.
+
+        Exemplar from Part 5 ground_truth truth_index 18: 'M20x2.5 − 6H ↧6'
+
+        The ↧ seeds Pass 0; M20x2.5 − 6H is grouped as a same-row companion.
+        The thread designation prefix has no GDT symbols but the ↧ anchor binds
+        them together via the fixed-point companion walk.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        thread_span = _span("M20x2.5 − 6H ", block_id=56, line_id=1, span_id=0, x0=197.5, y0=72.1, width=80.2, height=15.9)
+        depth_sym   = _span("↧", block_id=56, line_id=1, span_id=1, x0=277.7, y0=71.9, width=12.1, height=17.5)
+        depth_val   = _span("6", block_id=56, line_id=1, span_id=2, x0=289.8, y0=72.1, width=6.9, height=15.9)
+
+        added = detect_added_characteristics(
+            revB_spans=[thread_span, depth_sym, depth_val],
+            matches={},
+            next_char_no=19,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("M20x2.5" in t and "6H" in t and "↧" in t for t in texts), (
+            f"Expected threaded hole callout 'M20x2.5 − 6H ↧6' but got {texts!r}; "
+            "↧ anchor must group the thread designation and depth value"
+        )
+        # Verify literal fragment of the exemplar string
+        assert any("M20x2.5 − 6H" in t for t in texts), (
+            f"Expected 'M20x2.5 − 6H' thread designation in grouped text but got {texts!r}"
+        )

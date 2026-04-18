@@ -1361,6 +1361,9 @@ def detect_added_characteristics(
         '⌴',  # Counterbore (⌴ U+2334, also used as depth symbol in some FCFs)
         '↧',  # Depth (↧ U+21A7)
         '⌖✢', # Position with projected tolerance zone
+        '⌵',  # Countersink (⌵ U+2375) — identifies countersink callouts such as
+               # "⌵ Ø.531 X 82.0°"; treating it as a GDT anchor lets Pass 0 seed
+               # from the symbol span and group the angle/diameter companions.
     }
     GDT_COMPANION_CHARS = GDT_ANCHOR_SYMBOLS | {'Ø', '⌀', 'R', 'Ⓜ', 'Ⓛ', 'Ⓟ'}
     GDT_MODIFIER_TOKENS = {"M", "L", "P", "MMC", "LMC", "RFS"}
@@ -1782,11 +1785,22 @@ def detect_added_characteristics(
     def _expand_standard_added_span(
         seed: TextSpan,
         consumed_keys: Set[Tuple],
+        is_surface_finish_seed: bool = False,
     ) -> Tuple[str, Tuple[float, float, float, float], List[TextSpan]]:
         """Group companion spans for a standard added seed span.
 
         Walk local geometric companions to a fixed point so nearby fragments stay
         together without sweeping in distant same-row annotations.
+
+        For surface-finish seeds (Ra indicator), also sweep same-block adjacent-line
+        spans that are within a 25 pt vertical window.  This handles multi-line
+        surface-finish callouts such as:
+
+            FINISH TURN   ← block 47, line 0
+            1000 Ra       ← block 47, line 1  (seed span)
+
+        where the prefix row has no numeric payload and would not pass the normal
+        companion geometry check.
 
         Returns:
             (grouped_text, union_bbox, all_companion_spans_including_seed)
@@ -1811,14 +1825,29 @@ def detect_added_characteristics(
                     other, page_width=page_width, page_height=page_height
                 ):
                     continue
+
+                # Surface-finish same-block sweep: include same-block adjacent-line
+                # spans within 25 pt vertically that are not excluded or matched.
+                # This captures prefix labels such as "FINISH TURN" that share the
+                # annotation block but carry no numeric payload of their own.
+                if is_surface_finish_seed and other.block_id == seed.block_id:
+                    oy0, oy1 = other.bbox_pdf[1], other.bbox_pdf[3]
+                    sy0, sy1 = seed.bbox_pdf[1], seed.bbox_pdf[3]
+                    vert_gap = max(0.0, max(oy0, sy0) - min(oy1, sy1))
+                    if vert_gap <= 25.0:
+                        group_spans.append(other)
+                        seen_group_keys.add(other_key)
+                        queue.append(other)
+                        continue
+
                 if not _spans_are_annotation_companions(current, other):
                     continue
                 group_spans.append(other)
                 seen_group_keys.add(other_key)
                 queue.append(other)
 
-        # Sort left-to-right
-        group_spans.sort(key=lambda s: s.bbox_pdf[0])
+        # Sort left-to-right then top-to-bottom so prefix rows come before value rows
+        group_spans.sort(key=lambda s: (s.bbox_pdf[1], s.bbox_pdf[0]))
 
         # Build grouped text (representative seed's text + companion texts)
         grouped_text = " ".join(s.text.strip() for s in group_spans if s.text.strip())
@@ -1960,7 +1989,9 @@ def detect_added_characteristics(
         # to build the authoritative grouped text and union bbox.
         all_consumed_for_expansion = gdt_consumed_keys | stacked_pair_keys | standard_consumed_keys
         grouped_text, grouped_union_bbox, group_spans = _expand_standard_added_span(
-            span, consumed_keys=all_consumed_for_expansion
+            span,
+            consumed_keys=all_consumed_for_expansion,
+            is_surface_finish_seed=has_surface_finish,
         )
 
         # Deduplicate by grouped evidence identity: if the same grouped callout
