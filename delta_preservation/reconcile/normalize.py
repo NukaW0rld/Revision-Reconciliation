@@ -72,8 +72,10 @@ class ParsedFitCallout:
 # Requirement type classification
 # ---------------------------------------------------------------------------
 
-# GD&T feature-control-frame anchor symbols (appear as the first token)
-_GDT_ANCHOR_RE = re.compile(r"^[⌖⌒⟂⊙⌓⏥∥∠]")  # Matches single-char or ligature like ⌖∅
+# GD&T feature-control-frame anchor symbols (appear as the first token).
+# Includes the full Phase 04 parser-produced family: classic controls plus
+# ○ (circularity), ⌿ (circular runout), ⟃ (total runout).
+_GDT_ANCHOR_RE = re.compile(r"^[⌖⌒⟂⊙⌓⏥∥∠○⌿⟃]")  # Matches single-char or ligature like ⌖∅
 
 # Thread callout patterns (inch fractional, number-size, metric, pipe, bare class)
 _THREAD_CALLOUT_RE = re.compile(
@@ -121,8 +123,11 @@ def classify_requirement_type(text: str) -> str:
     """
     norm_upper = " ".join(text.upper().split())
 
-    # GD&T: text starts with a GD&T control symbol
-    if _GDT_ANCHOR_RE.match(text.strip()):
+    # GD&T: text starts with a GD&T control symbol.
+    # Also normalize word-form controls (e.g. "Circularity" → "○", "Runout" → "⌿")
+    # so word-form inputs share the same lightweight gate as their symbol-form counterparts.
+    _gdt_normalized = _normalize_gdt_word_controls(text.strip())
+    if _GDT_ANCHOR_RE.match(_gdt_normalized):
         return "gdt"
 
     # Thread: contains a recognisable thread specification
@@ -133,10 +138,13 @@ def classify_requirement_type(text: str) -> str:
     if _SURFACE_FINISH_TYPE_RE.search(text) and re.search(r"\d", text):
         return "surface_finish"
 
-    # Weld: weld process keyword present alongside "WELD"
+    # Weld: weld process keyword present alongside "WELD" or a weld-side indicator
+    # (e.g. "1/8 FILLET BOTH SIDES" is a fillet weld callout without the word WELD)
     for weld_pattern, _ in _WELD_PROCESS_PATTERNS:
-        if weld_pattern.search(norm_upper) and "WELD" in norm_upper:
-            return "weld"
+        if weld_pattern.search(norm_upper):
+            weld_side_present = any(sp.search(norm_upper) for sp, _ in _WELD_SIDE_PATTERNS)
+            if "WELD" in norm_upper or weld_side_present:
+                return "weld"
 
     # Chamfer: <value> X <angle>° multiplication pattern
     if _CHAMFER_CALLOUT_RE.search(text):
