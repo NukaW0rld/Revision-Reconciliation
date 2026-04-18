@@ -294,6 +294,57 @@ def _gdt_datum_refs_from_text(
     return tuple(tokens)
 
 
+def _candidate_is_dimensionally_compatible(
+    anchor_fp,
+    candidate,
+    *,
+    tolerance: float = 0.05,
+) -> bool:
+    """Return True when the candidate carries the anchor's primary numeric value.
+
+    Used by assign_matches() to block obvious cross-characteristic mis-assignments
+    where a grouped candidate's only numeric payload is dimensionally unrelated to
+    the anchor (e.g., an anchor of Ø35.2 / Ø34.8 trying to claim a 3X Ø18 ↧30
+    callout that carries no 35.x value anywhere in its source spans).
+
+    The check is intentionally permissive:
+      * Anchors with no numeric tokens (notes, pure symbols) are always compatible.
+      * Candidates from the global page-wide fallback are always compatible here
+        (they already go through the wrong-copy guard).
+      * If ANY anchor numeric token appears — within ``tolerance`` — in the
+        candidate's own text OR in any of its ``source_spans``, the candidate
+        is compatible.  Only candidates with no numeric overlap at all are
+        rejected.
+    """
+    anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+    if not anchor_numerics:
+        return True
+
+    if getattr(candidate, "from_global_fallback", False):
+        return True
+
+    # Collect numerics from the candidate's own text
+    candidate_fp = parse_requirement(candidate.span.text)
+    candidate_numerics = {v for v, _ in candidate_fp.numeric_tokens}
+
+    # Also union in numerics from every source_span in a grouped candidate
+    source_spans = getattr(candidate.span, "source_spans", None) or []
+    for src in source_spans:
+        src_fp = parse_requirement(src.text)
+        candidate_numerics.update(v for v, _ in src_fp.numeric_tokens)
+
+    if not candidate_numerics:
+        # Non-numeric text-pattern-only candidates are out of scope for this
+        # guard; existing MIN_WEAK_MATCH_SCORE / anchor_type_tokens handles them.
+        return True
+
+    return any(
+        abs(a - c) <= max(tolerance, tolerance * abs(a))
+        for a in anchor_numerics
+        for c in candidate_numerics
+    )
+
+
 def _horizontal_gap(a: TextSpan, b: TextSpan) -> float:
     ax0, _ay0, ax1, _ay1 = a.bbox_pdf
     bx0, _by0, bx1, _by1 = b.bbox_pdf
@@ -1058,6 +1109,14 @@ def assign_matches(
         has_primary_reason = _candidate_has_primary_signal(candidate)
         if total_score < MIN_WEAK_MATCH_SCORE and not is_notes_anchor and not has_primary_reason and len(candidate_numerics) <= 1:
             continue
+        # Dimensional-incompatibility guard: reject edges where the candidate
+        # carries none of the anchor's numeric values (e.g. a 3X Ø18 ↧30
+        # grouped candidate trying to claim a Ø35.2 / Ø34.8 anchor on Part 5).
+        # The permissive wrong-copy/global-fallback paths keep their existing
+        # behaviour; only bona-fide cross-characteristic mis-assignments are
+        # blocked here.
+        if anchor_fp is not None and not _candidate_is_dimensionally_compatible(anchor_fp, candidate):
+            continue
         # Wrong-copy guard: a global-fallback-only candidate must not steal a span
         # that already has a stronger local claimant.  If the target span key is in
         # span_keys_with_local_claimant and this edge is from the global fallback
@@ -1073,7 +1132,39 @@ def assign_matches(
             continue
         # Accept edge only if both char_no and span are available
         if char_no not in assigned_chars and span_key not in used_spans:
-            candidate_source_keys_set = set(candidate.source_span_keys or [span_key])
+            # Only the sub-spans whose numeric payload is compatible with the
+            # anchor should be marked as consumed; foreign sub-spans that were
+            # merged by _group_candidate_spans must remain available for
+            # detect_added_characteristics() so they can surface as added rows.
+            source_spans = getattr(candidate.span, "source_spans", None) or []
+            if source_spans and anchor_fp is not None:
+                anchor_numerics = {v for v, _ in anchor_fp.numeric_tokens}
+                compatible_keys: set = set()
+                for src in source_spans:
+                    src_fp = parse_requirement(src.text)
+                    src_numerics = {v for v, _ in src_fp.numeric_tokens}
+                    if (
+                        not anchor_numerics
+                        or not src_numerics
+                        or any(
+                            abs(a - c) <= max(0.05, 0.05 * abs(a))
+                            for a in anchor_numerics
+                            for c in src_numerics
+                        )
+                    ):
+                        compatible_keys.add((
+                            src.block_id,
+                            src.line_id,
+                            src.span_id,
+                            src.bbox_pdf,
+                        ))
+                # If pruning left nothing compatible (all source spans were
+                # foreign), fall back to the candidate's own span_key so the
+                # match still records its primary span as consumed.
+                candidate_source_keys_set = compatible_keys or {span_key}
+            else:
+                candidate_source_keys_set = set(candidate.source_span_keys or [span_key])
+
             if candidate_source_keys_set & used_source_span_keys:
                 continue
             matches[char_no] = Match(
@@ -1135,6 +1226,10 @@ def assign_matches(
                 and candidate_gdt_datums
                 and anchor_gdt_datums != candidate_gdt_datums
             ):
+                continue
+            # Dimensional-incompatibility guard: reject edges where the candidate
+            # carries none of the anchor's numeric values (shared-span path).
+            if anchor_fp is not None and not _candidate_is_dimensionally_compatible(anchor_fp, candidate):
                 continue
             span = candidate.span
             span_key = (
