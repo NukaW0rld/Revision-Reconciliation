@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "8a611c9",
-  "packet_run_id": "part7_2026-04-18T12-05-45_b59b305d",
+  "baseline_commit": "db265b5",
+  "packet_run_id": "part7_2026-04-18T15-21-03_b59b305d",
   "part_name": "part7",
   "items": [
     {
@@ -285,7 +285,7 @@
         ],
         "image_path": "snippets/char_004_revB_p0.png"
       },
-      "requirement_revB": "2X 22.0\u00b0 +0.3\u00b0 / \u22120.1\u00b0",
+      "requirement_revB": "2X 22.0° +0.3° / −0.1°",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -303,8 +303,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "+0.3\u00b0 2X 22.0\u00b0 \u22120.1\u00b0",
-        "normalized_text": "+0.3\u00b0 2X 22.0\u00b0 \u22120.1\u00b0",
+        "raw_text": "+0.3° 2X 22.0° −0.1°",
+        "normalized_text": "+0.3° 2X 22.0° −0.1°",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -332,7 +332,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X 22.0\u00b0 +.3\u00b0 \u2212.1\u00b0 != 2X 22.0\u00b0 +.3\u00b0 / \u2212.1\u00b0"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 2X 22.0° +.3° −.1° != 2X 22.0° +.3° / −.1°"
           }
         ],
         "conformance_source": "ground_truth"
@@ -374,7 +374,7 @@
         ],
         "image_path": "snippets/char_005_revB_p0.png"
       },
-      "requirement_revB": "\u00d810",
+      "requirement_revB": "Ø10",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -392,8 +392,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u00d810",
-        "normalized_text": "\u00d810",
+        "raw_text": "Ø10",
+        "normalized_text": "Ø10",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -534,7 +534,7 @@
         ],
         "image_path": "snippets/char_007_revB_p0.png"
       },
-      "requirement_revB": "30X \u00d814\u00b10.5",
+      "requirement_revB": "30X Ø14±0.5",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -552,8 +552,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "30X \u00d814\u00b10.5",
-        "normalized_text": "30X \u00d814\u00b10.5",
+        "raw_text": "30X Ø14±0.5",
+        "normalized_text": "30X Ø14±0.5",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -624,10 +624,10 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u23132DGH",
-        "normalized_text": "\u23132DGH",
+        "raw_text": "⌓2DGH",
+        "normalized_text": "⌓2DGH",
         "gdt": {
-          "frame_text": "\u2313 | 2 | D | G | H",
+          "frame_text": "⌓ | 2 | D | G | H",
           "control_type": "profile_of_a_surface",
           "tolerance_text": "2",
           "datum_refs": [
@@ -721,10 +721,10 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u23130.2D",
-        "normalized_text": "\u23130.2D",
+        "raw_text": "⌓0.2D",
+        "normalized_text": "⌓0.2D",
         "gdt": {
-          "frame_text": "\u2313 | 0.2 | D",
+          "frame_text": "⌓ | 0.2 | D",
           "control_type": "profile_of_a_surface",
           "tolerance_text": "0.2",
           "datum_refs": [
@@ -775,7 +775,7 @@
       "status": "unchanged",
       "confidence": 0.85,
       "reasons": [
-        "semantic GD&T match: position \u22050.35 datums A,B,C modifiers none",
+        "semantic GD&T match: position ∅0.35 datums A,B,C modifiers none",
         "Semantic family agreement overrides formatting-only numeric/text variation"
       ],
       "confidence_flags": [],
@@ -804,7 +804,7 @@
         ],
         "image_path": "snippets/char_010_revB_p0.png"
       },
-      "requirement_revB": "\u2316\u2205 0.35 A B C",
+      "requirement_revB": "⌖∅ 0.35 A B C",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -821,12 +821,12 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u2316\u2205 0.35 A B C",
-        "normalized_text": "\u2316\u2205 0.35 A B C",
+        "raw_text": "⌖∅ 0.35 A B C",
+        "normalized_text": "⌖∅ 0.35 A B C",
         "gdt": {
-          "frame_text": "\u2316 | \u22050.35 | A | B | C",
+          "frame_text": "⌖ | ∅0.35 | A | B | C",
           "control_type": "position",
-          "tolerance_text": "\u22050.35",
+          "tolerance_text": "∅0.35",
           "datum_refs": [
             "A",
             "B",
@@ -896,7 +896,7 @@
         ],
         "image_path": "snippets/char_011_revB_p0.png"
       },
-      "requirement_revB": "6X \u00d86.65 \u00b10.12",
+      "requirement_revB": "6X Ø6.65 ±0.12",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -914,8 +914,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "6X \u00d86.65 \u00b10.12",
-        "normalized_text": "6X \u00d86.65 \u00b10.12",
+        "raw_text": "6X Ø6.65 ±0.12",
+        "normalized_text": "6X Ø6.65 ±0.12",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -987,12 +987,12 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u2316\u22051.5DEF",
-        "normalized_text": "\u2316\u22051.5DEF",
+        "raw_text": "⌖∅1.5DEF",
+        "normalized_text": "⌖∅1.5DEF",
         "gdt": {
-          "frame_text": "\u2316 | \u22051.5 | D | E | F",
+          "frame_text": "⌖ | ∅1.5 | D | E | F",
           "control_type": "position",
-          "tolerance_text": "\u22051.5",
+          "tolerance_text": "∅1.5",
           "datum_refs": [
             "D",
             "E",
@@ -1030,7 +1030,7 @@
       "status": "unchanged",
       "confidence": 0.85,
       "reasons": [
-        "semantic GD&T match: position \u22050.3 datums D,E modifiers none",
+        "semantic GD&T match: position ∅0.3 datums D,E modifiers none",
         "Semantic family agreement overrides formatting-only numeric/text variation"
       ],
       "confidence_flags": [],
@@ -1059,7 +1059,7 @@
         ],
         "image_path": "snippets/char_013_revB_p0.png"
       },
-      "requirement_revB": "\u2316\u2205 0.3 D E",
+      "requirement_revB": "⌖∅ 0.3 D E",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1076,12 +1076,12 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u2316\u2205 0.3 D E",
-        "normalized_text": "\u2316\u2205 0.3 D E",
+        "raw_text": "⌖∅ 0.3 D E",
+        "normalized_text": "⌖∅ 0.3 D E",
         "gdt": {
-          "frame_text": "\u2316 | \u22050.3 | D | E",
+          "frame_text": "⌖ | ∅0.3 | D | E",
           "control_type": "position",
-          "tolerance_text": "\u22050.3",
+          "tolerance_text": "∅0.3",
           "datum_refs": [
             "D",
             "E"
@@ -1120,7 +1120,7 @@
       "reasons": [
         "semantic comparison fallback: left semantic state error/fit_malformed",
         "Requirement type mismatch: Rev A is 'thread', Rev B is 'other'",
-        "Rev A: \"4X M12 x 1.75 - 6H \u21a7 25 \u00b10.25 mm\" \u2014 Rev B: \"\u21a7\"",
+        "Rev A: \"4X M12 x 1.75 - 6H ↧ 25 ±0.25 mm\" — Rev B: \"↧\"",
         "Contextually incompatible requirement types; manual review required"
       ],
       "confidence_flags": [],
@@ -1149,7 +1149,7 @@
         ],
         "image_path": "snippets/char_014_revB_p0.png"
       },
-      "requirement_revB": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
+      "requirement_revB": "↧ 4X M12 x 1.75 - 6H 25.0 ±0.50",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1167,8 +1167,8 @@
           "reason_code": "fit_malformed",
           "detail": "recognized fit designator but missing a complete paired hole/shaft class"
         },
-        "raw_text": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
-        "normalized_text": "\u21a7 4X M12 x 1.75 - 6H 25.0 \u00b10.50",
+        "raw_text": "↧ 4X M12 x 1.75 - 6H 25.0 ±0.50",
+        "normalized_text": "↧ 4X M12 x 1.75 - 6H 25.0 ±0.50",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1196,7 +1196,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state error/fit_malformed; normalized requirement mismatch: 4X M12 X 1.75 - 6H \u21a725.0 \u00b1.50 != \u21a74X M12 X 1.75 - 6H 25.0 \u00b1.50"
+            "message": "semantic comparison fallback: left semantic state error/fit_malformed; normalized requirement mismatch: 4X M12 X 1.75 - 6H ↧25.0 ±.50 != ↧4X M12 X 1.75 - 6H 25.0 ±.50"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1207,7 +1207,7 @@
       "status": "unchanged",
       "confidence": 0.85,
       "reasons": [
-        "semantic GD&T match: position \u22050.75 datums A,B,C modifiers none",
+        "semantic GD&T match: position ∅0.75 datums A,B,C modifiers none",
         "Semantic family agreement overrides formatting-only numeric/text variation"
       ],
       "confidence_flags": [],
@@ -1236,7 +1236,7 @@
         ],
         "image_path": "snippets/char_015_revB_p0.png"
       },
-      "requirement_revB": "\u2316\u2205 0.75 A B C",
+      "requirement_revB": "⌖∅ 0.75 A B C",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1253,12 +1253,12 @@
           "parser_family": "gdt",
           "detail": "parsed feature control frame from PDF spans"
         },
-        "raw_text": "\u2316\u2205 0.75 A B C",
-        "normalized_text": "\u2316\u2205 0.75 A B C",
+        "raw_text": "⌖∅ 0.75 A B C",
+        "normalized_text": "⌖∅ 0.75 A B C",
         "gdt": {
-          "frame_text": "\u2316 | \u22050.75 | A | B | C",
+          "frame_text": "⌖ | ∅0.75 | A | B | C",
           "control_type": "position",
-          "tolerance_text": "\u22050.75",
+          "tolerance_text": "∅0.75",
           "datum_refs": [
             "A",
             "B",
@@ -1296,7 +1296,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u2313 \u2313 2 0.2  D   D G  H\"",
+        "New GD&T feature control frame in Rev B: \"⌓ ⌓ 2 0.2  D   D G  H\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -1315,7 +1315,7 @@
         ],
         "image_path": "snippets/char_016_revB_p0.png"
       },
-      "requirement_revB": "\u2313 \u2313 2 0.2  D   D G  H",
+      "requirement_revB": "⌓ ⌓ 2 0.2  D   D G  H",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1331,8 +1331,8 @@
           "reason_code": "gdt_malformed_frame",
           "detail": "recognized GD&T control symbol but missing tolerance segment"
         },
-        "raw_text": "\u2313",
-        "normalized_text": "\u2313",
+        "raw_text": "⌓",
+        "normalized_text": "⌓",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1359,7 +1359,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u2335 X 90\u00b0 \u00b11\u00b0\"",
+        "New GD&T feature control frame in Rev B: \"⌵ X 90° ±1°\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -1378,7 +1378,7 @@
         ],
         "image_path": "snippets/char_017_revB_p0.png"
       },
-      "requirement_revB": "\u2335 X 90\u00b0 \u00b11\u00b0",
+      "requirement_revB": "⌵ X 90° ±1°",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1394,8 +1394,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2335",
-        "normalized_text": "\u2335",
+        "raw_text": "⌵",
+        "normalized_text": "⌵",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1425,8 +1425,8 @@
       "status": "added",
       "confidence": 0.95,
       "reasons": [
-        "New requirement detected in Rev B: \"30X \u00d820\u00b10.3\"",
-        "Symbols: ['\u00d8'], Counts: ['30X']",
+        "New requirement detected in Rev B: \"30X Ø20±0.3\"",
+        "Symbols: ['Ø'], Counts: ['30X']",
         "Grouped from 1 span(s) on the same annotation row"
       ],
       "confidence_flags": [],
@@ -1445,7 +1445,7 @@
         ],
         "image_path": "snippets/char_018_revB_p0.png"
       },
-      "requirement_revB": "30X \u00d820\u00b10.3",
+      "requirement_revB": "30X Ø20±0.3",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1461,8 +1461,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "30X \u00d820\u00b10.3",
-        "normalized_text": "30X \u00d820\u00b10.3",
+        "raw_text": "30X Ø20±0.3",
+        "normalized_text": "30X Ø20±0.3",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",

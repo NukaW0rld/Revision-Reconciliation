@@ -1,30 +1,31 @@
 {
-  "baseline_commit": "8a611c9",
-  "packet_run_id": "part8_2026-04-18T12-05-45_49ee5833",
+  "baseline_commit": "db265b5",
+  "packet_run_id": "part8_2026-04-18T15-21-08_49ee5833",
   "part_name": "part8",
   "items": [
     {
       "char_no": 1,
-      "status": "removed",
-      "confidence": 0.85,
+      "status": "changed",
+      "confidence": 0.6907819206967387,
       "reasons": [
         "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
-        "No numeric overlap and primary values differ significantly",
-        "Anchor primary: 5.0, Matched primary: 4.0",
-        "Match candidate likely a grid label or unrelated annotation"
+        "Tolerance-sized numeric differs: anchor [0.008, 5.0], matched [0.01, 5.0]",
+        "Primary dimension matches: 5.0",
+        "Tolerance value changed despite same primary dimension",
+        "High location agreement after global alignment"
       ],
       "confidence_flags": [],
       "scores": {
-        "location": 0.9205464813825089,
-        "text": 0.0,
+        "location": 0.8519548017418465,
+        "text": 0.5,
         "context": 0.0
       },
       "revA": {
         "page": 0,
         "bbox": [
-          -54.36371612548828,
+          -54.36370849609375,
           -157.22650146484375,
-          425.6362991333008,
+          425.63629150390625,
           322.77349853515625
         ],
         "image_path": "snippets/char_001_revA_p0.png"
@@ -32,20 +33,23 @@
       "revB": {
         "page": 0,
         "bbox": [
-          -38.48478317260742,
-          -222.12303161621094,
-          441.51523208618164,
-          257.87696838378906
+          -53.13291931152344,
+          -167.582275390625,
+          426.86708068847656,
+          312.417724609375
         ],
         "image_path": "snippets/char_001_revB_p0.png"
       },
+      "requirement_revB": "5.000±.01",
       "semantic_callout": {
         "provenance": {
-          "authority": "form3",
-          "source_type": "form3_requirement",
-          "source_ref": "form3:requirement",
+          "authority": "pdf",
+          "source_type": "drawing_pdf",
+          "source_ref": "pdf:block:34/line:0/span:0",
           "notes": [
-            "No PDF-derived spans were supplied; Form 3 text is the fallback source."
+            "PDF-derived spans are authoritative for semantic extraction.",
+            "Form 3 requirement text was retained as secondary advisory context.",
+            "PDF authority overrode conflicting Form 3 semantic wording."
           ]
         },
         "status": {
@@ -54,38 +58,29 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "5.000 \u00b1 .008",
-        "normalized_text": "5.000 \u00b1 .008",
+        "raw_text": "5.000±.01",
+        "normalized_text": "5.000±.01",
         "metadata": {
           "dispatcher": "semantic_dispatch",
-          "authority_source": "form3",
-          "context_alignment": "form3_only",
+          "authority_source": "pdf",
+          "conflict_detected": "true",
           "form3_context_supplied": "true",
           "planned_families": "gdt,weld,surface_finish,fit"
         }
       },
       "snippet_rule_family": "grouped_callout",
       "evaluation": {
-        "status": "review_needed",
+        "status": "conforming",
         "matched_truth_char_no": 1,
         "truth_match": {
           "truth_index": 0,
           "matched_truth_char_no": 1,
           "classification": "changed"
         },
-        "classification_conforms": false,
-        "requirement_conforms": false,
+        "classification_conforms": true,
+        "requirement_conforms": true,
         "snippet_conforms": true,
-        "mismatches": [
-          {
-            "code": "classification_mismatch",
-            "message": "packet classification removed does not match canonical truth changed"
-          },
-          {
-            "code": "requirement_missing",
-            "message": "truth expects Rev B requirement evidence but the packet row has none"
-          }
-        ],
+        "mismatches": [],
         "conformance_source": "ground_truth"
       }
     },
@@ -124,7 +119,7 @@
         ],
         "image_path": "snippets/char_002_revB_p0.png"
       },
-      "requirement_revB": "5.000\u00b1.01",
+      "requirement_revB": "5.000±.01",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -142,8 +137,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "5.000\u00b1.01",
-        "normalized_text": "5.000\u00b1.01",
+        "raw_text": "5.000±.01",
+        "normalized_text": "5.000±.01",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -167,7 +162,7 @@
         "mismatches": [
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: right semantic state empty/surface_finish_no_match; normalized requirement mismatch: \u27c2.010 D != 5.000\u00b1.01"
+            "message": "semantic comparison fallback: right semantic state empty/surface_finish_no_match; normalized requirement mismatch: ⟂.010 D != 5.000±.01"
           }
         ],
         "conformance_source": "ground_truth"
@@ -221,8 +216,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u22a5 0.010 C",
-        "normalized_text": "\u22a5 0.010 C",
+        "raw_text": "⊥ 0.010 C",
+        "normalized_text": "⊥ 0.010 C",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "form3",
@@ -283,7 +278,7 @@
         ],
         "image_path": "snippets/char_004_revB_p0.png"
       },
-      "requirement_revB": "\u2197 .025 A-B",
+      "requirement_revB": "↗ .025 A-B",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -301,8 +296,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2197 .025 A-B",
-        "normalized_text": "\u2197 .025 A-B",
+        "raw_text": "↗ .025 A-B",
+        "normalized_text": "↗ .025 A-B",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -377,7 +372,7 @@
         "raw_text": "Circularity 0.002",
         "normalized_text": "Circularity 0.002",
         "gdt": {
-          "frame_text": "\u25cb | 0.002",
+          "frame_text": "○ | 0.002",
           "control_type": "circularity",
           "tolerance_text": "0.002",
           "datum_refs": [],
@@ -465,8 +460,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "Concentricity \u00d80.030 A",
-        "normalized_text": "Concentricity \u00d80.030 A",
+        "raw_text": "Concentricity Ø0.030 A",
+        "normalized_text": "Concentricity Ø0.030 A",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "form3",
@@ -536,7 +531,7 @@
         ],
         "image_path": "snippets/char_007_revB_p0.png"
       },
-      "requirement_revB": "\u2197 .035 A-B",
+      "requirement_revB": "↗ .035 A-B",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -554,8 +549,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2197 .035 A-B",
-        "normalized_text": "\u2197 .035 A-B",
+        "raw_text": "↗ .035 A-B",
+        "normalized_text": "↗ .035 A-B",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -615,7 +610,7 @@
         ],
         "image_path": "snippets/char_008_revB_p0.png"
       },
-      "requirement_revB": "\u23e4 .010 D",
+      "requirement_revB": "⏤ .010 D",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -633,8 +628,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u23e4 .010 D",
-        "normalized_text": "\u23e4 .010 D",
+        "raw_text": "⏤ .010 D",
+        "normalized_text": "⏤ .010 D",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -664,7 +659,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u25ce\u2205 .045  A\"",
+        "New GD&T feature control frame in Rev B: \"◎∅ .045  A\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -683,7 +678,7 @@
         ],
         "image_path": "snippets/char_009_revB_p0.png"
       },
-      "requirement_revB": "\u25ce\u2205 .045  A",
+      "requirement_revB": "◎∅ .045  A",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -699,8 +694,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u25ce\u2205",
-        "normalized_text": "\u25ce\u2205",
+        "raw_text": "◎∅",
+        "normalized_text": "◎∅",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -727,7 +722,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u2330 .015  B\"",
+        "New GD&T feature control frame in Rev B: \"⌰ .015  B\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -746,7 +741,7 @@
         ],
         "image_path": "snippets/char_010_revB_p0.png"
       },
-      "requirement_revB": "\u2330 .015  B",
+      "requirement_revB": "⌰ .015  B",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -762,8 +757,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2330",
-        "normalized_text": "\u2330",
+        "raw_text": "⌰",
+        "normalized_text": "⌰",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -793,7 +788,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u2330 .002  A\"",
+        "New GD&T feature control frame in Rev B: \"⌰ .002  A\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -812,7 +807,7 @@
         ],
         "image_path": "snippets/char_011_revB_p0.png"
       },
-      "requirement_revB": "\u2330 .002  A",
+      "requirement_revB": "⌰ .002  A",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -828,8 +823,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2330",
-        "normalized_text": "\u2330",
+        "raw_text": "⌰",
+        "normalized_text": "⌰",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -859,7 +854,7 @@
       "status": "added",
       "confidence": 0.55,
       "reasons": [
-        "New requirement detected in Rev B: \"\u26aa .005\"",
+        "New requirement detected in Rev B: \"⚪ .005\"",
         "Symbols: [], Counts: []",
         "Grouped from 2 span(s) on the same annotation row",
         "Leading-decimal dimension annotation detected"
@@ -880,7 +875,7 @@
         ],
         "image_path": "snippets/char_012_revB_p0.png"
       },
-      "requirement_revB": "\u26aa .005",
+      "requirement_revB": "⚪ .005",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -924,7 +919,7 @@
       "status": "added",
       "confidence": 0.55,
       "reasons": [
-        "New requirement detected in Rev B: \"\u27c2 .010 D\"",
+        "New requirement detected in Rev B: \"⟂ .010 D\"",
         "Symbols: [], Counts: []",
         "Grouped from 4 span(s) on the same annotation row",
         "Leading-decimal dimension annotation detected"
@@ -945,7 +940,7 @@
         ],
         "image_path": "snippets/char_013_revB_p0.png"
       },
-      "requirement_revB": "\u27c2 .010 D",
+      "requirement_revB": "⟂ .010 D",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -989,8 +984,8 @@
       "status": "added",
       "confidence": 0.85,
       "reasons": [
-        "New requirement detected in Rev B: \"\u00d810.000\u00b1.001\"",
-        "Symbols: ['\u00d8'], Counts: []",
+        "New requirement detected in Rev B: \"Ø10.000±.001\"",
+        "Symbols: ['Ø'], Counts: []",
         "Grouped from 1 span(s) on the same annotation row"
       ],
       "confidence_flags": [],
@@ -1009,7 +1004,7 @@
         ],
         "image_path": "snippets/char_014_revB_p0.png"
       },
-      "requirement_revB": "\u00d810.000\u00b1.001",
+      "requirement_revB": "Ø10.000±.001",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1025,8 +1020,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u00d810.000\u00b1.001",
-        "normalized_text": "\u00d810.000\u00b1.001",
+        "raw_text": "Ø10.000±.001",
+        "normalized_text": "Ø10.000±.001",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1053,6 +1048,6 @@
     }
   ],
   "missing_added_truth_indexes": [],
-  "conforming_count": 7,
-  "review_needed_count": 7
+  "conforming_count": 8,
+  "review_needed_count": 6
 }

@@ -1,6 +1,6 @@
 {
-  "baseline_commit": "8a611c9",
-  "packet_run_id": "part3_2026-04-18T12-05-33_4b33147c",
+  "baseline_commit": "db265b5",
+  "packet_run_id": "part3_2026-04-18T15-20-51_4b33147c",
   "part_name": "part3",
   "items": [
     {
@@ -400,7 +400,7 @@
       "confidence": 0.3505802381701394,
       "reasons": [
         "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
-        "Count changed: {'2X'} \u2192 {'3X'}"
+        "Count changed: {'2X'} → {'3X'}"
       ],
       "confidence_flags": [],
       "scores": {
@@ -428,7 +428,7 @@
         ],
         "image_path": "snippets/char_006_revB_p0.png"
       },
-      "requirement_revB": "3X \u00d8.157 THRU",
+      "requirement_revB": "3X Ø.157 THRU",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -446,8 +446,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "3X \u00d8.157 THRU",
-        "normalized_text": "3X \u00d8.157 THRU",
+        "raw_text": "3X Ø.157 THRU",
+        "normalized_text": "3X Ø.157 THRU",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -488,7 +488,7 @@
       "reasons": [
         "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
         "Anchor text found verbatim in grouped Rev B span (type mismatch suppressed)",
-        "Rev A: \"10-24 UNC THRU\" \u2286 Rev B: \"10\u221224 UNC THRU\""
+        "Rev A: \"10-24 UNC THRU\" ⊆ Rev B: \"10−24 UNC THRU\""
       ],
       "confidence_flags": [],
       "scores": {
@@ -516,7 +516,7 @@
         ],
         "image_path": "snippets/char_007_revB_p0.png"
       },
-      "requirement_revB": "10\u221224 UNC THRU",
+      "requirement_revB": "10−24 UNC THRU",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -534,8 +534,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "10\u221224 UNC THRU",
-        "normalized_text": "10\u221224 UNC THRU",
+        "raw_text": "10−24 UNC THRU",
+        "normalized_text": "10−24 UNC THRU",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -574,7 +574,7 @@
       "status": "removed",
       "confidence": 0.8,
       "reasons": [
-        "Matched span is notes-block content \u2014 not a valid Rev B characteristic callout",
+        "Matched span is notes-block content — not a valid Rev B characteristic callout",
         "Span text: \"1.\""
       ],
       "confidence_flags": [],
@@ -680,7 +680,7 @@
         ],
         "image_path": "snippets/char_009_revB_p0.png"
       },
-      "requirement_revB": "\u00d81.250",
+      "requirement_revB": "Ø1.250",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -698,8 +698,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u00d81.250",
-        "normalized_text": "\u00d81.250",
+        "raw_text": "Ø1.250",
+        "normalized_text": "Ø1.250",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -759,7 +759,7 @@
         ],
         "image_path": "snippets/char_010_revB_p0.png"
       },
-      "requirement_revB": "\u00d82.000",
+      "requirement_revB": "Ø2.000",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -777,8 +777,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u00d82.000",
-        "normalized_text": "\u00d82.000",
+        "raw_text": "Ø2.000",
+        "normalized_text": "Ø2.000",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1092,8 +1092,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u00d8.313 IN +.002/+.001",
-        "normalized_text": "\u00d8.313 IN +.002/+.001",
+        "raw_text": "Ø.313 IN +.002/+.001",
+        "normalized_text": "Ø.313 IN +.002/+.001",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "form3",
@@ -1252,7 +1252,7 @@
         ],
         "image_path": "snippets/char_016_revB_p0.png"
       },
-      "requirement_revB": "3X \u00d8.157 THRU",
+      "requirement_revB": "3X Ø.157 THRU",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1270,8 +1270,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "3X \u00d8.157 THRU",
-        "normalized_text": "3X \u00d8.157 THRU",
+        "raw_text": "3X Ø.157 THRU",
+        "normalized_text": "3X Ø.157 THRU",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1295,7 +1295,7 @@
         "mismatches": [
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 3X \u00d8.157 != 3X \u00d8.157 THRU"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 3X Ø.157 != 3X Ø.157 THRU"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1306,8 +1306,8 @@
       "status": "unchanged",
       "confidence": 0.65,
       "reasons": [
-        "No candidate in search window, but page-wide keyword scan found anchor text as characteristic suffix in Rev B span: \"\u00d8.266 THRU\"",
-        "Possible alignment miss \u2014 manual review recommended"
+        "No candidate in search window, but page-wide keyword scan found anchor text as characteristic suffix in Rev B span: \"Ø.266 THRU\"",
+        "Possible alignment miss — manual review recommended"
       ],
       "confidence_flags": [],
       "scores": {
@@ -1382,7 +1382,7 @@
       "reasons": [
         "semantic comparison fallback: left semantic state empty/surface_finish_no_match",
         "Requirement type mismatch: Rev A is 'thread', Rev B is 'angle'",
-        "Rev A: \"10-24 UNC THRU 120\u00b0 APART\" \u2014 Rev B: \"120\u00b0 APART\"",
+        "Rev A: \"10-24 UNC THRU 120° APART\" — Rev B: \"120° APART\"",
         "Contextually incompatible requirement types; manual review required"
       ],
       "confidence_flags": [],
@@ -1411,7 +1411,7 @@
         ],
         "image_path": "snippets/char_018_revB_p0.png"
       },
-      "requirement_revB": "120\u00b0 APART",
+      "requirement_revB": "120° APART",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1429,8 +1429,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "120\u00b0 APART",
-        "normalized_text": "120\u00b0 APART",
+        "raw_text": "120° APART",
+        "normalized_text": "120° APART",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
@@ -1458,7 +1458,7 @@
           },
           {
             "code": "requirement_mismatch",
-            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 10-24 UNC THRU 120\u00b0 APART != 120\u00b0 APART"
+            "message": "semantic comparison fallback: left semantic state empty/surface_finish_no_match; normalized requirement mismatch: 10-24 UNC THRU 120° APART != 120° APART"
           }
         ],
         "conformance_source": "ground_truth"
@@ -1553,7 +1553,7 @@
       "status": "added",
       "confidence": 0.75,
       "reasons": [
-        "New GD&T feature control frame in Rev B: \"\u2335 \u00d8.531 X\u00a082.0\u00b0\"",
+        "New GD&T feature control frame in Rev B: \"⌵ Ø.531 X 82.0°\"",
         "GD&T control symbol detected"
       ],
       "confidence_flags": [],
@@ -1572,7 +1572,7 @@
         ],
         "image_path": "snippets/char_020_revB_p0.png"
       },
-      "requirement_revB": "\u2335 \u00d8.531 X\u00a082.0\u00b0",
+      "requirement_revB": "⌵ Ø.531 X 82.0°",
       "semantic_callout": {
         "provenance": {
           "authority": "pdf",
@@ -1588,8 +1588,8 @@
           "reason_code": "surface_finish_no_match",
           "detail": "text did not match the bounded GD&T, weld, surface finish, or fit grammar"
         },
-        "raw_text": "\u2335",
-        "normalized_text": "\u2335",
+        "raw_text": "⌵",
+        "normalized_text": "⌵",
         "metadata": {
           "dispatcher": "semantic_dispatch",
           "authority_source": "pdf",
