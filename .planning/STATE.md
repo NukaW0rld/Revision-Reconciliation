@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: "Completed 10-01-PLAN.md: advisory flag surfacing on review/debug/status surfaces"
-last_updated: "2026-04-18T23:43:30.623Z"
+stopped_at: "Completed 10-02-PLAN.md: sign-off gate enforcement and signed debug snapshot"
+last_updated: "2026-04-18T23:55:28.996Z"
 last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 27
-  completed_plans: 25
-  percent: 93
+  completed_plans: 26
+  percent: 96
 ---
 
 # Project State
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 09 P02 | 28 | 2 tasks | 2 files |
 | Phase 09-full-corpus-added-characteristic-closure P03 | 11 | 2 tasks | 15 files |
 | Phase 10 P01 | 5 | 2 tasks | 8 files |
+| Phase 10 P02 | 9 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,7 @@ Recent decisions affecting current work:
 - _MODIFIER_SPACING_RE collapses spaces between digit/decimal and GD&T material-modifier symbols (Ⓜ Ⓛ Ⓟ) so packet and Form 3 sources compare equal
 - advisory_flags_by_item_id keys by ReviewItem.id (not char_no) to tolerate duplicate and None characteristic numbers
 - confidence_flags rendered directly from packet data; no re-derivation from reasons or mismatch text on maintainer surfaces
+- build_signoff_gate_state uses strict review_needed exception contract (build_debug_queue_state exception_items) rather than build_run_debug_summary to avoid false positives from items without evaluation
 
 ### Pending Todos
 
@@ -124,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T23:43:30.616Z
-Stopped at: Completed 10-01-PLAN.md: advisory flag surfacing on review/debug/status surfaces
+Last session: 2026-04-18T23:55:28.989Z
+Stopped at: Completed 10-02-PLAN.md: sign-off gate enforcement and signed debug snapshot
 Resume file: None
