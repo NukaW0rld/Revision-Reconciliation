@@ -101,6 +101,66 @@ audited: 2026-04-14
 
 ---
 
+## Phase 8 Reconciliation
+
+**Reconciled:** 2026-04-17 (Phase 08 — GD&T Verification Recovery)
+
+The original manual-only validation rows in the table above were never closed by a Phase 04
+verification artifact. Phase 04 shipped `04-01-SUMMARY.md`, `04-02-SUMMARY.md`, `04-REVIEW-FIX.md`,
+`04-SECURITY.md`, and `04-UAT.md`, but `04-VERIFICATION.md` was never produced. This section
+records the Phase 08 reconciliation against current evidence.
+
+### Current Automated Evidence
+
+The manual-only validation behaviors listed above are now covered by the following current
+automated evidence sets:
+
+**Phase 04 regression suites (pass as of 2026-04-17, 72 tests):**
+- `tests/test_semantic_extraction.py` — compact-token, word-form, composite-frame, slash-family
+  guard, dashed-datum, and Phase 08 type-gate recovery coverage
+- `tests/test_semantic_comparison.py` — compartment-aware comparison, word-form/symbol-form
+  semantic match, null-tolerance guard
+- `tests/test_semantic_types.py` — GdtCompartment default-factory and field coverage
+- `tests/test_pipeline_semantic_packet.py` — integration packet serialization including compartments
+
+**Milestone-level GDT cluster checks (pass as of 2026-04-17, 9 tests):**
+- `tests/test_phase7_regression.py` — GDT-01 compact-token cluster, GDT-02 word-form cluster,
+  GDT-03 compartment-count cluster; all 9 tests verify current corpus-derived behavior
+
+### Corpus-Symbol Discrepancy
+
+During Phase 08 research a discrepancy was discovered between the current parser contract and
+the Part 8 ground truth file:
+
+- `assets/part8/ground_truth.json` uses `↗` (arrow up-right) and `⌰` (symbol) for runout and
+  total runout annotations as extracted from the corpus PDF.
+- The current Phase 04 parser/test contract proves `⌿` (circular runout) and `⟃` (total runout)
+  from the word-form GD&T control normalization path.
+
+This alias gap is a corpus extraction artifact, not a parser defect. The current parser correctly
+handles the Phase 04 word-form inputs and produces the correct Unicode control symbols; the corpus
+ground truth files use an alternate symbol encoding extracted by a different PDF extractor version.
+
+### Scope Decision: ↗ / ⌰ Alias Handling Deferred to Phase 09 / ADD-01
+
+Phase 08 execution did **not** add alias support for `↗` / `⌰`. This decision is documented here:
+
+- The alias gap is intrinsically tied to the still-open added-characteristic closure work in
+  Phase 09 (`ADD-01`). Parts 1-5 and 9 still have `missing_added_truth_indexes` containing
+  GD&T characteristics that use the alternate symbol encoding.
+- Adding aliases in Phase 08 without closing the added-characteristic gap would still leave the
+  affected rows unmatched; the alias fix only becomes meaningful once the detection logic in
+  Phase 09 surfaces those rows for comparison.
+- Pulling the alias work into Phase 08 would implicitly scope-creep a verification-recovery phase
+  into algorithm feature work already assigned to Phase 09.
+
+**Action:** `↗` / `⌰` alias handling is assigned to Phase 09 / ADD-01. The manual-only
+validation note about "inspecting representative real-corpus semantic extraction output" is
+therefore re-scoped to Phase 09, which will include end-to-end corpus verification of the
+corrected added-characteristic detection and symbol handling together.
+
+---
+
 ## Validation Audit 2026-04-14
 
 | Metric | Count |
