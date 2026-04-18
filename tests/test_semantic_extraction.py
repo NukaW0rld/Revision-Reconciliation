@@ -1,5 +1,7 @@
+import pytest
+
 from delta_preservation.io.pdf import TextSpan
-from delta_preservation.reconcile.normalize import extract_semantic_callout
+from delta_preservation.reconcile.normalize import classify_requirement_type, extract_semantic_callout
 
 
 def _span(text: str, *, block_id: int = 0, line_id: int = 0, span_id: int = 0, x0: float = 0.0, y0: float = 0.0):
@@ -545,3 +547,34 @@ def test_extract_semantic_callout_fit_slash_still_parses_as_fit():
     assert semantic.fit.hole_class == "H7"
     assert semantic.fit.shaft_class == "p6"
     assert semantic.gdt is None
+
+
+# Phase 08 GD&T type-gate recovery (GDT-02)
+# Direct regression coverage for classify_requirement_type() aligned with the
+# Phase 04 parser-produced symbol family (○, ⌿, ⟃) and their word-form counterparts.
+
+@pytest.mark.parametrize("text,expected", [
+    ("○ 0.002", "gdt"),
+    ("⌿ .025 A-B", "gdt"),
+    ("⟃ .015 B", "gdt"),
+    ("Circularity 0.002", "gdt"),
+    ("Runout .025 A-B", "gdt"),
+    ("Total Runout .015 B", "gdt"),
+    ("⌖∅0.35ABC", "gdt"),
+    ("⌓ .05 D B C / ⌓ .01 D", "gdt"),
+])
+def test_classify_requirement_type_recognizes_phase4_gdt_symbols_and_word_forms(text, expected):
+    assert classify_requirement_type(text) == expected, (
+        f"classify_requirement_type({text!r}) returned {classify_requirement_type(text)!r}, expected {expected!r}"
+    )
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("H7/p6", "fit"),
+    ("1/8 FILLET BOTH SIDES", "weld"),
+    ("positioning hole", "other"),
+])
+def test_classify_requirement_type_keeps_non_gdt_families_stable(text, expected):
+    assert classify_requirement_type(text) == expected, (
+        f"classify_requirement_type({text!r}) returned {classify_requirement_type(text)!r}, expected {expected!r}"
+    )
