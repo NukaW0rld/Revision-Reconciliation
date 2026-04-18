@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Completed 09-02-PLAN.md — detector-side miss closure for Part 9 flatness and Parts 3-5 exemplar families
-last_updated: "2026-04-18T16:59:56.108Z"
+stopped_at: Completed 09-03-PLAN.md — fixture refresh, benchmark baseline, and ADD-01 closure
+last_updated: "2026-04-18T17:15:16.575Z"
 last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 21
-  completed_plans: 20
-  percent: 95
+  completed_plans: 21
+  percent: 100
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-18 -- Phase --phase execution started
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 95%
 | Phase 06 P04 | 3 | 1 tasks | 1 files |
 | Phase 09 P01 | 3 | 2 tasks | 4 files |
 | Phase 09 P02 | 28 | 2 tasks | 2 files |
+| Phase 09-full-corpus-added-characteristic-closure P03 | 11 | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ Recent decisions affecting current work:
 - Replace ±200 pt same-row sweep in matched-owner signatures with fixed-point _spans_are_annotation_companions walk
 - Add ⌵ countersink symbol to GDT_ANCHOR_SYMBOLS so Pass 0 handles countersink callouts
 - Surface-finish seeds use same-block vertical sweep (≤25 pt) to capture non-numeric prefix rows
+- BASELINE_COUNTS for part5 set to max_missing_added=2 (indexes 16+17 are documented architectural deferrals from Plan 02)
+- _MODIFIER_SPACING_RE collapses spaces between digit/decimal and GD&T material-modifier symbols (Ⓜ Ⓛ Ⓟ) so packet and Form 3 sources compare equal
 
 ### Pending Todos
 
@@ -117,8 +120,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T16:59:56.102Z
-Stopped at: Completed 09-02-PLAN.md — detector-side miss closure for Part 9 flatness and Parts 3-5 exemplar families
+Last session: 2026-04-18T17:15:16.568Z
+Stopped at: Completed 09-03-PLAN.md — fixture refresh, benchmark baseline, and ADD-01 closure
 Resume file: None
 
 **Planned Phase:** 09 (Full-Corpus Added Characteristic Closure) — 3 plans — 2026-04-18T16:30:19.536Z
