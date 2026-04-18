@@ -10,16 +10,16 @@ canonical and must never be edited by the pipeline.
 
 ### GD&T Parsing
 
-- [ ] **GDT-01**: Compact GD&T tokens (e.g. `⌖∅0.35ABC`, `⌓0.5A`, `⏥0.2`) written without
+- [x] **GDT-01**: Compact GD&T tokens (e.g. `⌖∅0.35ABC`, `⌓0.5A`, `⏥0.2`) written without
   spaces are correctly split into control symbol + diameter prefix + tolerance value + datum refs
   before semantic comparison, eliminating `gdt_malformed_frame` fallback for these inputs.
 
-- [ ] **GDT-02**: Spelled-out GD&T control names in Form 3 text ("circularity", "runout",
+- [x] **GDT-02**: Spelled-out GD&T control names in Form 3 text ("circularity", "runout",
   "total runout", "position", "flatness", "perpendicularity") are normalized to their Unicode
   symbol equivalents before semantic extraction, so word-form and symbol-form of the same
   characteristic compare equal.
 
-- [ ] **GDT-03**: Composite / multi-compartment GD&T feature control frames (multiple FCFs
+- [x] **GDT-03**: Composite / multi-compartment GD&T feature control frames (multiple FCFs
   listed for one characteristic) are captured in full rather than only the first compartment,
   so requirements like `⌓ .05 D B C / ⌓ .01 D` are not partially lost.
 
@@ -92,9 +92,9 @@ canonical and must never be edited by the pipeline.
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| GDT-01 | Phase 8 | — |
-| GDT-02 | Phase 8 | — |
-| GDT-03 | Phase 8 | — |
+| GDT-01 | Phase 8 | 08-01-PLAN.md, 08-02-PLAN.md |
+| GDT-02 | Phase 8 | 08-01-PLAN.md, 08-02-PLAN.md |
+| GDT-03 | Phase 8 | 08-01-PLAN.md, 08-02-PLAN.md |
 | CLS-01 | Phase 5 | — |
 | CLS-02 | Phase 5 | — |
 | CLS-03 | Phase 5 | — |
