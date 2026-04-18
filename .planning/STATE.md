@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Completed 09-01-PLAN.md — canonical added-row token contract and leading-zero normalization
-last_updated: "2026-04-18T16:40:17.522Z"
+stopped_at: Completed 09-02-PLAN.md — detector-side miss closure for Part 9 flatness and Parts 3-5 exemplar families
+last_updated: "2026-04-18T16:59:56.108Z"
 last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 21
-  completed_plans: 19
-  percent: 90
+  completed_plans: 20
+  percent: 95
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-18 -- Phase --phase execution started
 
-Progress: [█████████░] 90%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 90%
 | Phase 06 P03 | 4 | 2 tasks | 3 files |
 | Phase 06 P04 | 3 | 1 tasks | 1 files |
 | Phase 09 P01 | 3 | 2 tasks | 4 files |
+| Phase 09 P02 | 28 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Recent decisions affecting current work:
 - [Phase 09-01]: _truth_match_token always returns added:<index> for classification=added rows, even when truth row carries legacy char_no
 - [Phase 09-01]: _load_missing_added_truth_items accepts legacy integer tokens only when they resolve to added truth rows in the fixture
 - [Phase 09-01]: Leading-zero stripping restricted to 0.<digits> tokens so whole-number integer parts remain unchanged
+- Replace ±200 pt same-row sweep in matched-owner signatures with fixed-point _spans_are_annotation_companions walk
+- Add ⌵ countersink symbol to GDT_ANCHOR_SYMBOLS so Pass 0 handles countersink callouts
+- Surface-finish seeds use same-block vertical sweep (≤25 pt) to capture non-numeric prefix rows
 
 ### Pending Todos
 
@@ -113,8 +117,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T16:40:17.515Z
-Stopped at: Completed 09-01-PLAN.md — canonical added-row token contract and leading-zero normalization
+Last session: 2026-04-18T16:59:56.102Z
+Stopped at: Completed 09-02-PLAN.md — detector-side miss closure for Part 9 flatness and Parts 3-5 exemplar families
 Resume file: None
 
 **Planned Phase:** 09 (Full-Corpus Added Characteristic Closure) — 3 plans — 2026-04-18T16:30:19.536Z
