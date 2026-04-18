@@ -1,7 +1,9 @@
 """Phase 4: Audit packet and work order export tests."""
 import csv
 import json
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -198,9 +200,33 @@ SEMANTIC_FIXTURE_ITEMS = [
 ]
 
 
-def _make_signed_run(db, engineer_id):
-    """Create a minimal signed-off Run with 2 ReviewItems for testing."""
+def _write_minimal_debug_snapshot(output_dir: str, version: int = 1) -> str:
+    """Write a minimal signed debug snapshot JSON and return its path string."""
+    packets_dir = Path(output_dir) / "packets"
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = packets_dir / f"v{version}-debug-report.json"
+    payload = {
+        "debug_total": 0,
+        "unresolved_exception_count": 0,
+        "exception_items": [],
+        "missing_added_truth_items": [],
+        "rows": [],
+    }
+    snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+    return str(snapshot_path)
+
+
+def _make_signed_run(db, engineer_id, tmp_path=None):
+    """Create a minimal signed-off Run with 2 ReviewItems for testing.
+
+    Writes a real debug_snapshot_path so _get_signed_run passes the
+    signed-snapshot contract check introduced in Phase 10-03.
+    """
     from shop.models import Run, ReviewItem
+    # Use a real temp dir so the snapshot file can be written
+    out_dir = Path(tmp_path) / "signed-run-base" if tmp_path else Path(tempfile.mkdtemp()) / "signed-run-base"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = _write_minimal_debug_snapshot(str(out_dir), version=1)
     run = Run(
         part_number="PN-TEST",
         rev_a_label="A",
@@ -208,14 +234,22 @@ def _make_signed_run(db, engineer_id):
         customer="Acme",
         job_number="JOB-001",
         status="signed_off",
-        output_dir=None,
+        output_dir=str(out_dir),
         revA_path="/tmp/revA.pdf",
         revB_path="/tmp/revB.pdf",
         form3_path="/tmp/form3.xlsx",
         reviewer_id=engineer_id,
         signed_at=datetime(2026, 3, 8, 12, 0, 0),
         signed_by_id=engineer_id,
-        packet_versions=[{"version": 1, "type": "original", "path": "/nonexistent/v1.pdf", "signed_at": "2026-03-08T12:00:00"}],
+        packet_versions=[{
+            "version": 1,
+            "type": "original",
+            "path": str(out_dir / "packets" / "v1.pdf"),
+            "signed_at": "2026-03-08T12:00:00",
+            "debug_snapshot_path": snapshot_path,
+            "debug_total": 0,
+            "unresolved_exception_count": 0,
+        }],
     )
     db.add(run)
     db.flush()
@@ -584,9 +618,12 @@ def test_audit_packet_redownload(client: TestClient, db_engine, engineer_user):
     assert "attachment" in resp.headers.get("content-disposition", "")
 
 
-def _make_run_with_mixed_items(db, engineer_id):
+def _make_run_with_mixed_items(db, engineer_id, tmp_path=None):
     """Create signed-off run with changed, added, and unchanged items."""
     from shop.models import Run, ReviewItem
+    out_dir = Path(tmp_path) / "mixed-items" if tmp_path else Path(tempfile.mkdtemp()) / "mixed-items"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = _write_minimal_debug_snapshot(str(out_dir), version=1)
     run = Run(
         part_number="PN-WO",
         rev_a_label="A",
@@ -594,13 +631,22 @@ def _make_run_with_mixed_items(db, engineer_id):
         customer="Test",
         job_number="WO-001",
         status="signed_off",
-        output_dir=None,
+        output_dir=str(out_dir),
         revA_path="/tmp/a.pdf",
         revB_path="/tmp/b.pdf",
         form3_path="/tmp/f.xlsx",
         reviewer_id=engineer_id,
         signed_at=datetime(2026, 3, 8),
         signed_by_id=engineer_id,
+        packet_versions=[{
+            "version": 1,
+            "type": "original",
+            "path": str(out_dir / "packets" / "v1.pdf"),
+            "signed_at": "2026-03-08T12:00:00",
+            "debug_snapshot_path": snapshot_path,
+            "debug_total": 0,
+            "unresolved_exception_count": 0,
+        }],
     )
     db.add(run)
     db.flush()
@@ -687,9 +733,12 @@ def test_work_order_pdf_csv(client: TestClient, db_engine, engineer_user):
         assert "attachment" in resp.headers.get("content-disposition", "")
 
 
-def _make_run_with_override(db, engineer_id):
+def _make_run_with_override(db, engineer_id, tmp_path=None):
     """Create signed-off run: char 1 changed+overridden with note, char 2 added (no note)."""
     from shop.models import Run, ReviewItem
+    out_dir = Path(tmp_path) / "override-run" if tmp_path else Path(tempfile.mkdtemp()) / "override-run"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = _write_minimal_debug_snapshot(str(out_dir), version=1)
     run = Run(
         part_number="PN-OVR",
         rev_a_label="A",
@@ -697,13 +746,22 @@ def _make_run_with_override(db, engineer_id):
         customer="Test",
         job_number="OVR-001",
         status="signed_off",
-        output_dir=None,
+        output_dir=str(out_dir),
         revA_path="/tmp/a.pdf",
         revB_path="/tmp/b.pdf",
         form3_path="/tmp/f.xlsx",
         reviewer_id=engineer_id,
         signed_at=datetime(2026, 3, 8),
         signed_by_id=engineer_id,
+        packet_versions=[{
+            "version": 1,
+            "type": "original",
+            "path": str(out_dir / "packets" / "v1.pdf"),
+            "signed_at": "2026-03-08T12:00:00",
+            "debug_snapshot_path": snapshot_path,
+            "debug_total": 0,
+            "unresolved_exception_count": 0,
+        }],
     )
     db.add(run)
     db.flush()
@@ -774,3 +832,78 @@ def test_work_order_confidence_in_csv(client: TestClient, engineer_user):
     for char_no, row in rows.items():
         parts = row["confidence"].split(".")
         assert len(parts) == 2 and len(parts[1]) == 2, f"char {char_no}: bad confidence format {row['confidence']!r}"
+
+
+def test_export_routes_require_signed_debug_snapshot_metadata(
+    tmp_path, client: TestClient, db_engine, engineer_user
+):
+    """Phase 10-03 T1: Export routes must fail 409 when signed debug snapshot is missing.
+
+    A signed-off run without a debug_snapshot_path in its packet_versions entry
+    must be rejected by the export routes with 409 Conflict rather than silently
+    falling back to mutable current state.
+
+    A signed-off run WITH a valid debug_snapshot_path must be served normally (200).
+    """
+    from shop.models import Run, ReviewItem
+    from shop.dependencies import get_db
+
+    _login_engineer(client, db_engine, engineer_user)
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+
+    # --- Run A: signed_off but NO debug_snapshot_path ---
+    run_no_snap = Run(
+        part_number="PN-NOSNAP",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Test",
+        job_number="NO-SNAP-001",
+        status="signed_off",
+        output_dir=None,
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_user.id,
+        signed_at=datetime(2026, 3, 8),
+        signed_by_id=engineer_user.id,
+        # packet_versions entry exists but has no debug_snapshot_path key
+        packet_versions=[{
+            "version": 1,
+            "type": "original",
+            "path": "/nonexistent/v1.pdf",
+            "signed_at": "2026-03-08T12:00:00",
+        }],
+    )
+    db.add(run_no_snap)
+    db.flush()
+    db.add(ReviewItem(
+        run_id=run_no_snap.id,
+        char_no=1,
+        pipeline_classification="unchanged",
+        confidence=0.9,
+        requirement_revA="Req A",
+        requirement_revB="Req A",
+        reviewer_decision="approved",
+    ))
+    db.commit()
+
+    # All signed export routes must reject with 409 when snapshot is absent
+    for route_suffix in ("audit-packet.csv", "work-order.csv"):
+        resp = client.get(f"/exports/{run_no_snap.id}/{route_suffix}")
+        assert resp.status_code == 409, (
+            f"Expected 409 for /{route_suffix} without snapshot, got {resp.status_code}: {resp.text}"
+        )
+        assert "snapshot" in resp.json().get("detail", "").lower(), (
+            f"Expected 'snapshot' in 409 detail, got: {resp.json()}"
+        )
+
+    # --- Run B: signed_off WITH a valid debug_snapshot_path ---
+    run_with_snap = _make_signed_run(db, engineer_user.id, tmp_path)
+    for route_suffix in ("audit-packet.csv", "work-order.csv"):
+        resp = client.get(f"/exports/{run_with_snap.id}/{route_suffix}")
+        assert resp.status_code == 200, (
+            f"Expected 200 for /{route_suffix} with valid snapshot, got {resp.status_code}: {resp.text}"
+        )

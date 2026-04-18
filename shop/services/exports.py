@@ -9,6 +9,61 @@ from shop.services.semantics import shape_semantic_contract
 from shop.utils import utcnow
 
 
+def _load_signed_debug_snapshot(run: Run, version: int | None = None) -> dict:
+    """Load the signed debug snapshot captured at sign-off time.
+
+    Resolves the matching packet_versions entry and reads the stored
+    debug_snapshot_path JSON file.  Returns the captured payload plus
+    version metadata.
+
+    Raises ValueError if:
+    - no packet_versions entries exist,
+    - no matching entry for the requested version, or
+    - the debug_snapshot_path is missing from the entry or the file is
+      unreadable.
+    """
+    versions = run.packet_versions or []
+    if not versions:
+        raise ValueError("Run has no packet_versions entries")
+
+    # Resolve target version: default to the latest (highest version number)
+    if version is None:
+        entry = max(versions, key=lambda v: v.get("version", 0))
+    else:
+        entry = next((v for v in versions if v.get("version") == version), None)
+        if entry is None:
+            raise ValueError(
+                f"No packet_versions entry for version={version}"
+            )
+
+    snapshot_path_str = entry.get("debug_snapshot_path")
+    if not snapshot_path_str:
+        raise ValueError(
+            f"packet_versions entry v{entry.get('version')} has no debug_snapshot_path"
+        )
+
+    snapshot_path = Path(snapshot_path_str)
+    if not snapshot_path.exists():
+        raise ValueError(
+            f"Signed debug snapshot not found at {snapshot_path_str}"
+        )
+
+    try:
+        payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(
+            f"Could not read signed debug snapshot: {exc}"
+        ) from exc
+
+    return {
+        "version": entry.get("version"),
+        "debug_snapshot_path": snapshot_path_str,
+        "debug_total": entry.get("debug_total", payload.get("debug_total", 0)),
+        "unresolved_exception_count": entry.get("unresolved_exception_count", 0),
+        "payload": payload,
+    }
+
+
 def _load_delta_packet_items(run: Run) -> list[dict]:
     if not run.output_dir:
         return []
