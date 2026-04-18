@@ -42,8 +42,9 @@ canonical and must never be edited by the pipeline.
 ### Added Characteristic Detection
 
 - [ ] **ADD-01**: All ground-truth-added characteristics are present in the pipeline output for
-  every part in the debug corpus. Parts 8 and 9 currently show missing_added_truth_indexes;
-  after this fix those lists must be empty on a clean run.
+  every part in the debug corpus. Fresh milestone verification still shows
+  `missing_added_truth_indexes` on parts 1-5 and 9; after this fix those lists must be empty
+  across the full corpus.
 
 - [x] **ADD-02**: Spurious added-characteristic rows (false positives where a raw PDF span
   fragment is incorrectly classified as a new characteristic) are suppressed when the span's
@@ -91,15 +92,18 @@ canonical and must never be edited by the pipeline.
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| GDT-01 | Phase 4 | — |
-| GDT-02 | Phase 4 | — |
-| GDT-03 | Phase 4 | — |
+| GDT-01 | Phase 8 | — |
+| GDT-02 | Phase 8 | — |
+| GDT-03 | Phase 8 | — |
 | CLS-01 | Phase 5 | — |
 | CLS-02 | Phase 5 | — |
 | CLS-03 | Phase 5 | — |
-| ADD-01 | Phase 6 | — |
+| ADD-01 | Phase 9 | — |
 | ADD-02 | Phase 6 | — |
 | SNP-01 | Phase 6 | — |
 | TST-01 | Phase 7 | — |
 | TST-02 | Phase 7 | — |
 | VER-01 | Phase 7 | — |
+
+Audit gap-closure phases 10 and 11 address cross-phase integration and live web-flow gaps
+without reassigning already-validated algorithm requirements.

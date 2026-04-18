@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Ground Truth Debug Workflow** — Phases 1-3, shipped 2026-04-12 ([roadmap archive](milestones/v1.0-ROADMAP.md), [requirements archive](milestones/v1.0-REQUIREMENTS.md), [audit](milestones/v1.0-MILESTONE-AUDIT.md))
-- 🚧 **v1.1 Cross-part Characteristic Matching Refinement** — Phases 4-7 (in progress)
+- 🚧 **v1.1 Cross-part Characteristic Matching Refinement** — Phases 4-11 (in progress)
 
 ## Phases
 
@@ -22,6 +22,10 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 - [x] **Phase 5: Classification Logic Fixes** - Suppress adjacency bleed false positives, resolve removed+added pairs as changed, detect asymmetric tolerance changes (completed 2026-04-17)
 - [x] **Phase 6: Added Characteristic Detection and Snippet Accuracy** - Fix missing added rows for parts 8/9, suppress false-positive added rows, exclude title block regions from search windows (completed 2026-04-17)
 - [x] **Phase 7: Regression Tests and Verification** - Add parametrized regression tests per fix cluster, cross-part benchmark, and full 9-part verification run (completed 2026-04-17)
+- [ ] **Phase 8: GD&T Verification Recovery** - Rebuild the missing Phase 04 verification chain and restore GD&T requirement traceability
+- [ ] **Phase 9: Full-Corpus Added Characteristic Closure** - Eliminate the remaining missing added truth rows across the 9-part corpus and refresh the supporting evidence
+- [ ] **Phase 10: Debug Exception Gating and Advisory Surfacing** - Block sign-off/export on unresolved debug exceptions and surface classifier advisory flags in maintainer-facing surfaces
+- [ ] **Phase 11: Web Run-to-Review E2E Automation** - Cover the live `/runs/new` through review/debug/export path with automated integration tests
 
 ## Phase Details
 
@@ -83,6 +87,49 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   - [x] 07-03-PLAN.md — VER-01 full 9-part ground-truth re-run
   - [x] 07-04-PLAN.md — Algorithm-only baseline fixtures and parity correction
 
+### Phase 8: GD&T Verification Recovery
+**Goal**: Close the Phase 04 audit gap by restoring the missing verification chain, reconciling any stale manual checks, and re-proving the implemented GD&T fixes against current evidence so the orphaned GD&T requirements become satisfied again.
+**Depends on**: Phase 7
+**Requirements**: GDT-01, GDT-02, GDT-03
+**Gap Closure**: FLOW-03
+**Success Criteria** (what must be TRUE):
+  1. Phase 04 has a substantive `04-VERIFICATION.md` that verifies the shipped GD&T parser behavior against the current codebase and evidence, not just plan summaries.
+  2. `GDT-01`, `GDT-02`, and `GDT-03` are no longer orphaned in milestone verification and point to current verification evidence.
+  3. Any stale manual-only validation checks or residual parser debt called out in the audit are either closed with evidence or explicitly re-scoped.
+
+### Phase 9: Full-Corpus Added Characteristic Closure
+**Goal**: Finish the added-characteristic work by eliminating the remaining missing truth rows across the corpus and refreshing the Phase 06/07 evidence so the final algorithm state matches milestone claims.
+**Depends on**: Phase 7
+**Requirements**: ADD-01
+**Affected Requirements**: ADD-02, SNP-01
+**Gap Closure**: FLOW-01
+**Success Criteria** (what must be TRUE):
+  1. Fresh evaluation across all 9 debug parts yields empty `missing_added_truth_indexes`, including the current misses on parts 1-5 and 9.
+  2. Added-characteristic output does not introduce new false positives relative to the current Phase 06/07 baseline while closing the missing-row gap.
+  3. Phase 06 verification/validation artifacts and any downstream milestone evidence are refreshed to reflect the final full-corpus result.
+
+### Phase 10: Debug Exception Gating and Advisory Surfacing
+**Goal**: Make unresolved debug exceptions and classifier advisory flags visible and enforceable at sign-off/export time so maintainer decisions happen on the same evidence the packet records.
+**Depends on**: Phase 9
+**Requirements**: — (audit integration closure only)
+**Affected Requirements**: CLS-01, ADD-01, ADD-02, SNP-01, VER-01
+**Gap Closure**: GAP-01, GAP-02, FLOW-02
+**Success Criteria** (what must be TRUE):
+  1. Normal maintainer debug/review surfaces render classifier `confidence_flags` alongside the affected items.
+  2. Sign-off and audit/work-order export routes block completion while unresolved debug exceptions remain, unless an explicit acknowledgement path is provided and recorded.
+  3. Exported artifacts preserve the same advisory and gating state the maintainer saw during review.
+
+### Phase 11: Web Run-to-Review E2E Automation
+**Goal**: Prove the live web workflow from run submission through review/debug/export with automated coverage, not just algorithm-only fixtures.
+**Depends on**: Phase 10
+**Requirements**: — (audit flow closure only)
+**Affected Requirements**: TST-02, VER-01
+**Gap Closure**: GAP-03
+**Success Criteria** (what must be TRUE):
+  1. An automated web integration test covers `/runs/new` submission, background task completion, `delta_packet.json` persistence, and review surface load for a representative fixture-backed run.
+  2. The same test coverage asserts the debug/export/sign-off behavior introduced by earlier phases, including blockers and surfaced advisory state where applicable.
+  3. Milestone verification no longer relies solely on algorithm-only artifacts to prove the live maintainer workflow.
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -94,3 +141,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 5. Classification Logic Fixes | v1.1 | 5/5 | Complete   | 2026-04-17 |
 | 6. Added Characteristic Detection and Snippet Accuracy | v1.1 | 4/4 | Complete   | 2026-04-17 |
 | 7. Regression Tests and Verification | v1.1 | 4/4 | Complete | 2026-04-17 |
+| 8. GD&T Verification Recovery | v1.1 | 0/0 | Planned | — |
+| 9. Full-Corpus Added Characteristic Closure | v1.1 | 0/0 | Planned | — |
+| 10. Debug Exception Gating and Advisory Surfacing | v1.1 | 0/0 | Planned | — |
+| 11. Web Run-to-Review E2E Automation | v1.1 | 0/0 | Planned | — |
