@@ -69,7 +69,8 @@ canonical and must never be edited by the pipeline.
 
 ## Verification
 
-- [ ] **VER-01**: After all fixes, all 9 parts are re-run through the pipeline and their
+- [x] **VER-01
+**: After all fixes, all 9 parts are re-run through the pipeline and their
   ground-truth evaluation results (conforming count, exception count, missing_added_truth_indexes)
   are compared against pre-fix baselines. Each part must show equal or better conforming
   count with no regressions on previously-passing characteristics.

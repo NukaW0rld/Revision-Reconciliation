@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: in_progress
-stopped_at: Phase 10 context gathered (assumptions mode)
-last_updated: "2026-04-18T21:18:26.020Z"
-last_activity: 2026-04-18 — Phase 10 context gathered (assumptions mode)
+status: executing
+stopped_at: "Completed 10-01-PLAN.md: advisory flag surfacing on review/debug/status surfaces"
+last_updated: "2026-04-18T23:43:30.623Z"
+last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 27
-  completed_plans: 27
-  percent: 100
+  completed_plans: 25
+  percent: 93
 ---
 
 # Project State
@@ -21,14 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Phase 10 — Debug Exception Gating and Advisory Surfacing
+**Current focus:** Phase --phase — 10
 
 ## Current Position
 
-Phase: 10 — CONTEXT GATHERED (2026-04-18)
+Phase: --phase (10) — EXECUTING
+Plan: 1 of --name
 Next: Phase 10 — Ready for planning
-Status: Phase 10 context gathered; ready for `$gsd-plan-phase 10`
-Last activity: 2026-04-18 — Phase 10 context gathered (assumptions mode)
+Status: Executing Phase --phase
+Last activity: 2026-04-18 -- Phase --phase execution started
 
 Progress: [██████████] 100%
 
@@ -66,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 09 P01 | 3 | 2 tasks | 4 files |
 | Phase 09 P02 | 28 | 2 tasks | 2 files |
 | Phase 09-full-corpus-added-characteristic-closure P03 | 11 | 2 tasks | 15 files |
+| Phase 10 P01 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -102,6 +104,8 @@ Recent decisions affecting current work:
 - Surface-finish seeds use same-block vertical sweep (≤25 pt) to capture non-numeric prefix rows
 - BASELINE_COUNTS for part5 set to max_missing_added=2 (indexes 16+17 are documented architectural deferrals from Plan 02)
 - _MODIFIER_SPACING_RE collapses spaces between digit/decimal and GD&T material-modifier symbols (Ⓜ Ⓛ Ⓟ) so packet and Form 3 sources compare equal
+- advisory_flags_by_item_id keys by ReviewItem.id (not char_no) to tolerate duplicate and None characteristic numbers
+- confidence_flags rendered directly from packet data; no re-derivation from reasons or mismatch text on maintainer surfaces
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T21:18:26.020Z
-Stopped at: Phase 10 context gathered (assumptions mode)
-Resume file: .planning/phases/10-debug-exception-gating-and-advisory-surfacing/10-CONTEXT.md
+Last session: 2026-04-18T23:43:30.616Z
+Stopped at: Completed 10-01-PLAN.md: advisory flag surfacing on review/debug/status surfaces
+Resume file: None
