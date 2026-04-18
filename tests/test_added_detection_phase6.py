@@ -985,3 +985,92 @@ class TestPhase9ExemplarFamilies:
         assert any("M20x2.5 − 6H" in t for t in texts), (
             f"Expected 'M20x2.5 − 6H' thread designation in grouped text but got {texts!r}"
         )
+
+    def test_plain_integer_800_detected_when_tolerance_block_is_far_away(self):
+        """A drawing-body plain integer '800' survives when the boilerplate phrase is far away.
+
+        Reproduces the Part 5 truth_index 16 scenario: '800' sits at centre
+        (615, 581) in the drawing body, while 'UNLESS OTHERWISE SPECIFIED' sits
+        in the bottom-centre tolerance zone at centre (500, 650).  The old 120 pt
+        proximity sweep suppressed '800' because the boilerplate was ~54 pt away.
+        The refined zone-aware filter must let '800' through because:
+          - '800' itself is NOT in a boilerplate zone (its centre is at ~73% height,
+            outside the 78%-92% tolerance zone)
+          - The boilerplate phrase centre is >40 pt away and not vertically co-linear
+            (|Δy| > 10 pt), so the same-row companion check does not fire.
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        # Drawing-body plain integer at centre ~(615, 581) on a (1224, 792) page
+        integer_span = _span(
+            "800",
+            block_id=70, line_id=0, span_id=0,
+            x0=600.0, y0=577.0, width=30.0, height=8.0,
+        )
+
+        # Boilerplate phrase in the bottom-centre tolerance zone at centre ~(500, 650)
+        boilerplate_span = _span(
+            "UNLESS OTHERWISE SPECIFIED",
+            block_id=90, line_id=0, span_id=0,
+            x0=380.0, y0=644.0, width=240.0, height=12.0,
+        )
+
+        added = detect_added_characteristics(
+            revB_spans=[integer_span, boilerplate_span],
+            matches={},
+            next_char_no=17,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert any("800" in t for t in texts), (
+            f"Expected plain integer '800' to survive detection but got {texts!r}; "
+            "the zone-aware filter should not suppress a drawing-body integer when "
+            "the boilerplate phrase is far away and in the tolerance zone"
+        )
+
+    def test_plain_integer_in_general_tolerance_block_still_suppressed(self):
+        """A plain integer whose centre sits inside the tolerance zone with a same-row
+        boilerplate companion is still suppressed.
+
+        Negative case: '150' at centre (420, 650) on a (1224, 792) page — inside the
+        bottom-centre tolerance zone (78%-92% height × 25%-72% width).  'UNLESS
+        OTHERWISE SPECIFIED' sits within 10 pt in y and 40 pt centre-to-centre distance.
+        The refined filter must suppress '150' because:
+          - '150' itself is flagged by span_is_excluded_for_annotation_search (the span
+            is in the tolerance zone AND adjacent boilerplate text)
+          - AND a boilerplate phrase is a same-row companion (|Δy| ≤ 10 pt, distance ≤ 40 pt)
+        """
+        from delta_preservation.reconcile.classify import detect_added_characteristics
+
+        # Plain integer inside the bottom-centre tolerance zone at centre ~(420, 650)
+        integer_span = _span(
+            "150",
+            block_id=91, line_id=0, span_id=0,
+            x0=410.0, y0=646.0, width=20.0, height=8.0,
+        )
+
+        # Same-row boilerplate companion whose centre is within 10 pt in y and
+        # ≤ 40 pt centre-to-centre distance from the integer span.
+        # Integer centre: (420, 650).  Boilerplate centre: (395, 650) → distance = 25 pt.
+        boilerplate_span = _span(
+            "UNLESS OTHERWISE SPECIFIED",
+            block_id=91, line_id=0, span_id=1,
+            x0=275.0, y0=644.0, width=240.0, height=12.0,
+        )
+
+        added = detect_added_characteristics(
+            revB_spans=[integer_span, boilerplate_span],
+            matches={},
+            next_char_no=20,
+            page_width=1224.0,
+            page_height=792.0,
+        )
+
+        texts = [it.added_requirement_text or "" for it in added]
+        assert not any("150" == t.strip() for t in texts), (
+            f"Expected plain integer '150' in the tolerance zone to be suppressed but got {texts!r}; "
+            "the zone-aware filter should suppress integers in the boilerplate zone or with "
+            "same-row boilerplate companions"
+        )

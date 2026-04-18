@@ -64,6 +64,7 @@ from delta_preservation.io.pdf import TextSpan
 from delta_preservation.types import SemanticCallout
 from delta_preservation.reconcile.exclusion import (
     estimate_page_dimensions,
+    is_boilerplate_candidate_text,
     span_is_excluded_for_annotation_search,
 )
 
@@ -1958,30 +1959,33 @@ def detect_added_characteristics(
         if is_near_matched_span(span.bbox_pdf):
             continue
 
-        # Suppress plain-integer candidates that sit near general-tolerance boilerplate
-        # text (e.g., "UNLESS OTHERWISE SPECIFIED", "DIMENSIONS ARE IN MILLIMETERS").
-        # These integers are likely reference/overall values in the standards block, not
-        # new measurement characteristics.  Symbol-bearing and count-bearing spans are
-        # exempt because they are unambiguously engineering annotations.
+        # Suppress plain-integer candidates that sit in the shared boilerplate
+        # zone, or that are direct same-row companions of a boilerplate phrase.
+        # The previous 120 pt omni-directional proximity sweep was too broad —
+        # it suppressed real added callouts (e.g. Part 5 truth_index 16 "800")
+        # merely because "UNLESS OTHERWISE SPECIFIED" happened to sit within
+        # 120 pt of the span centre even though the tolerance block itself is
+        # confined to the bottom-centre notes zone.  Symbol-bearing and
+        # count-bearing spans remain exempt (handled by the outer guard).
         if is_plain_integer_dimension and not fp.symbol_tokens and not fp.count_tokens:
+            if span_is_excluded_for_annotation_search(
+                span,
+                page_width=page_width,
+                page_height=page_height,
+            ):
+                continue
             sx0, sy0, sx1, sy1 = span.bbox_pdf
             scx, scy = (sx0 + sx1) / 2, (sy0 + sy1) / 2
-            _boilerplate_kws = (
-                "UNLESS", "OTHERWISE", "SPECIFIED", "DIMENSIONS ARE",
-                "SURFACE FINISH", "DO NOT SCALE", "ANGULAR", "FRACTIONAL",
-                "INTERPRET", "TOLERANCING",
-            )
-            _near_boilerplate = False
+            _is_same_row_boilerplate_companion = False
             for _other in revB_spans:
-                _ot = _other.text.strip().upper()
-                if not any(kw in _ot for kw in _boilerplate_kws):
+                if not is_boilerplate_candidate_text(_other.text):
                     continue
                 _ox0, _oy0, _ox1, _oy1 = _other.bbox_pdf
                 _ocx, _ocy = (_ox0 + _ox1) / 2, (_oy0 + _oy1) / 2
-                if math.sqrt((_ocx - scx) ** 2 + (_ocy - scy) ** 2) <= 120.0:
-                    _near_boilerplate = True
+                if abs(_ocy - scy) <= 10.0 and math.hypot(_ocx - scx, _ocy - scy) <= 40.0:
+                    _is_same_row_boilerplate_companion = True
                     break
-            if _near_boilerplate:
+            if _is_same_row_boilerplate_companion:
                 continue
 
         # This looks like a new characteristic.
