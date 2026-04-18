@@ -32,6 +32,12 @@ ADDED_POOL_TOKEN_PREFIX = "added"
 ADDED_TRUTH_TIEBREAK_MAX_DISTANCE_PT: float = 100.0
 _CONTROL_SPACING_RE = re.compile(r"([⌖◎⌓⌰⚪⏥⟂↧∅Ø])\s+(?=[∅Ø.\d])")
 
+# Normalizes leading-zero variants in decimal tokens where the integer part is exactly 0,
+# e.g. ``0.635`` → ``.635``, ``+0.50`` → ``+.50``, ``-0.05`` → ``-.05``.
+# Does NOT affect tokens where the integer part is > 0 (``10.000``, ``1.250``, etc.).
+# Applied after all other normalization so the final canonical form is deterministic.
+_LEADING_ZERO_RE = re.compile(r"(?<![.\d])([+-]?)0(\.\d+)")
+
 
 # ---------------------------------------------------------------------------
 # Geometry helpers for added-truth tie-break (self-contained; no imports from
@@ -109,7 +115,12 @@ def _normalize_requirement_text(requirement: str | None) -> str | None:
 
     # Added-row truth selection should not fail solely because one source
     # inserts harmless spacing between a control symbol and its tolerance token.
-    return _CONTROL_SPACING_RE.sub(r"\1", normalized)
+    normalized = _CONTROL_SPACING_RE.sub(r"\1", normalized)
+
+    # Normalize leading-zero variants in pure-decimal tokens (integer part == 0)
+    # so that ``0.635 / 0.615`` and ``.635 / .615`` compare equal.  Tokens where
+    # the integer part is non-zero (``10.000``, ``1.250``) are left unchanged.
+    return _LEADING_ZERO_RE.sub(r"\1\2", normalized)
 
 
 def _truth_match_token(truth_row: GroundTruthCharacteristic, truth_index: int) -> int | str | None:

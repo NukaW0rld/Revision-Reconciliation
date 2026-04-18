@@ -368,3 +368,27 @@ def test_added_truth_match_token_uses_added_pool_prefix_even_when_truth_row_has_
         f"select_truth_row_for_item must emit 'added:0' for an added truth row with char_no=39; "
         f"got {selection.matched_truth_char_no!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 9 Plan 01 — Task 2 regression
+# ---------------------------------------------------------------------------
+
+def test_unique_exact_text_accepts_leading_zero_variant_for_stacked_limits():
+    """A packet item using ``0.635 / 0.615`` must select the same unique added truth row
+    as a canonical truth value ``.635 / .615`` after leading-zero normalization.
+
+    This guards the Part 2 miss where the packet emits ``0.635 / 0.615`` but truth
+    stores ``.635 / .615``, causing added-truth selection to return truth_ambiguity
+    even though the dimension is semantically identical.
+    """
+    truth_row = _make_added_truth(".635 / .615", (300.0, 400.0))
+    # Packet uses the leading-zero variant
+    item = _make_added_item("0.635 / 0.615")
+    selection = _sel(item, [truth_row])
+    assert selection.truth_row is not None, (
+        "Packet requirement '0.635 / 0.615' must match truth '.635 / .615' after leading-zero "
+        f"normalization, but got truth_row=None with ambiguity: {selection.ambiguity_message}"
+    )
+    assert selection.truth_index == 0
+    assert selection.matched_truth_char_no == "added:0"
