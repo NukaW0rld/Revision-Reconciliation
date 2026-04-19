@@ -59,7 +59,7 @@ canonical and must never be edited by the pipeline.
 
 ## Regression Tests
 
-- [ ] **TST-01**: Each fixed failure cluster has at least one pytest parametrized case that
+- [x] **TST-01**: Each fixed failure cluster has at least one pytest parametrized case that
   encodes the exact input (requirement strings, span text) and asserts the correct
   classification outcome, so regressions are caught without re-running the full pipeline.
 
@@ -109,3 +109,6 @@ canonical and must never be edited by the pipeline.
 
 Audit gap-closure phases 10 and 11 address cross-phase integration and live web-flow gaps
 without reassigning already-validated algorithm requirements.
+
+Phase 12 closes process-artifact gaps (missing VERIFICATION.md, stale metadata, Nyquist
+reconciliation) identified by the v1.1 milestone audit — no requirement reassignments.

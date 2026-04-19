@@ -26,6 +26,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 - [x] **Phase 9: Full-Corpus Added Characteristic Closure** - Eliminate the remaining missing added truth rows across the 9-part corpus and refresh the supporting evidence (completed 2026-04-18)
 - [x] **Phase 10: Debug Exception Gating and Advisory Surfacing** - Block sign-off/export on unresolved debug exceptions and surface classifier advisory flags in maintainer-facing surfaces (completed 2026-04-19)
 - [ ] **Phase 11: Web Run-to-Review E2E Automation** - Cover the live `/runs/new` through review/debug/export path with automated integration tests
+- [ ] **Phase 12: Process Artifact Closure and Metadata Reconciliation** - Create missing VERIFICATION.md files, fix stale checkboxes/statuses, reconcile Nyquist VALIDATION.md flags to pass milestone audit
 
 ## Phase Details
 
@@ -133,6 +134,21 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   - [ ] 11-01-PLAN.md — Dedicated live `/runs/new` -> packet -> review/debug -> blocked sign-off proof using an isolated real corpus run
   - [ ] 11-02-PLAN.md — Cleared live sign-off/export reachability plus a companion seeded advisory case kept inside the Phase 11 artifact
 
+### Phase 12: Process Artifact Closure and Metadata Reconciliation
+**Goal**: Close all process-artifact gaps flagged by the v1.1 milestone audit — create missing VERIFICATION.md files for Phases 8 and 11, fix stale metadata in REQUIREMENTS.md and phase VERIFICATION artifacts, update ROADMAP progress tracking, and reconcile Nyquist VALIDATION.md flags so the milestone re-audit passes cleanly.
+**Depends on**: Phase 11
+**Requirements**: — (audit process closure only)
+**Affected Requirements**: TST-01 (stale checkbox), GDT-01/02/03 (Phase 8 verification), ADD-01/ADD-02/SNP-01 (Phase 6 verification status)
+**Gap Closure**: Closes all gaps from v1.1-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. `08-VERIFICATION.md` exists and documents the already-complete Phase 8 work with evidence references (summaries, commits, 04-VERIFICATION.md creation).
+  2. `11-VERIFICATION.md` exists and documents the already-complete Phase 11 work with evidence references (summaries, commits, test file).
+  3. ROADMAP Phase 11 progress table shows `2/2 | Complete` and plan checkboxes are `[x]`.
+  4. REQUIREMENTS.md TST-01 checkbox is `[x]`.
+  5. Phase 6 `06-VERIFICATION.md` status is updated from `human_needed` to `passed`.
+  6. Nyquist VALIDATION.md files for Phases 6, 9, and 10 show `nyquist_compliant: true`; Phase 7 has a VALIDATION.md.
+  7. A re-run of `/gsd-audit-milestone` returns `passed` status with 0 gaps.
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -148,3 +164,4 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 9. Full-Corpus Added Characteristic Closure | v1.1 | 6/6 | Complete | 2026-04-18 |
 | 10. Debug Exception Gating and Advisory Surfacing | v1.1 | 3/3 | Complete    | 2026-04-19 |
 | 11. Web Run-to-Review E2E Automation | v1.1 | 0/2 | Planned | — |
+| 12. Process Artifact Closure and Metadata Reconciliation | v1.1 | 0/0 | Planned | — |
