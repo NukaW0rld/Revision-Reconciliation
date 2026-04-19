@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: "Completed 10-02-PLAN.md: sign-off gate enforcement and signed debug snapshot"
-last_updated: "2026-04-18T23:55:28.996Z"
+stopped_at: "Completed 10-03-PLAN.md: signed export advisory surfacing"
+last_updated: "2026-04-19T00:04:44.943Z"
 last_activity: 2026-04-18 -- Phase --phase execution started
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 27
-  completed_plans: 26
-  percent: 96
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -69,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 09-full-corpus-added-characteristic-closure P03 | 11 | 2 tasks | 15 files |
 | Phase 10 P01 | 5 | 2 tasks | 8 files |
 | Phase 10 P02 | 9 | 2 tasks | 6 files |
+| Phase 10 P03 | 7 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Recent decisions affecting current work:
 - advisory_flags_by_item_id keys by ReviewItem.id (not char_no) to tolerate duplicate and None characteristic numbers
 - confidence_flags rendered directly from packet data; no re-derivation from reasons or mismatch text on maintainer surfaces
 - build_signoff_gate_state uses strict review_needed exception contract (build_debug_queue_state exception_items) rather than build_run_debug_summary to avoid false positives from items without evaluation
+- _load_signed_debug_snapshot raises ValueError so callers can distinguish missing vs present snapshot
+- _get_signed_run requires valid signed debug snapshot contract; raises 409 when snapshot unavailable
+- Synthetic missing-added truth rows excluded from work-order action list via review_item_id=None filter
 
 ### Pending Todos
 
@@ -126,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T23:55:28.989Z
-Stopped at: Completed 10-02-PLAN.md: sign-off gate enforcement and signed debug snapshot
+Last session: 2026-04-19T00:04:44.937Z
+Stopped at: Completed 10-03-PLAN.md: signed export advisory surfacing
 Resume file: None
