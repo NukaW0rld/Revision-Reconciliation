@@ -26,7 +26,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 - [x] **Phase 9: Full-Corpus Added Characteristic Closure** - Eliminate the remaining missing added truth rows across the 9-part corpus and refresh the supporting evidence (completed 2026-04-18)
 - [x] **Phase 10: Debug Exception Gating and Advisory Surfacing** - Block sign-off/export on unresolved debug exceptions and surface classifier advisory flags in maintainer-facing surfaces (completed 2026-04-19)
 - [x] **Phase 11: Web Run-to-Review E2E Automation** - Cover the live `/runs/new` through review/debug/export path with automated integration tests (completed 2026-04-19)
-- [ ] **Phase 12: Process Artifact Closure and Metadata Reconciliation** - Create missing VERIFICATION.md files, fix stale checkboxes/statuses, reconcile Nyquist VALIDATION.md flags to pass milestone audit
+- [x] **Phase 12: Process Artifact Closure and Metadata Reconciliation** - Create missing VERIFICATION.md files, fix stale checkboxes/statuses, reconcile Nyquist VALIDATION.md flags to pass milestone audit (completed 2026-04-19)
 
 ## Phase Details
 
@@ -164,4 +164,4 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 9. Full-Corpus Added Characteristic Closure | v1.1 | 6/6 | Complete | 2026-04-18 |
 | 10. Debug Exception Gating and Advisory Surfacing | v1.1 | 3/3 | Complete    | 2026-04-19 |
 | 11. Web Run-to-Review E2E Automation | v1.1 | 2/2 | Complete | 2026-04-19 |
-| 12. Process Artifact Closure and Metadata Reconciliation | v1.1 | 0/0 | Planned | — |
+| 12. Process Artifact Closure and Metadata Reconciliation | v1.1 | 4/4 | Complete | 2026-04-19 |
