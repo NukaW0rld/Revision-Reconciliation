@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "Phase 06 Part 9 still misses canonical added truth_index 42 (`⏥ .01`) after the Phase 06 gap-closure fixes."
 created: 2026-04-17T19:00:00-05:00
 updated: 2026-04-17T19:39:00-05:00

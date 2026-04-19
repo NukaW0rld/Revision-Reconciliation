@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "Phase 06 aggregate added-row coverage remains 34/35 emitted with 11 missing truth rows across the 9-part corpus after the gap-closure fixes. Diagnose whether this is one shared remaining algorithm gap or a collection of older unresolved misses outside the targeted Part 8/9 regressions."
 created: 2026-04-17T00:00:00-05:00
 updated: 2026-04-17T00:47:00-05:00

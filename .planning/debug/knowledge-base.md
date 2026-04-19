@@ -1,3 +1,10 @@
+---
+status: resolved
+kind: knowledge-base
+created: 2026-04-13T00:00:00-05:00
+updated: 2026-04-13T00:24:00-05:00
+---
+
 # GSD Debug Knowledge Base
 
 Resolved debug sessions. Used by `gsd-debugger` to surface known-pattern hypotheses at the start of new investigations.
