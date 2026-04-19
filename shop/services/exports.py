@@ -94,7 +94,10 @@ def _load_delta_packet_items(run: Run) -> list[dict]:
     packet_path = Path(run.output_dir) / "delta_packet.json"
     if not packet_path.exists():
         return []
-    packet_data = json.loads(packet_path.read_text())
+    try:
+        packet_data = json.loads(packet_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
     return packet_data.get("items", [])
 
 
