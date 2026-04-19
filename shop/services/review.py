@@ -124,7 +124,12 @@ def load_debug_verdicts(run: Run) -> dict[int, dict]:
     if not verdicts_path.exists():
         return {}
 
-    raw_data = json.loads(verdicts_path.read_text())
+    try:
+        raw_data = json.loads(verdicts_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DebugVerdictValidationError(
+            f"debug_verdicts.json could not be read: {exc}"
+        ) from exc
     if not isinstance(raw_data, dict):
         raise DebugVerdictValidationError("debug_verdicts.json must contain an object.")
 
@@ -671,18 +676,40 @@ def open_review_queue(db: Session, run: Run) -> list[ReviewItem]:
     return _review_items_in_packet_order(db, run, activate_review=True)
 
 
-def semantic_contracts_by_item_id(db: Session, run: Run) -> dict[int, dict]:
-    """Return semantic summaries keyed by ReviewItem.id for debug UI rendering."""
-    queue_state = build_debug_queue_state(db, run, activate_review=False)
+def semantic_contracts_by_item_id(
+    db: Session, run: Run, *, queue_state: dict | None = None
+) -> dict[int, dict]:
+    """Return semantic summaries keyed by ReviewItem.id for debug UI rendering.
+
+    Args:
+        db: Active database session.
+        run: The pipeline run whose packet is queried.
+        queue_state: Optional pre-built result of ``build_debug_queue_state``.
+            When supplied the internal rebuild is skipped, avoiding redundant
+            disk reads and DB queries in call-sites that already hold the state.
+    """
+    if queue_state is None:
+        queue_state = build_debug_queue_state(db, run, activate_review=False)
     return {
         item.id: shape_semantic_contract(delta_item)
         for item, delta_item in queue_state["packet_rows"]
     }
 
 
-def debug_internals_by_item_id(db: Session, run: Run) -> dict[int, dict]:
-    """Return debug internals keyed by ReviewItem.id for stable debug UI rendering."""
-    queue_state = build_debug_queue_state(db, run, activate_review=False)
+def debug_internals_by_item_id(
+    db: Session, run: Run, *, queue_state: dict | None = None
+) -> dict[int, dict]:
+    """Return debug internals keyed by ReviewItem.id for stable debug UI rendering.
+
+    Args:
+        db: Active database session.
+        run: The pipeline run whose packet is queried.
+        queue_state: Optional pre-built result of ``build_debug_queue_state``.
+            When supplied the internal rebuild is skipped, avoiding redundant
+            disk reads and DB queries in call-sites that already hold the state.
+    """
+    if queue_state is None:
+        queue_state = build_debug_queue_state(db, run, activate_review=False)
     result: dict[int, dict] = {}
     for item, delta_item in queue_state["packet_rows"]:
         raw_item = queue_state["raw_packet_items_by_item_id"][item.id]
@@ -743,9 +770,12 @@ def build_signoff_gate_state(db: Session, run: Run) -> dict:
             if item.id not in verdicts_by_item_id
         )
         unresolved_exception_count = unresolved_from_exceptions + unresolved_from_missing
-    except Exception:
-        # If debug summary can't be built (no packet yet), treat as 0 unresolved
+    except DebugVerdictValidationError:
+        # Packet not yet available — treat as no exceptions (pre-pipeline run)
         unresolved_exception_count = 0
+    except Exception:
+        # Unknown error: block sign-off conservatively rather than silently clearing the gate
+        unresolved_exception_count = 1
 
     debug_gate_clear = unresolved_exception_count == 0
     can_sign_off = pending_count == 0 and debug_gate_clear
@@ -759,17 +789,27 @@ def build_signoff_gate_state(db: Session, run: Run) -> dict:
     }
 
 
-def advisory_flags_by_item_id(db: Session, run: Run) -> "dict[int, list[str]]":
+def advisory_flags_by_item_id(
+    db: Session, run: Run, *, queue_state: dict | None = None
+) -> "dict[int, list[str]]":
     """Return packet-native confidence_flags lists keyed by ReviewItem.id.
 
     Uses the existing packet/review join from build_debug_queue_state so that
     duplicate and None char_no rows keep the correct advisory state.
     Legacy packet rows that omit confidence_flags yield an empty list.
+
+    Args:
+        db: Active database session.
+        run: The pipeline run whose packet is queried.
+        queue_state: Optional pre-built result of ``build_debug_queue_state``.
+            When supplied the internal rebuild is skipped, avoiding redundant
+            disk reads and DB queries in call-sites that already hold the state.
     """
-    try:
-        queue_state = build_debug_queue_state(db, run, activate_review=False)
-    except DebugVerdictValidationError:
-        return {}
+    if queue_state is None:
+        try:
+            queue_state = build_debug_queue_state(db, run, activate_review=False)
+        except DebugVerdictValidationError:
+            return {}
     result: dict[int, list[str]] = {}
     for item, delta_item in queue_state["packet_rows"]:
         result[item.id] = list(getattr(delta_item, "confidence_flags", None) or [])
