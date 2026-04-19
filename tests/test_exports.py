@@ -907,3 +907,274 @@ def test_export_routes_require_signed_debug_snapshot_metadata(
         assert resp.status_code == 200, (
             f"Expected 200 for /{route_suffix} with valid snapshot, got {resp.status_code}: {resp.text}"
         )
+
+
+def _make_run_with_advisory_snapshot(tmp_path, db, engineer_id):
+    """Create a signed-off Run whose debug snapshot carries confidence_flags and row state.
+
+    Sets up:
+    - One changed ReviewItem (char 1) with an advisory flag in the snapshot.
+    - One added ReviewItem (char 2) without advisory flags.
+    - A synthetic missing-added truth row in the snapshot (review_item_id=None)
+      to verify it does NOT appear as a work-order task.
+    """
+    from shop.models import Run, ReviewItem
+
+    out_dir = tmp_path / "advisory-snap-run"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    packets_dir = out_dir / "packets"
+    packets_dir.mkdir(parents=True, exist_ok=True)
+
+    # We need actual ReviewItem ids, so flush the run first
+    run = Run(
+        part_number="PN-ADV",
+        rev_a_label="A",
+        rev_b_label="B",
+        customer="Acme",
+        job_number="ADV-001",
+        status="signed_off",
+        output_dir=str(out_dir),
+        revA_path="/tmp/a.pdf",
+        revB_path="/tmp/b.pdf",
+        form3_path="/tmp/f.xlsx",
+        reviewer_id=engineer_id,
+        signed_at=datetime(2026, 3, 8, 12, 0, 0),
+        signed_by_id=engineer_id,
+        # packet_versions will be set after we know the snapshot path
+        packet_versions=[],
+    )
+    db.add(run)
+    db.flush()
+
+    item_changed = ReviewItem(
+        run_id=run.id,
+        char_no=1,
+        pipeline_classification="changed",
+        confidence=0.72,
+        requirement_revA="Ø 1.25 ± 0.10",
+        requirement_revB="Ø 1.25 ± 0.05",
+        reviewer_decision="approved",
+        reviewed_by_id=engineer_id,
+        reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+    )
+    item_added = ReviewItem(
+        run_id=run.id,
+        char_no=2,
+        pipeline_classification="added",
+        confidence=0.88,
+        requirement_revA=None,
+        requirement_revB="Break all sharp edges",
+        reviewer_decision="approved",
+        reviewed_by_id=engineer_id,
+        reviewed_at=datetime(2026, 3, 8, 12, 0, 0),
+    )
+    db.add_all([item_changed, item_added])
+    db.flush()
+
+    # Build snapshot payload with row-level advisory state
+    snapshot_payload = {
+        "run_id": run.id,
+        "run_status": "signed_off",
+        "debug_total": 1,
+        "debug_submitted": 1,
+        "missing_added_truth_indexes": [5],
+        "notes": {},
+        "rows": [
+            # Normal changed row with advisory flag
+            {
+                "queue_index": 1,
+                "review_item_id": item_changed.id,
+                "char_no": 1,
+                "row_state": "canonical_match",
+                "pipeline_classification": "changed",
+                "confidence": 0.72,
+                "debug_verdict": None,
+                "packet_item": {
+                    "char_no": 1,
+                    "status": "changed",
+                    "confidence": 0.72,
+                    "confidence_flags": ["Rev B text may contain adjacent balloon content"],
+                },
+            },
+            # Normal added row with no flags
+            {
+                "queue_index": 2,
+                "review_item_id": item_added.id,
+                "char_no": 2,
+                "row_state": "canonical_match",
+                "pipeline_classification": "added",
+                "confidence": 0.88,
+                "debug_verdict": None,
+                "packet_item": {
+                    "char_no": 2,
+                    "status": "added",
+                    "confidence": 0.88,
+                    "confidence_flags": [],
+                },
+            },
+            # Synthetic missing-added truth row (review_item_id=None)
+            {
+                "queue_index": 3,
+                "review_item_id": None,
+                "truth_index": 5,
+                "char_no": None,
+                "row_state": "canonical_match",
+                "pipeline_classification": "added",
+                "confidence": None,
+                "debug_verdict": "acceptable",
+                "packet_item": None,
+            },
+        ],
+    }
+
+    snapshot_path = packets_dir / "v1-debug-report.json"
+    snapshot_path.write_text(json.dumps(snapshot_payload), encoding="utf-8")
+
+    run.packet_versions = [{
+        "version": 1,
+        "type": "original",
+        "path": str(packets_dir / "v1.pdf"),
+        "signed_at": "2026-03-08T12:00:00",
+        "debug_snapshot_path": str(snapshot_path),
+        "debug_total": 1,
+        "unresolved_exception_count": 0,
+    }]
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    db.refresh(item_changed)
+    db.refresh(item_added)
+    return run, item_changed, item_added
+
+
+def test_audit_packet_csv_includes_confidence_flags_and_debug_state_from_signed_snapshot(
+    tmp_path, client: TestClient, engineer_user
+):
+    """Phase 10-03 T2a: Audit packet CSV surfaces confidence_flags and debug_row_state
+    from the signed debug snapshot, keyed by ReviewItem.id.
+
+    - confidence_flags column carries the packet-native advisory text for the
+      changed row that has an advisory flag in the signed snapshot.
+    - debug_row_state column carries the row_state from the snapshot.
+    - The added row without flags has an empty confidence_flags column.
+    - The synthetic missing-added truth row (review_item_id=None) does NOT
+      appear as a CSV row — it is excluded from the review item query.
+    """
+    from shop.dependencies import get_db
+    from shop.services.exports import generate_audit_packet_csv
+
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+
+    run, item_changed, item_added = _make_run_with_advisory_snapshot(
+        tmp_path / "t2a", db, engineer_user.id
+    )
+
+    buf = generate_audit_packet_csv(db, run)
+    rows = {r["char_no"]: r for r in csv.DictReader(buf)}
+
+    # Changed row: advisory flag from snapshot must appear in confidence_flags column
+    assert rows["1"]["confidence_flags"] == "Rev B text may contain adjacent balloon content", (
+        f"Expected advisory flag in char 1 confidence_flags, got: {rows['1']['confidence_flags']!r}"
+    )
+    assert rows["1"]["debug_row_state"] == "canonical_match", (
+        f"Expected 'canonical_match' in char 1 debug_row_state, got: {rows['1']['debug_row_state']!r}"
+    )
+
+    # Added row: no advisory flag — column must be empty string
+    assert rows["2"]["confidence_flags"] == "", (
+        f"Expected empty confidence_flags for char 2, got: {rows['2']['confidence_flags']!r}"
+    )
+
+    # Synthetic missing-added truth row (char_no=None) must not appear in CSV rows
+    assert "" not in rows or rows.get("") is None or rows[""].get("pipeline_classification") != "added", (
+        "Synthetic missing-added truth row must not materialize as an audit packet CSV row"
+    )
+
+    # CSV must contain the new column headers
+    buf.seek(0)
+    header_row = next(csv.reader(buf))
+    assert "confidence_flags" in header_row
+    assert "debug_row_state" in header_row
+
+
+def test_work_order_csv_uses_signed_snapshot_advisories_without_materializing_missing_truth_rows(
+    tmp_path, client: TestClient, engineer_user
+):
+    """Phase 10-03 T2b: Work order CSV surfaces confidence_flags from the signed snapshot
+    and does NOT turn synthetic missing-added truth rows into work-order tasks.
+
+    - The changed row carries the advisory flag from the snapshot in confidence_flags.
+    - The added row carries an empty confidence_flags.
+    - Only char 1 (changed) and char 2 (added) appear as actionable rows.
+    - The synthetic missing-added truth row (review_item_id=None) does NOT appear.
+    - The work-order template must contain 'Signed Debug Summary' (verified via HTML render).
+    """
+    from shop.dependencies import get_db
+    from shop.services.exports import generate_work_order_csv, _work_order_rows, _load_signed_debug_snapshot, _snapshot_advisory_by_item_id
+    from shop.app import templates
+
+    db_gen = client.app.dependency_overrides.get(get_db)
+    db = next(db_gen()) if db_gen else None
+    if db is None:
+        pytest.skip("no DB override available")
+
+    run, item_changed, item_added = _make_run_with_advisory_snapshot(
+        tmp_path / "t2b", db, engineer_user.id
+    )
+
+    # --- CSV assertions ---
+    buf = generate_work_order_csv(db, run)
+    rows = {r["char_no"]: r for r in csv.DictReader(buf)}
+
+    # Only changed and added real items — no synthetic row
+    assert set(rows.keys()) == {"1", "2"}, (
+        f"Work order CSV must only contain chars 1 and 2, got: {set(rows.keys())}"
+    )
+
+    # Changed row carries the advisory flag
+    assert rows["1"]["confidence_flags"] == "Rev B text may contain adjacent balloon content", (
+        f"Expected advisory flag in char 1 confidence_flags, got: {rows['1']['confidence_flags']!r}"
+    )
+    assert rows["1"]["priority"] == "RE-MEASURE"
+
+    # Added row carries empty flags
+    assert rows["2"]["confidence_flags"] == "", (
+        f"Expected empty confidence_flags for char 2, got: {rows['2']['confidence_flags']!r}"
+    )
+    assert rows["2"]["priority"] == "NEW"
+
+    # --- Template rendering: Signed Debug Summary section must appear ---
+    snap = _load_signed_debug_snapshot(run)
+    advisory_by_item_id = _snapshot_advisory_by_item_id(snap["payload"])
+    work_rows = _work_order_rows(db, run, advisory_by_item_id=advisory_by_item_id)
+
+    class _Row:
+        def __init__(self, d):
+            self.__dict__.update(d)
+
+    render_rows = [_Row(r) for r in work_rows]
+    signed_debug_summary = {
+        "debug_total": snap["debug_total"],
+        "unresolved_exception_count": snap["unresolved_exception_count"],
+        "version": snap["version"],
+    }
+    work_html = templates.env.get_template("exports/work_order.html").render(
+        run=run,
+        remeasure_items=[r for r in render_rows if r.priority == "RE-MEASURE"],
+        new_items=[r for r in render_rows if r.priority == "NEW"],
+        signed_debug_summary=signed_debug_summary,
+        generated_at="2026-03-08 12:00 UTC",
+    )
+
+    assert "Signed Debug Summary" in work_html, (
+        "Work order template must contain 'Signed Debug Summary' section"
+    )
+    assert "Confidence Flags" in work_html, (
+        "Work order template must contain 'Confidence Flags' column header"
+    )
+    assert "Rev B text may contain adjacent balloon content" in work_html, (
+        "Advisory flag text from signed snapshot must appear in work order HTML"
+    )

@@ -37,6 +37,15 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
   <tr><th>Generated</th><td>{{ generated_at }}</td></tr>
 </table>
 
+{% if signed_debug_summary and signed_debug_summary.debug_total is defined %}
+<div style="border:1px solid #c8c8c8; background:#f8f8f8; padding:8px 12px; margin-bottom:0.2in; font-size:9pt;">
+  <strong>Signed Debug Summary</strong> (v{{ signed_debug_summary.version }}):
+  {{ signed_debug_summary.debug_total }} debug exception(s) reviewed,
+  {{ signed_debug_summary.unresolved_exception_count }} unresolved at sign-off.
+  Confidence Flags below reflect the signed snapshot captured at sign-off time.
+</div>
+{% endif %}
+
 {% if not remeasure_items and not new_items %}
 <p class="empty-msg">No changed or added characteristics — full re-inspection not required.</p>
 {% endif %}
@@ -65,6 +74,16 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
   {% endif %}
 {%- endmacro %}
 
+{% macro confidence_flags_cell(row) -%}
+  {% if row.confidence_flags %}
+    {% for flag in row.confidence_flags %}
+      <span style="display:inline-block;border:1px solid #e0a000;border-radius:3px;padding:1px 4px;font-size:7.5pt;background:#fff8e0;color:#7a5000;margin:1px;">{{ flag }}</span>
+    {% endfor %}
+  {% else %}
+    —
+  {% endif %}
+{%- endmacro %}
+
 {% if remeasure_items %}
 <h2>Re-Measure — Changed Characteristics</h2>
 <table class="work-table">
@@ -74,6 +93,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <th>Requirement (Rev A)</th>
       <th>Requirement (Rev B)</th>
       <th>Semantic Evidence</th>
+      <th>Confidence Flags</th>
       <th>Drawing Reference</th>
       <th class="col-conf">Confidence</th>
     </tr>
@@ -85,6 +105,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <td>{{ row.requirement_revA or "—" }}</td>
       <td>{{ row.requirement_revB or "—" }}</td>
       <td>{{ semantic_cell(row) }}</td>
+      <td>{{ confidence_flags_cell(row) }}</td>
       <td>
         {{ row.drawing_reference }}
         {% if row.override_note %}
@@ -112,6 +133,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <th>Requirement (Rev A)</th>
       <th>Requirement (Rev B)</th>
       <th>Semantic Evidence</th>
+      <th>Confidence Flags</th>
       <th>Drawing Reference</th>
       <th class="col-conf">Confidence</th>
     </tr>
@@ -123,6 +145,7 @@ h2 { font-size: 11pt; margin-top: 0.3in; margin-bottom: 0.05in;
       <td>{{ row.requirement_revA or "—" }}</td>
       <td>{{ row.requirement_revB or "—" }}</td>
       <td>{{ semantic_cell(row) }}</td>
+      <td>{{ confidence_flags_cell(row) }}</td>
       <td>
         {{ row.drawing_reference }}
         {% if row.override_note %}

@@ -64,6 +64,30 @@ def _load_signed_debug_snapshot(run: Run, version: int | None = None) -> dict:
     }
 
 
+def _snapshot_advisory_by_item_id(snapshot_payload: dict) -> dict[int, dict]:
+    """Build a lookup from review_item_id -> advisory/debug state from a signed snapshot payload.
+
+    Extracts confidence_flags and debug state (row_state, debug_verdict) for each
+    snapshot row that has a non-None review_item_id.  Synthetic missing-added rows
+    (review_item_id=None) are excluded — they belong in the debug summary only.
+    """
+    result: dict[int, dict] = {}
+    for row in snapshot_payload.get("rows", []) or snapshot_payload.get("items", []):
+        item_id = row.get("review_item_id")
+        if item_id is None:
+            continue
+        packet_item = row.get("packet_item") or {}
+        confidence_flags = list(
+            packet_item.get("confidence_flags", None) or []
+        )
+        result[item_id] = {
+            "confidence_flags": confidence_flags,
+            "row_state": row.get("row_state", ""),
+            "debug_verdict": row.get("debug_verdict", ""),
+        }
+    return result
+
+
 def _load_delta_packet_items(run: Run) -> list[dict]:
     if not run.output_dir:
         return []
@@ -85,6 +109,11 @@ def semantic_contracts_by_char(run: Run) -> dict[int | None, dict]:
 def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
     """Generate audit packet CSV. Returns StringIO ready for StreamingResponse.
 
+    Merges signed debug snapshot state (confidence_flags, debug_row_state,
+    debug_verdict) onto each review row by ReviewItem.id when a signed snapshot
+    is available.  Falls back gracefully to empty advisory columns when the
+    snapshot is absent (e.g. legacy runs or test fixtures without output_dir).
+
     CRITICAL: caller must NOT seek(0) — already positioned at start on return.
     """
     items = (
@@ -95,11 +124,27 @@ def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
     )
     output = io.StringIO()
     semantic_by_char = semantic_contracts_by_char(run)
+
+    # Load signed snapshot advisory state (best-effort; empty if unavailable)
+    advisory_by_item_id: dict[int, dict] = {}
+    signed_debug_summary: dict = {}
+    try:
+        snap = _load_signed_debug_snapshot(run)
+        advisory_by_item_id = _snapshot_advisory_by_item_id(snap["payload"])
+        signed_debug_summary = {
+            "debug_total": snap["debug_total"],
+            "unresolved_exception_count": snap["unresolved_exception_count"],
+            "version": snap["version"],
+        }
+    except ValueError:
+        pass
+
     fieldnames = [
         "char_no", "requirement_revA", "requirement_revB",
         "pipeline_classification", "reviewer_decision",
         "override_note", "reviewer_name", "reviewed_at",
         "semantic_family", "semantic_status", "semantic_summary", "semantic_reason_summary",
+        "confidence_flags", "debug_row_state", "debug_verdict",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -109,6 +154,8 @@ def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
             user = db.get(User, item.reviewed_by_id)
             reviewer_name = user.username if user else ""
         semantic = semantic_by_char.get(item.char_no)
+        advisory = advisory_by_item_id.get(item.id, {})
+        confidence_flags = advisory.get("confidence_flags", [])
         writer.writerow({
             "char_no": item.char_no if item.char_no is not None else "",
             "requirement_revA": item.requirement_revA or "",
@@ -122,6 +169,9 @@ def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
             "semantic_status": semantic["status_label"] if semantic else "",
             "semantic_summary": semantic["summary"] if semantic else "",
             "semantic_reason_summary": semantic["reason_summary"] if semantic else "",
+            "confidence_flags": "; ".join(confidence_flags) if confidence_flags else "",
+            "debug_row_state": advisory.get("row_state", ""),
+            "debug_verdict": advisory.get("debug_verdict", "") or "",
         })
     output.seek(0)
     return output
@@ -129,6 +179,10 @@ def generate_audit_packet_csv(db: Session, run: Run) -> io.StringIO:
 
 def render_audit_packet_pdf(db: Session, run: Run, shop_config: ShopConfig) -> bytes:
     """Render audit packet to PDF bytes using WeasyPrint.
+
+    Passes signed snapshot advisory state (confidence_flags, debug_row_state,
+    debug_verdict) and a signed debug summary to the template so the PDF
+    reflects the exact advisory/gating state cleared at sign-off time.
 
     base_url is set to run.output_dir/snippets/ so relative <img src="...">
     paths resolve to the snippet PNG files. Raises on failure.
@@ -148,12 +202,28 @@ def render_audit_packet_pdf(db: Session, run: Run, shop_config: ShopConfig) -> b
         user = db.get(User, run.signed_by_id)
         signed_by_name = user.username if user else ""
 
+    # Load signed snapshot advisory state (best-effort)
+    advisory_by_item_id: dict[int, dict] = {}
+    signed_debug_summary: dict = {}
+    try:
+        snap = _load_signed_debug_snapshot(run)
+        advisory_by_item_id = _snapshot_advisory_by_item_id(snap["payload"])
+        signed_debug_summary = {
+            "debug_total": snap["debug_total"],
+            "unresolved_exception_count": snap["unresolved_exception_count"],
+            "version": snap["version"],
+        }
+    except ValueError:
+        pass
+
     html_string = templates.env.get_template("exports/audit_packet.html").render(
         run=run,
         items=items,
         semantic_by_char=semantic_by_char,
         shop_config=shop_config,
         signed_by_name=signed_by_name,
+        advisory_by_item_id=advisory_by_item_id,
+        signed_debug_summary=signed_debug_summary,
     )
     # base_url set to output_dir/snippets/ so basename img paths resolve
     snippets_dir = Path(run.output_dir) / "snippets" if run.output_dir else Path(".")
@@ -204,12 +274,20 @@ def _effective_classification(item: "ReviewItem") -> str:
     return item.pipeline_classification
 
 
-def _work_order_rows(db: Session, run: Run) -> list[dict]:
+def _work_order_rows(db: Session, run: Run, advisory_by_item_id: dict | None = None) -> list[dict]:
     """Return work order data rows for changed and added characteristics.
 
     Each dict contains:
       char_no, priority, requirement_revA, requirement_revB,
-      drawing_reference, confidence, override_note
+      drawing_reference, confidence, override_note, confidence_flags
+
+    Synthetic missing-added truth rows (review_item_id=None in the debug
+    snapshot) are intentionally excluded — they belong in the audit/debug
+    summary context, not the work-order action list.
+
+    advisory_by_item_id: optional dict from _snapshot_advisory_by_item_id;
+    when provided, confidence_flags from the signed snapshot are merged onto
+    each actionable row keyed by ReviewItem.id.
     """
     items = (
         db.query(ReviewItem)
@@ -218,6 +296,7 @@ def _work_order_rows(db: Session, run: Run) -> list[dict]:
         .all()
     )
     semantic_by_char = semantic_contracts_by_char(run)
+    adv = advisory_by_item_id or {}
     rows = []
     for item in items:
         eff = _effective_classification(item)
@@ -231,6 +310,8 @@ def _work_order_rows(db: Session, run: Run) -> list[dict]:
             else ""
         )
         semantic = semantic_by_char.get(item.char_no)
+        item_advisory = adv.get(item.id, {})
+        confidence_flags = item_advisory.get("confidence_flags", [])
         rows.append({
             "char_no": item.char_no,
             "priority": priority,
@@ -239,6 +320,7 @@ def _work_order_rows(db: Session, run: Run) -> list[dict]:
             "drawing_reference": drawing_ref,
             "confidence": f"{item.confidence:.2f}",
             "override_note": override_note,
+            "confidence_flags": confidence_flags,
             "semantic": semantic,
             "semantic_summary": semantic["summary"] if semantic else "",
             "semantic_reason_summary": semantic["reason_summary"] if semantic else "",
@@ -248,21 +330,51 @@ def _work_order_rows(db: Session, run: Run) -> list[dict]:
     return rows
 
 
+def _load_signed_debug_summary(run: Run) -> dict:
+    """Return signed debug summary dict for use in export context.
+
+    Returns empty dict if snapshot is unavailable (legacy runs, test fixtures
+    without output_dir, or runs signed before Phase 10).
+    """
+    try:
+        snap = _load_signed_debug_snapshot(run)
+        return {
+            "debug_total": snap["debug_total"],
+            "unresolved_exception_count": snap["unresolved_exception_count"],
+            "version": snap["version"],
+        }
+    except ValueError:
+        return {}
+
+
 def generate_work_order_csv(db: Session, run: Run) -> io.StringIO:
-    """Generate work order CSV. Returns StringIO seeked to 0."""
-    rows = _work_order_rows(db, run)
+    """Generate work order CSV. Returns StringIO seeked to 0.
+
+    Merges signed snapshot confidence_flags onto each actionable row.
+    Synthetic missing-added truth rows are excluded (they are not work-order tasks).
+    """
+    # Load signed snapshot advisory state (best-effort)
+    advisory_by_item_id: dict[int, dict] = {}
+    try:
+        snap = _load_signed_debug_snapshot(run)
+        advisory_by_item_id = _snapshot_advisory_by_item_id(snap["payload"])
+    except ValueError:
+        pass
+
+    rows = _work_order_rows(db, run, advisory_by_item_id=advisory_by_item_id)
     output = io.StringIO()
     fieldnames = [
         "char_no", "priority",
         "requirement_revA", "requirement_revB",
         "drawing_reference", "confidence", "override_note",
+        "confidence_flags",
         "semantic_family", "semantic_status", "semantic_summary", "semantic_reason_summary",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(
         {
-            key: value
+            key: ("; ".join(value) if isinstance(value, list) else value)
             for key, value in row.items()
             if key in fieldnames
         }
@@ -273,10 +385,31 @@ def generate_work_order_csv(db: Session, run: Run) -> io.StringIO:
 
 
 def generate_work_order_pdf(db: Session, run: Run) -> bytes:
-    """Render work order to PDF bytes using WeasyPrint. Raises on failure."""
+    """Render work order to PDF bytes using WeasyPrint.
+
+    Passes signed snapshot advisory flags and a compact signed debug summary
+    to the work-order template.  Synthetic missing-added truth rows are kept
+    out of the actionable row list (they are debug/audit summary context only).
+    Raises on failure.
+    """
     from weasyprint import HTML
     from shop.app import templates
-    rows = _work_order_rows(db, run)
+
+    # Load signed snapshot advisory state (best-effort)
+    advisory_by_item_id: dict[int, dict] = {}
+    signed_debug_summary: dict = {}
+    try:
+        snap = _load_signed_debug_snapshot(run)
+        advisory_by_item_id = _snapshot_advisory_by_item_id(snap["payload"])
+        signed_debug_summary = {
+            "debug_total": snap["debug_total"],
+            "unresolved_exception_count": snap["unresolved_exception_count"],
+            "version": snap["version"],
+        }
+    except ValueError:
+        pass
+
+    rows = _work_order_rows(db, run, advisory_by_item_id=advisory_by_item_id)
 
     class _Row:
         def __init__(self, d):
@@ -288,6 +421,7 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
             self.drawing_reference = d["drawing_reference"]
             self.confidence = d["confidence"]
             self.override_note = d.get("override_note", "")
+            self.confidence_flags = d.get("confidence_flags", [])
             self.semantic = d.get("semantic")
             self.semantic_summary = d.get("semantic_summary", "")
             self.semantic_reason_summary = d.get("semantic_reason_summary", "")
@@ -302,6 +436,7 @@ def generate_work_order_pdf(db: Session, run: Run) -> bytes:
         run=run,
         remeasure_items=remeasure_items,
         new_items=new_items,
+        signed_debug_summary=signed_debug_summary,
         generated_at=utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     )
     # No images in work order — base_url irrelevant

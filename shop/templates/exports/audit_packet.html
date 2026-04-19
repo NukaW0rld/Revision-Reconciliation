@@ -41,6 +41,22 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
   </table>
 </div>
 
+<!-- Signed Debug Summary -->
+{% if signed_debug_summary and signed_debug_summary.debug_total is defined %}
+<div class="summary" style="border:1px solid #d0d0d0; background:#f8f8f8; padding:10px 14px; margin-bottom:0.3in;">
+  <h2 style="margin-top:0;">Signed Debug Summary</h2>
+  <table style="width:50%;">
+    <tr><th>Snapshot Version</th><td>v{{ signed_debug_summary.version }}</td></tr>
+    <tr><th>Debug Exceptions Reviewed</th><td>{{ signed_debug_summary.debug_total }}</td></tr>
+    <tr><th>Unresolved at Sign-Off</th><td>{{ signed_debug_summary.unresolved_exception_count }}</td></tr>
+  </table>
+  <p style="font-size:8pt; color:#666; margin-top:8px;">
+    This audit packet reflects the exact advisory and debug state cleared at sign-off time.
+    Confidence Flags and debug state are sourced from the signed debug snapshot captured before sign-off.
+  </p>
+</div>
+{% endif %}
+
 <!-- Summary table -->
 <div class="summary">
   <h2>Characteristic Summary</h2>
@@ -50,6 +66,8 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
         <th>Char #</th>
         <th>Pipeline Classification</th>
         <th>Reviewer Decision</th>
+        <th>Confidence Flags</th>
+        <th>Debug State</th>
         <th>Semantic Read</th>
         <th>Semantic Rationale</th>
         <th>Override Note</th>
@@ -59,10 +77,22 @@ img.snippet { max-width: 100%; max-height: 3in; object-fit: contain; display: bl
       {% for item in items %}
       {% set semantic_contract = semantic_by_char.get(item.char_no) %}
       {% set semantic_lines = semantic_contract | semantic_detail_lines if semantic_contract else [] %}
+      {% set advisory = (advisory_by_item_id or {}).get(item.id, {}) %}
+      {% set item_flags = advisory.get("confidence_flags", []) if advisory else [] %}
       <tr>
         <td>{{ item.char_no if item.char_no is not none else "—" }}</td>
         <td>{{ item.pipeline_classification }}</td>
         <td>{{ item.reviewer_decision or "—" }}</td>
+        <td>
+          {% if item_flags %}
+            {% for flag in item_flags %}
+              <span style="display:inline-block;border:1px solid #e0a000;border-radius:3px;padding:1px 5px;font-size:7.5pt;background:#fff8e0;color:#7a5000;margin:1px;">{{ flag }}</span>
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td style="font-size:8pt; color:#555;">{{ advisory.get("row_state", "") or "—" }}</td>
         <td>
           {% if semantic_contract and semantic_contract.has_content %}
             {% if semantic_contract.block_label %}
