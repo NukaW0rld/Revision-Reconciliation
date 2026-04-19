@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: executing
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-19T04:09:40.405Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-04-19T04:15:35.935Z"
 last_activity: 2026-04-19 -- Phase --phase execution started
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 29
-  completed_plans: 28
-  percent: 97
+  completed_plans: 29
+  percent: 100
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Next: Phase 11 — Ready for execution
 Status: Executing Phase --phase
 Last activity: 2026-04-19 -- Phase --phase execution started
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [██████████] 97%
 | Phase 10 P02 | 9 | 2 tasks | 6 files |
 | Phase 10 P03 | 7 | 2 tasks | 5 files |
 | Phase 11 P01 | 4 | 2 tasks | 1 files |
+| Phase 11-web-run-to-review-e2e-automation P02 | 6 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Recent decisions affecting current work:
 - Synthetic missing-added truth rows excluded from work-order action list via review_item_id=None filter
 - Use pytest tmp_path instead of tempfile.TemporaryDirectory to keep pipeline output dirs alive across all post-run assertions in Phase 11 E2E tests
 - part_number must be 'part6' in Phase 11 live run tests so GroundTruthContractError is not raised (loader normalizes to assets/part6 key)
+- Use write_debug_verdicts (service-level) to clear debug exceptions in Phase 11 E2E clearance test — route path already exercised in Plan 01
+- Companion seeded snapshot patches review_item_id after flush so advisory lookup by item.id resolves correctly in generate_audit_packet_csv
+- Companion advisory assertion driven by seeded packet_item.confidence_flags in snapshot, not reconstructed from reasons text (T-11-04)
 
 ### Pending Todos
 
@@ -134,8 +138,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T04:09:40.398Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-04-19T04:15:35.928Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
 
 **Planned Phase:** 11 (web-run-to-review-e2e-automation) — 2 plans — 2026-04-19T02:29:54.055Z
