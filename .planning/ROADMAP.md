@@ -129,6 +129,9 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   1. An automated web integration test covers `/runs/new` submission, background task completion, `delta_packet.json` persistence, and review surface load for a representative fixture-backed run.
   2. The same test coverage asserts the debug/export/sign-off behavior introduced by earlier phases, including blockers and surfaced advisory state where applicable.
   3. Milestone verification no longer relies solely on algorithm-only artifacts to prove the live maintainer workflow.
+**Plans**: 2 plans
+  - [ ] 11-01-PLAN.md — Dedicated live `/runs/new` -> packet -> review/debug -> blocked sign-off proof using an isolated real corpus run
+  - [ ] 11-02-PLAN.md — Cleared live sign-off/export reachability plus a companion seeded advisory case kept inside the Phase 11 artifact
 
 ## Progress
 
@@ -144,4 +147,4 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 8. GD&T Verification Recovery | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 9. Full-Corpus Added Characteristic Closure | v1.1 | 6/6 | Complete | 2026-04-18 |
 | 10. Debug Exception Gating and Advisory Surfacing | v1.1 | 3/3 | Complete    | 2026-04-19 |
-| 11. Web Run-to-Review E2E Automation | v1.1 | 0/0 | Planned | — |
+| 11. Web Run-to-Review E2E Automation | v1.1 | 0/2 | Planned | — |

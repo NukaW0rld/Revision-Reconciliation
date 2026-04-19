@@ -63,7 +63,8 @@ canonical and must never be edited by the pipeline.
   encodes the exact input (requirement strings, span text) and asserts the correct
   classification outcome, so regressions are caught without re-running the full pipeline.
 
-- [ ] **TST-02**: A cross-part benchmark test re-runs the ground-truth evaluation for all 9
+- [x] **TST-02
+**: A cross-part benchmark test re-runs the ground-truth evaluation for all 9
   parts (or validates the scoring logic against known counts) and fails if aggregate accuracy
   drops below the post-fix baseline.
 

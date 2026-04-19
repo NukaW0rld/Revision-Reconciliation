@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
-status: planning
-stopped_at: Phase 11 context gathered (assumptions mode)
-last_updated: "2026-04-19T02:17:35.946Z"
-last_activity: 2026-04-19
+status: executing
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-19T04:09:40.405Z"
+last_activity: 2026-04-19 -- Phase --phase execution started
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_plans: 29
+  completed_plans: 28
+  percent: 97
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Improve reconciliation accuracy across many parts through a consistent, evidence-rich debug workflow that strengthens the algorithm without teaching it part-specific hacks.
-**Current focus:** Phase --phase — 10
+**Current focus:** Phase --phase — 11
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Next: Phase 10 — Ready for planning
-Status: Ready to plan
-Last activity: 2026-04-19
+Phase: --phase (11) — EXECUTING
+Plan: 1 of --name
+Next: Phase 11 — Ready for execution
+Status: Executing Phase --phase
+Last activity: 2026-04-19 -- Phase --phase execution started
 
-Progress: [██████████] 100%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [██████████] 100%
 | Phase 10 P01 | 5 | 2 tasks | 8 files |
 | Phase 10 P02 | 9 | 2 tasks | 6 files |
 | Phase 10 P03 | 7 | 2 tasks | 5 files |
+| Phase 11 P01 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Recent decisions affecting current work:
 - _load_signed_debug_snapshot raises ValueError so callers can distinguish missing vs present snapshot
 - _get_signed_run requires valid signed debug snapshot contract; raises 409 when snapshot unavailable
 - Synthetic missing-added truth rows excluded from work-order action list via review_item_id=None filter
+- Use pytest tmp_path instead of tempfile.TemporaryDirectory to keep pipeline output dirs alive across all post-run assertions in Phase 11 E2E tests
+- part_number must be 'part6' in Phase 11 live run tests so GroundTruthContractError is not raised (loader normalizes to assets/part6 key)
 
 ### Pending Todos
 
@@ -131,6 +134,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 11 context gathered (assumptions mode)
-Resume file: --resume-file
+Last session: 2026-04-19T04:09:40.398Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
+
+**Planned Phase:** 11 (web-run-to-review-e2e-automation) — 2 plans — 2026-04-19T02:29:54.055Z
