@@ -1,0 +1,170 @@
+{
+  "part_name": "Part11",
+  "general_notes": "Composite-style GD&T FCF in rev A: balloon 8 & 9, 15 & 16.",
+  "characteristics": [
+    {
+      "char_no": 1,
+      "classification": "changed",
+      "requirement_revB": "∥ .015 D",
+      "snippet_center_revA": [410, 70],
+      "snippet_center_revB": [410, 70]
+    },
+    {
+      "char_no": 2,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .035 D B C",
+      "snippet_center_revA": [428, 88],
+      "snippet_center_revB": [428, 88]
+    },
+    {
+      "char_no": 3,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .04 D E-F",
+      "snippet_center_revA": [416, 136],
+      "snippet_center_revB": [416, 136]
+    },
+    {
+      "char_no": 4,
+      "classification": "changed",
+      "requirement_revB": "⟂ ∅.015 A",
+      "snippet_center_revA": [522, 208],
+      "snippet_center_revB": [522, 208]
+    },
+    {
+      "char_no": 5,
+      "classification": "unchanged",
+      "requirement_revB": "∥ .03 A",
+      "snippet_center_revA": [498, 252],
+      "snippet_center_revB": [498, 252]
+    },
+    {
+      "char_no": 6,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .06 A B C",
+      "snippet_center_revA": [514, 270],
+      "snippet_center_revB": [514, 270]
+    },
+    {
+      "char_no": 7,
+      "classification": "unchanged",
+      "requirement_revB": "10X Ø.213 +.005 / −.001",
+      "snippet_center_revA": [432, 312],
+      "snippet_center_revB": [432, 312]
+    },
+    {
+      "char_no": 8,
+      "classification": "changed",
+      "requirement_revB": "⌖ ∅.04 D B C",
+      "snippet_center_revA": [458, 354],
+      "snippet_center_revB": [446, 354]
+    },
+    {
+      "char_no": 9,
+      "classification": "changed",
+      "requirement_revB": "⌖ ∅.05Ⓛ D B C",
+      "snippet_center_revA": [456, 372],
+      "snippet_center_revB": [456, 372]
+    },
+    {
+      "char_no": 10,
+      "classification": "unchanged",
+      "requirement_revB": "2X Ø.238",
+      "snippet_center_revA": [106, 310],
+      "snippet_center_revB": [106, 310]
+    },
+    {
+      "char_no": 11,
+      "classification": "unchanged",
+      "requirement_revB": "⌖ ∅.023ⓂⒻ A B C",
+      "snippet_center_revA": [158, 330],
+      "snippet_center_revB": [158, 330]
+    },
+    {
+      "char_no": 12,
+      "classification": "changed",
+      "requirement_revB": "∅.243 / ∅.233",
+      "snippet_center_revA": [178, 230],
+      "snippet_center_revB": [178, 230]
+    },
+    {
+      "char_no": 13,
+      "classification": "unchanged",
+      "requirement_revB": "2X Ø.250 +.006 / −.001",
+      "snippet_center_revA": [318, 540],
+      "snippet_center_revB": [318, 540]
+    },
+    {
+      "char_no": 14,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .015 D GⓂ",
+      "snippet_center_revA": [508, 540],
+      "snippet_center_revB": [508, 540]
+    },
+    {
+      "char_no": 15,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [506, 702],
+      "snippet_center_revB": [506, 702]
+    },
+    {
+      "char_no": 16,
+      "classification": "removed",
+      "requirement_revB": null,
+      "snippet_center_revA": [506, 722],
+      "snippet_center_revB": [506, 722]
+    },
+    {
+      "char_no": 17,
+      "classification": "unchanged",
+      "requirement_revB": "∥ .02 D",
+      "snippet_center_revA": [146, 630],
+      "snippet_center_revB": [146, 630]
+    },
+    {
+      "char_no": 18,
+      "classification": "unchanged",
+      "requirement_revB": "⌓ .06 A B C",
+      "snippet_center_revA": [162, 648],
+      "snippet_center_revB": [162, 648]
+    },
+    {
+      "char_no": 19,
+      "classification": "unchanged",
+      "requirement_revB": "⏥ .03Ⓕ",
+      "snippet_center_revA": [998, 496],
+      "snippet_center_revB": [998, 496]
+    },
+    {
+      "char_no": 20,
+      "classification": "unchanged",
+      "requirement_revB": "⏥ .015",
+      "snippet_center_revA": [994, 514],
+      "snippet_center_revB": [994, 514]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⏥ .015",
+      "snippet_center_revA": [168, 482],
+      "snippet_center_revB": [168, 482]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "∥ .015Ⓣ A",
+      "snippet_center_revA": [688, 394],
+      "snippet_center_revB": [688, 394]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "∥ .03ⒻⓉ A",
+      "snippet_center_revA": [692, 412],
+      "snippet_center_revB": [692, 412]
+    },
+    {
+      "classification": "added",
+      "requirement_revB": "⌓ .05 A B C",
+      "snippet_center_revA": [692, 430],
+      "snippet_center_revB": [692, 430]
+    }
+  ]
+}
