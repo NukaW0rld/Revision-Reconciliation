@@ -69,11 +69,14 @@ def _submit_live_run(client, db_engine, user, uploads_tmp: pathlib.Path, out_tmp
     - shop.services.runs.UPLOADS_DIR -> uploads_tmp
     - shop.tasks.OUT_DIR -> out_tmp
 
-    Returns the (response, run_id) tuple.
+    Returns the HTTP response from POST /runs/new.
     """
     _login_user(client, db_engine, user)
     Session = sessionmaker(bind=db_engine)
 
+    # NOTE: huey_immediate runs the task synchronously inside client.post(),
+    # so these patches are guaranteed to be active during task execution.
+    # If Huey's immediate mode ever becomes async, hoist patches to callers.
     with patch("shop.tasks.SessionLocal", Session), \
          patch("shop.services.runs.UPLOADS_DIR", str(uploads_tmp)), \
          patch("shop.tasks.OUT_DIR", str(out_tmp)):
@@ -134,7 +137,9 @@ def test_live_run_submission_persists_packet_and_loads_review_surfaces(
     assert location.startswith("/runs/"), (
         f"Expected redirect to /runs/{{id}}, got {location!r}"
     )
-    run_id = int(location.split("/")[-1])
+    parts = location.rstrip("/").split("/")
+    assert parts[-1].isdigit(), f"Could not extract run_id from redirect location: {location!r}"
+    run_id = int(parts[-1])
 
     # 2. Run left 'queued' and output_dir is set
     db = Session()
@@ -219,7 +224,9 @@ def test_live_run_blocks_signoff_until_debug_queue_is_cleared(
         f"Expected 302 from /runs/new, got {resp.status_code}"
     )
     location = resp.headers.get("location", "")
-    run_id = int(location.split("/")[-1])
+    parts = location.rstrip("/").split("/")
+    assert parts[-1].isdigit(), f"Could not extract run_id from redirect location: {location!r}"
+    run_id = int(parts[-1])
 
     # Re-authenticate as engineer
     _login_user(client, db_engine, engineer_user)
@@ -279,7 +286,7 @@ def test_live_run_blocks_signoff_until_debug_queue_is_cleared(
         packet_path = pathlib.Path(output_dir) / "delta_packet.json"
         if packet_path.exists():
             packet = _json.loads(packet_path.read_text())
-            items_data = packet.get("items", [])
+            items_data = packet.get("items") or []
             has_debug_exceptions = any(
                 item.get("evaluation", {}).get("status") == "review_needed"
                 for item in items_data
@@ -351,7 +358,9 @@ def test_live_run_can_be_cleared_signed_and_exported_after_debug_resolution(
         f"Expected 302 from /runs/new, got {resp.status_code}"
     )
     location = resp.headers.get("location", "")
-    run_id = int(location.split("/")[-1])
+    parts = location.rstrip("/").split("/")
+    assert parts[-1].isdigit(), f"Could not extract run_id from redirect location: {location!r}"
+    run_id = int(parts[-1])
 
     # Re-authenticate as engineer and open the review queue (seeds ReviewItems)
     _login_user(client, db_engine, engineer_user)
