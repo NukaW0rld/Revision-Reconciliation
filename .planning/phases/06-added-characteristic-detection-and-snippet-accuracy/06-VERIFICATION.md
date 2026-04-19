@@ -1,9 +1,10 @@
 ---
 phase: 06-added-characteristic-detection-and-snippet-accuracy
 verified: 2026-04-17T14:42:59Z
-status: human_needed
-score: 2/4 roadmap success criteria verified via code; 2 deferred to Phase 7 (end-to-end pipeline run)
+status: passed
+score: 4/4 roadmap success criteria verified (2 verified via code in Phase 6; 2 closed by Phase 9 full-corpus rerun)
 overrides_applied: 0
+re_verification: true
 deferred:
   - truth: "After a clean pipeline run, missing_added_truth_indexes is empty for parts 8 and 9"
     addressed_in: "Phase 7"
@@ -24,7 +25,7 @@ human_verification:
 
 **Phase Goal:** All ground-truth-added characteristics are present in pipeline output for every part, false-positive added rows are suppressed, and title block regions are reliably excluded from search windows so snippet matches land on actual drawing annotations.
 **Verified:** 2026-04-17T14:42:59Z
-**Status:** human_needed
+**Status:** PASSED (reconciled — Phase 9 closed both deferred items)
 **Re-verification:** No — initial verification
 
 ---
@@ -160,3 +161,14 @@ The `human_needed` status reflects that Roadmap Success Criteria 1 and 4 ("clean
 
 _Verified: 2026-04-17T14:42:59Z_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## Phase 9 Closure Reconciliation (Phase 12 update)
+
+The two previously-deferred roadmap success criteria were explicitly closed by Phase 9 (Full-Corpus Added Characteristic Closure). Both items from the `deferred:` frontmatter block are reconciled against `09-VERIFICATION.md` evidence below. See `09-VERIFICATION.md` and `v1.1-MILESTONE-AUDIT.md (tech_debt: phase 06)` for the full audit record.
+
+| Previously Deferred Truth | Phase 9 Closure Evidence | Status |
+|--------------------------|--------------------------|--------|
+| After a clean pipeline run, `missing_added_truth_indexes` is empty for parts 8 and 9 | `09-VERIFICATION.md` SC-1: all 9 parts verified at zero missing-added at HEAD db265b5; Part 5 indexes 16+17 closed by Plans 04-05; algorithm-only fixtures in `tests/fixtures/phase7_algorithm_only/` refreshed with empty `missing_added_truth_indexes` for all 9 parts. | CLOSED by Phase 9 |
+| Aggregate added-characteristic count across all 9 parts matches or exceeds the ground-truth added count with no false-positive increase | `09-VERIFICATION.md` SC-2: `tests/test_added_detection_phase6.py` (51 tests) and `tests/test_phase6_asset_regression.py` pass; explained-by-match suppressor guardrails intact after owner-signature narrowing; `assets/debug_report_part*.json` frozen assets unmodified. | CLOSED by Phase 9 |

@@ -25,7 +25,7 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 - [x] **Phase 8: GD&T Verification Recovery** - Rebuild the missing Phase 04 verification chain and restore GD&T requirement traceability (completed 2026-04-17)
 - [x] **Phase 9: Full-Corpus Added Characteristic Closure** - Eliminate the remaining missing added truth rows across the 9-part corpus and refresh the supporting evidence (completed 2026-04-18)
 - [x] **Phase 10: Debug Exception Gating and Advisory Surfacing** - Block sign-off/export on unresolved debug exceptions and surface classifier advisory flags in maintainer-facing surfaces (completed 2026-04-19)
-- [ ] **Phase 11: Web Run-to-Review E2E Automation** - Cover the live `/runs/new` through review/debug/export path with automated integration tests
+- [x] **Phase 11: Web Run-to-Review E2E Automation** - Cover the live `/runs/new` through review/debug/export path with automated integration tests (completed 2026-04-19)
 - [ ] **Phase 12: Process Artifact Closure and Metadata Reconciliation** - Create missing VERIFICATION.md files, fix stale checkboxes/statuses, reconcile Nyquist VALIDATION.md flags to pass milestone audit
 
 ## Phase Details
@@ -131,8 +131,8 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
   2. The same test coverage asserts the debug/export/sign-off behavior introduced by earlier phases, including blockers and surfaced advisory state where applicable.
   3. Milestone verification no longer relies solely on algorithm-only artifacts to prove the live maintainer workflow.
 **Plans**: 2 plans
-  - [ ] 11-01-PLAN.md — Dedicated live `/runs/new` -> packet -> review/debug -> blocked sign-off proof using an isolated real corpus run
-  - [ ] 11-02-PLAN.md — Cleared live sign-off/export reachability plus a companion seeded advisory case kept inside the Phase 11 artifact
+  - [x] 11-01-PLAN.md — Dedicated live `/runs/new` -> packet -> review/debug -> blocked sign-off proof using an isolated real corpus run
+  - [x] 11-02-PLAN.md — Cleared live sign-off/export reachability plus a companion seeded advisory case kept inside the Phase 11 artifact
 
 ### Phase 12: Process Artifact Closure and Metadata Reconciliation
 **Goal**: Close all process-artifact gaps flagged by the v1.1 milestone audit — create missing VERIFICATION.md files for Phases 8 and 11, fix stale metadata in REQUIREMENTS.md and phase VERIFICATION artifacts, update ROADMAP progress tracking, and reconcile Nyquist VALIDATION.md flags so the milestone re-audit passes cleanly.
@@ -163,5 +163,5 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full phase deta
 | 8. GD&T Verification Recovery | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 9. Full-Corpus Added Characteristic Closure | v1.1 | 6/6 | Complete | 2026-04-18 |
 | 10. Debug Exception Gating and Advisory Surfacing | v1.1 | 3/3 | Complete    | 2026-04-19 |
-| 11. Web Run-to-Review E2E Automation | v1.1 | 0/2 | Planned | — |
+| 11. Web Run-to-Review E2E Automation | v1.1 | 2/2 | Complete | 2026-04-19 |
 | 12. Process Artifact Closure and Metadata Reconciliation | v1.1 | 0/0 | Planned | — |
