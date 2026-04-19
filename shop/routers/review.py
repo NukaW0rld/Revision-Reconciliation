@@ -164,11 +164,12 @@ def _render_debug_item_card(
     all_items, pending, approved, overridden = _item_counts(db, run.id)
     debug_queue_state = build_debug_queue_state(db, run, activate_review=False)
     debug_progress = _debug_queue_progress(run, debug_queue_state["exception_items"])
-    semantic_contract = semantic_contracts_by_item_id(db, run).get(item.id)
-    debug_internal = debug_internals_by_item_id(db, run).get(item.id)
+    # Pass the already-built queue_state to avoid three redundant build_debug_queue_state calls
+    semantic_contract = semantic_contracts_by_item_id(db, run, queue_state=debug_queue_state).get(item.id)
+    debug_internal = debug_internals_by_item_id(db, run, queue_state=debug_queue_state).get(item.id)
     saved_verdict = debug_progress["by_item_id"].get(item.id)
     debug_form = {**(saved_verdict or {}), **(form_values or {})}
-    item_advisory_flags = advisory_flags_by_item_id(db, run).get(item.id, [])
+    item_advisory_flags = advisory_flags_by_item_id(db, run, queue_state=debug_queue_state).get(item.id, [])
     return templates.TemplateResponse(
         request,
         "review/_item_card_debug.html",
@@ -650,7 +651,10 @@ def serve_snippet(
     user: User = Depends(get_current_user),
 ):
     from pathlib import Path as _Path
-    if ".." in filename or "/" in filename or not filename.endswith(".png"):
+    # Path().name strips any directory component regardless of separator type;
+    # the equality check rejects filenames that contained separators.
+    safe_name = _Path(filename).name
+    if safe_name != filename or not filename.endswith(".png"):
         raise HTTPException(status_code=400, detail="Invalid filename")
     run = db.query(Run).filter(Run.id == run_id).first()
     if run is None or run.output_dir is None:
