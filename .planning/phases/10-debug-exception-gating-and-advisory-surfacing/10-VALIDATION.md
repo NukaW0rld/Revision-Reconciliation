@@ -2,9 +2,10 @@
 phase: 10
 slug: debug-exception-gating-and-advisory-surfacing
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-18
+reconciled: 2026-04-19
 ---
 
 # Phase 10 — Validation Strategy
@@ -97,6 +98,12 @@ created: 2026-04-18
 - [x] Sampling continuity is preserved across the three planned waves
 - [x] Wave 0 gaps are already closed by current fixtures and test helpers
 - [x] No watch-mode flags are used
-- [ ] `nyquist_compliant: true` will be set after execution evidence and manual PDF spot-checks are captured
+- [x] `nyquist_compliant: true` set after Phase 12 reconciliation
 
 **Approval:** pending
+
+---
+
+## Verification Closure Reconciliation (Phase 12 update)
+
+The `nyquist_compliant` flag was flipped to `true` during Phase 12 process-artifact closure because `10-VERIFICATION.md` records the phase as `passed` with `9/9 must-haves verified`: all three roadmap success criteria met (advisory surfacing on review/debug/status surfaces, sign-off gate enforcement, exported artifacts preserving signed advisory state). See `10-VERIFICATION.md` and `v1.1-MILESTONE-AUDIT.md (tech_debt: phase 10)` for the complete audit record of this transition.

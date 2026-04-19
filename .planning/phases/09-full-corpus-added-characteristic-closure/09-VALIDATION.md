@@ -2,9 +2,10 @@
 phase: 09
 slug: full-corpus-added-characteristic-closure
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-18
+reconciled: 2026-04-19
 ---
 
 # Phase 09 — Validation Strategy
@@ -96,6 +97,12 @@ created: 2026-04-18
 - [x] Sampling continuity is preserved across the anticipated three waves
 - [x] Wave 0 gaps are already closed by existing tooling and fixtures
 - [x] No watch-mode flags are used
-- [ ] `nyquist_compliant: true` will be set after execution evidence is captured
+- [x] `nyquist_compliant: true` set after Phase 12 reconciliation
 
 **Approval:** pending
+
+---
+
+## Verification Closure Reconciliation (Phase 12 update)
+
+The `nyquist_compliant` flag was flipped to `true` during Phase 12 process-artifact closure because `09-VERIFICATION.md` records the phase as `verified` with 3/3 success criteria met: all 9 corpus parts verified at zero `missing_added_truth_indexes`, no new false positives introduced, and Phase 06/07 artifacts refreshed to reflect the final full-corpus result. See `09-VERIFICATION.md` and `v1.1-MILESTONE-AUDIT.md (tech_debt: phase 09)` for the complete audit record of this transition.

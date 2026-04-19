@@ -2,9 +2,10 @@
 phase: 06
 slug: added-characteristic-detection-and-snippet-accuracy
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-16
+reconciled: 2026-04-19
 ---
 
 # Phase 6 — Validation Strategy
@@ -95,3 +96,9 @@ and algorithm-only evidence captured during Phase 9 Plan 03:
   historical Phase 6 corpus evidence; they were NOT modified during Phase 9.
 - **Phase 9 plan references:** 09-01-PLAN.md (token contract), 09-02-PLAN.md
   (detector-side fixes), 09-03-PLAN.md (fixture refresh and traceability closure).
+
+---
+
+## Phase 9 Closure Reconciliation (Phase 12 update)
+
+The Nyquist flags `nyquist_compliant` and `wave_0_complete` were flipped to `true` during Phase 12 process-artifact closure because the two Phase 6 deferred items (missing-added-truth closure for parts 8/9, and cross-part aggregate count verification) were fully closed by Phase 9 (Full-Corpus Added Characteristic Closure) per `09-VERIFICATION.md`. See `09-VERIFICATION.md` and `v1.1-MILESTONE-AUDIT.md (tech_debt: phase 06)` for the complete audit record of this transition.
