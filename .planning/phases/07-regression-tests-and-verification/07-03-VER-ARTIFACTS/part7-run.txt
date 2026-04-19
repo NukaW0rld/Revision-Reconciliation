@@ -1,0 +1,32 @@
+Run ID: part7_2026-04-17T13-42-20_b59b305d
+Output: /home/khoa2/delta-preservation/out/part7_2026-04-17T13-42-20_b59b305d
+
+[1/8] Loading Form 3...
+  Loaded 15 characteristics
+  Drawing grid: columns [1 2 3 4] rows [D C B A]
+  Zone bboxes resolved for 15/15 characteristics
+[2/8] Detecting balloons in Rev A...
+  Detected 18 balloons
+[3/8] Extracting text from Rev A...
+  Extracted 123 text spans
+[4/8] Building Rev A anchors...
+  Built 15 anchors
+[5/8] Extracting text from Rev B and aligning...
+  Extracted 103 text spans
+  ORB alignment: 269 inliers, ratio=0.90
+  Text-span alignment: 5 inliers, ratio=1.00
+  Text-span translation: tx=-486.4 ty=-4.5 PDF pts
+  Alternate text-span transforms: T2(tx=786.0, ty=-75.2, inliers=2)
+  Using text-span alignment (ORB produced near-identity transform)
+  Final transform: 5 inliers, ratio=1.00
+[6/8] Generating candidates and assigning matches...
+  Assigned 12 matches
+[7/8] Classifying deltas and saving evidence snippets...
+  Found 3 added characteristics in Rev B
+  Classified 18 delta items
+  Saved evidence snippets to /home/khoa2/delta-preservation/out/part7_2026-04-17T13-42-20_b59b305d/snippets
+[8/8] Writing delta packet...
+  Written to /home/khoa2/delta-preservation/out/part7_2026-04-17T13-42-20_b59b305d/delta_packet.json
+
+Pipeline complete!
+Review delta packet: /home/khoa2/delta-preservation/out/part7_2026-04-17T13-42-20_b59b305d/delta_packet.json

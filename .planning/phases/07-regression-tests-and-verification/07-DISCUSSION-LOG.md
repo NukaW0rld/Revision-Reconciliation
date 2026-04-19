@@ -5,7 +5,7 @@
 
 **Date:** 2026-04-17
 **Phase:** 07-regression-tests-and-verification
-**Areas discussed:** TST-01 gap strategy, TST-02 benchmark design, VER-01 verification format, Baseline manifest source
+**Areas discussed:** TST-01 gap strategy, TST-02 benchmark design, VER-01 verification format, Baseline manifest source, Regression root-cause triage
 
 ---
 
@@ -70,6 +70,19 @@
 
 **User's choice:** Hardcoded dict in test file
 **Notes:** Counts should be derived from actual conformance evaluation of current debug_report files at implementation time — not estimated. Implementation plan should include a derivation step before writing the dict.
+
+---
+
+## Regression Root-Cause Triage
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Treat Parts 1, 3, and 8 as equal algorithm regressions | Assume every verification failure is a real algorithm issue and triage them in parallel. | |
+| Separate verification-contract issues from real regressions | Fix baseline parity first, then treat only the remaining failures as algorithm regressions. | ✓ |
+| Keep existing Phase 7 verification as-is | Accept the mixed-mode snapshot baseline and use the current blocked verification report without changing the parity contract. | |
+
+**User's choice:** Separate verification-contract issues from real regressions
+**Notes:** Working stance approved by user: Part 1 is not a clean regression because the baseline snapshot used accepted-alternate-backed conformance while standalone `run.py` reruns do not; Part 8 is not a clean regression because the committed snapshot baseline still contains a stale `(no_eval)` missing-added row; Part 3 is the first likely real algorithm regression and should be investigated first after the verification contract is made apples-to-apples.
 
 ---
 

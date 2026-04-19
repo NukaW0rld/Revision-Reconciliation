@@ -1,7 +1,7 @@
 # Phase 7: Regression Tests and Verification - Context
 
 **Gathered:** 2026-04-17
-**Status:** Ready for planning
+**Status:** Updated after verification review
 
 <domain>
 ## Phase Boundary
@@ -31,28 +31,47 @@ committed.
 
 ### TST-02: Cross-Part Benchmark
 - **D-03:** The cross-part benchmark uses a snapshot-based approach: load the existing
-  `assets/debug_report_partN.json` files (all 9 parts now committed), compute conformance counts
-  (conforming count, review_needed count, `missing_added_truth_indexes` length) per part using
-  the evaluation layer, and assert those counts meet or exceed a locked baseline. No pipeline
-  execution at test time — benchmark runs in milliseconds.
+  `assets/debug_report_partN.json` files, compute conformance counts (conforming count,
+  review_needed count, `missing_added_truth_indexes` length) per part using the evaluation layer,
+  and assert those counts meet or exceed a locked baseline. No pipeline execution at test time —
+  benchmark runs in milliseconds. The benchmark remains snapshot-based, but the snapshot set must
+  represent the same evaluation mode as VER-01.
 - **D-04:** The benchmark covers all 9 parts (parts 1-9), since all 9 `debug_report_partN.json`
-  files are present in `assets/`. No new pipeline runs are required.
+  files are present in `assets/`. Refreshing the committed snapshots is allowed and expected when
+  the current committed set is stale relative to the algorithm under test.
 - **D-05:** The locked baseline lives as a hardcoded `BASELINE_COUNTS` dict inside
   `tests/test_phase7_benchmark.py`. Keys are part names (e.g. `"part1"`); values hold expected
-  minimum conforming count and maximum missing_added count. Updated by editing the test when the
-  baseline genuinely improves. The assertion is directional: conforming count must be >= baseline,
-  `missing_added_truth_indexes` length must be <= baseline ceiling.
+  minimum conforming count and maximum missing_added count. Updated by editing the test only after
+  refreshed snapshots are captured in the chosen verification mode. The assertion is directional:
+  conforming count must be >= baseline, `missing_added_truth_indexes` length must be <= baseline
+  ceiling.
 
 ### VER-01: Full 9-Part Verification
 - **D-06:** VER-01 is a manual verification step, not an automated pytest test. The developer runs
   `python run.py <part_name>` for each of the 9 parts against the current algorithm, captures
   per-part ground-truth evaluation results (conforming count, exception count,
-  `missing_added_truth_indexes`), and commits a `VERIFICATION.md` to the phase directory. Phase 7
-  is not complete and must not be marked closed until `VERIFICATION.md` exists and is committed.
+  `missing_added_truth_indexes`), and commits a `VERIFICATION.md` to the phase directory. This
+  comparison is locked to algorithm-only results on both sides: no accepted-alternate reuse in
+  either the baseline or the reruns. Phase 7 is not complete and must not be marked closed until
+  `VERIFICATION.md` exists and is committed.
 - **D-07:** `VERIFICATION.md` must record: part name, run date, conforming count, review_needed
-  count, `missing_added_truth_indexes`, and a pass/fail verdict against the pre-Phase-4 baseline
-  for each part. Any regression (conforming count lower than pre-fix baseline for a previously
-  passing part) must be flagged explicitly.
+  count, `missing_added_truth_indexes`, and a pass/fail verdict against the chosen algorithm-only
+  baseline for each part. If a comparison mixes evaluation modes, stale snapshots, or `(no_eval)`
+  rows, it must be recorded as a verification-contract issue rather than a clean algorithm
+  regression.
+
+### Verification Parity and Regression Triage
+- **D-08:** The currently committed `assets/debug_report_partN.json` baseline is provisional, not
+  authoritative, because it was locked before snapshot refresh and still contains stale
+  pre-refresh behavior for some parts.
+- **D-09:** Part 1 and Part 8 must not be treated as clean algorithm regressions until verification
+  parity is restored. Part 1's baseline includes accepted-alternate-backed conformance from the web
+  workflow, while standalone `run.py` reruns do not load accepted alternates. Part 8's baseline
+  includes a `(no_eval)` missing-added row, so count comparisons are not yet apples-to-apples.
+- **D-10:** After baseline parity is restored, Part 3 is the first regression to triage as a
+  likely real algorithm issue. Its fresh rerun changes previously removed rows into matched
+  `changed` / `unchanged` outcomes, which suggests matching or grouped-span behavior drift rather
+  than a pure verification artifact.
 
 ### Claude's Discretion
 - Whether `test_phase7_regression.py` re-imports parametrized cases directly from the phase-specific
@@ -84,14 +103,29 @@ committed.
 - `tests/test_added_detection_phase6.py` — Phase 6 added detection path (Phase 6)
 
 ### Snapshot Fixtures for TST-02 Benchmark
-- `assets/debug_report_part1.json` through `assets/debug_report_part9.json` — post-fix pipeline
-  snapshots; used as benchmark input, not re-run at test time
+- `assets/debug_report_part1.json` through `assets/debug_report_part9.json` — committed benchmark
+  snapshots; used as benchmark input, not re-run at test time. These are not automatically
+  authoritative if they were captured under a different evaluation mode or before a required
+  snapshot refresh.
 - `assets/part1/ground_truth.json` through `assets/part9/ground_truth.json` — canonical truth for
   each part; read-only
 
 ### Evaluation Layer
 - `delta_preservation/evaluation/conformance.py` — conformance evaluation logic used by TST-02
   benchmark to compute counts from snapshot data
+
+### Verification Mode Parity
+- `run.py` — standalone verification entry point; currently runs algorithm-only and does not load
+  accepted alternate history
+- `delta_preservation/cli.py` — applies accepted alternate history only when
+  `accepted_alternates` are supplied to `run_pipeline()`
+- `shop/tasks.py` — web run path that loads accepted alternate history before invoking
+  `run_pipeline()`; this explains why history-backed web snapshots can diverge from standalone
+  reruns
+- `.planning/phases/07-regression-tests-and-verification/07-RESEARCH.md` — documents that
+  snapshot refresh should happen before the TST-02 baseline is locked
+- `.planning/phases/07-regression-tests-and-verification/07-VERIFICATION.md` — current blocked
+  verification report; use as evidence, not as the final parity contract
 
 ### Prior Phase Context (background only)
 - `.planning/phases/04-gd-t-parser-fixes/04-CONTEXT.md` — Phase 4 decisions
@@ -104,8 +138,9 @@ committed.
 ## Existing Code Insights
 
 ### Reusable Assets
-- `assets/debug_report_partN.json` (all 9 parts): post-fix snapshot files already committed;
-  TST-02 benchmark reads these directly without running the pipeline
+- `assets/debug_report_partN.json` (all 9 parts): committed snapshot files used by the fast
+  benchmark; these are useful fixtures, but some are stale relative to the current algorithm and
+  must be refreshed before becoming the authoritative baseline
 - `tests/conftest.py`: shared fixtures (session-scoped DB, tmp directories) available to new test
   files
 - `delta_preservation/evaluation/conformance.py`: `evaluate_packet()` or equivalent function
@@ -126,6 +161,12 @@ committed.
   parametrized cases and imports
 - TST-02 benchmark reads `debug_report_partN.json` which are standard `DeltaPacket`-shaped JSON;
   `evaluation/conformance.py` is the correct layer to call for count derivation
+- Verification parity depends on choosing one mode and sticking to it: `run.py` produces
+  algorithm-only reruns, while `shop/tasks.py` injects accepted alternates and can produce
+  history-backed conformance in web snapshots
+- Current triage should separate verification-contract issues from real algorithm drift: Parts 1
+  and 8 are parity/staleness checks first, Part 3 is the first likely matching/classification
+  regression
 
 </code_context>
 
@@ -137,11 +178,17 @@ committed.
   parametrized case from each phase-specific file (if technically clean) is preferred over
   copy-pasting fixture data.
 - TST-02 `BASELINE_COUNTS` dict should be populated from the actual conformance counts computed
-  from the current `debug_report_partN.json` files at the time of implementation — not estimated.
-  The implementation plan should include a step to derive these counts before writing the test.
-- `VERIFICATION.md` must include a comparison table with pre-Phase-4 baseline counts (which can
-  be sourced from the v1.0 milestone audit or the oldest committed debug reports) to make the
-  improvement visible.
+  from refreshed algorithm-only `debug_report_partN.json` files at the time of implementation —
+  not estimated and not copied from stale web snapshots. The implementation plan should include a
+  step to derive these counts before writing the test.
+- Part 1 should only be called regressed if it still fails after removing accepted-alternate reuse
+  from the baseline or adding the same reuse mode to the rerun. Until then it is a verification
+  parity problem, not a locked algorithm bug.
+- Part 8 should only be called regressed if it still fails after replacing the old `(no_eval)`
+  snapshot row with a refreshed algorithm-only snapshot. Until then it is a stale-baseline issue.
+- Part 3 should be investigated first once parity is fixed; the current fresh packet turns
+  previously removed characteristics into matched `changed` / `unchanged` rows, which is the
+  strongest signal of real behavior drift.
 
 </specifics>
 

@@ -190,6 +190,39 @@ class TestPhase5SnapshotExemplars:
             f"Expected _ASYMMETRIC_SHAPE_RE to match: {revB!r}"
         )
 
+    @pytest.mark.parametrize(
+        "revB_text",
+        [
+            "2X 22.0\u00b0 +.3\u00b0 / \u2212.1\u00b0",
+            "2X 22.0\u00b0 +.3\u00b0/\u2212.1\u00b0",
+            "22.0\u00b0 +.5\u00b0 / \u2212.2\u00b0",
+        ],
+    )
+    def test_asymmetric_shape_re_matches_leading_decimal_variants(self, revB_text):
+        """The _ASYMMETRIC_SHAPE_RE guard must also fire on leading-decimal forms
+        (no leading zero on the tolerance magnitudes)."""
+        from delta_preservation.reconcile.classify import _ASYMMETRIC_SHAPE_RE
+        assert _ASYMMETRIC_SHAPE_RE.search(revB_text) is not None, (
+            f"Expected asymmetric shape regex to match leading-decimal form {revB_text!r}; "
+            "CLS-03 fix must cover the shape without a leading zero"
+        )
+
+    @pytest.mark.parametrize(
+        "revB_text",
+        [
+            ".3 / .1",
+            "70 / 30",
+        ],
+    )
+    def test_asymmetric_shape_re_does_not_match_plain_fractional_ratios(self, revB_text):
+        """Plain decimal ratios without the +/\u2212 markers must NOT match the
+        asymmetric shape regex \u2014 otherwise a benign fractional ratio would be
+        misclassified as an asymmetric tolerance change."""
+        from delta_preservation.reconcile.classify import _ASYMMETRIC_SHAPE_RE
+        assert _ASYMMETRIC_SHAPE_RE.search(revB_text) is None, (
+            f"Plain ratio {revB_text!r} must not match asymmetric shape regex"
+        )
+
 
 # ===========================================================================
 # Class 2: Snapshot sweep — all conforming+unchanged items must be clean

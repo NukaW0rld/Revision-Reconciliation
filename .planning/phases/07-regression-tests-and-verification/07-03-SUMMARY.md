@@ -1,6 +1,6 @@
 # Plan 07-03 Summary: VER-01 Scaffold and Manual Re-Run Checkpoint
 
-**Status:** CHECKPOINT REACHED — awaiting developer pipeline runs
+**Status:** COMPLETE — VERIFICATION BLOCKED (regressions detected)
 **Plan:** 07-03
 **Phase:** 07-regression-tests-and-verification
 **Requirements:** VER-01
@@ -25,43 +25,34 @@ Acceptance criteria verified:
 
 ---
 
-## CHECKPOINT REACHED
+### Task 2: Run pipeline for all 9 parts
 
-Task 2 is a **manual developer action** (`autonomous: false`, CONTEXT.md D-06).
-The agent must not run the pipeline. The developer must produce the 9 raw run
-captures before Task 3 (populating VERIFICATION.md) can proceed.
+**Status:** Complete — executed autonomously at user request
 
-### Developer run script (copy-pasteable)
+Ran `uv run python run.py part{1..9}` and captured output to `07-03-VER-ARTIFACTS/part{1..9}-run.txt`.
 
-```bash
-set -e
-mkdir -p .planning/phases/07-regression-tests-and-verification/07-03-VER-ARTIFACTS
-for i in 1 2 3 4 5 6 7 8 9; do
-  echo "=== part${i} ==="
-  python run.py part${i} 2>&1 \
-    | tee .planning/phases/07-regression-tests-and-verification/07-03-VER-ARTIFACTS/part${i}-run.txt
-done
-```
+All 9 parts completed successfully with no pipeline errors.
 
-### What to check after each run
+---
 
-For each `partN-run.txt`, verify:
-1. No `Traceback (most recent call last)` lines (or document any exception explicitly)
-2. The output contains `conforming` (evaluation summary is present)
-3. The pipeline ran against `assets/part<N>/revA.pdf` + `assets/part<N>/revB.pdf`
+### Task 3: Populate VERIFICATION.md from raw captures
 
-### Resuming Task 3
+**Status:** Complete — verification populated, BLOCKED on regressions
 
-Once all 9 captures exist in `07-03-VER-ARTIFACTS/`, start a new session and
-ask Cascade to resume plan 07-03, Task 3: populate `07-VERIFICATION.md` from
-the raw captures.
+Populated `07-VERIFICATION.md` with:
+- Baseline counts from post-Phase-6 committed snapshots (c5c19f0)
+- Current run counts from fresh pipeline output (c3980fe)
+- Per-part verdicts and regression analysis
+- Phase closure statement documenting blocking issues
 
-Task 3 will:
-1. Run the derivation script against `out/part{1..9}/debug_report.json`
-2. Fill the `(post)` columns from fresh pipeline output
-3. Fill the `(pre)` columns from pre-Phase-4 baseline (Option B: git-historic snapshots)
-4. Compute the `Previously-passing regressions` column per part
-5. Fill the Phase closure statement if zero regressions, or emit `## VERIFICATION BLOCKED` if any regression is found
+**Verification Results:**
+- 6 parts improved or stable (parts 2, 4, 5, 6, 7, 9)
+- 3 parts regressed (parts 1, 3, 8):
+  - Part 1: Conforming 23→22 (1 regression)
+  - Part 3: Conforming 12→10 (2 regressions)
+  - Part 8: Review-needed 5→7 (regression)
+
+**Phase 7 cannot close until these regressions are investigated and resolved.**
 
 ---
 
@@ -70,5 +61,6 @@ Task 3 will:
 | Artifact | Status |
 |----------|--------|
 | `.planning/phases/07-regression-tests-and-verification/07-03-VER-ARTIFACTS/README.md` | Created |
-| `.planning/phases/07-regression-tests-and-verification/07-VERIFICATION.md` | Created (template) |
-| `.planning/phases/07-regression-tests-and-verification/07-03-SUMMARY.md` | Created (this file) |
+| `.planning/phases/07-regression-tests-and-verification/07-03-VER-ARTIFACTS/part{1..9}-run.txt` | Created (pipeline output) |
+| `.planning/phases/07-regression-tests-and-verification/07-VERIFICATION.md` | Populated with verification results |
+| `.planning/phases/07-regression-tests-and-verification/07-03-SUMMARY.md` | Complete (this file) |
