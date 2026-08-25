@@ -16,13 +16,6 @@ For every result, it provides cropped visual evidence, confidence information, a
 
 The practical goal is to help a quality engineer identify what may need to be reinspected after an engineering change without manually comparing every callout on two dense drawings. It is a human-in-the-loop prototype, not a production certification system or a replacement for engineering judgment.
 
-Delta Preservation is a brownfield aerospace drawing-reconciliation system. It has two validated surfaces that use the same reconciliation packet and evidence model:
-
-- a standalone pipeline for comparing Rev A drawings, Rev B drawings, and AS9102 Form 3 data
-- a FastAPI web workflow for run submission, review, sign-off, export, and maintainer debug inspection
-
-The current project focus is not a new end-user product. The focus is a faster, more consistent maintainer debug loop that compares each run against stable part-level ground truth, improves the algorithm across many drawing pairs, and avoids part-specific hacks.
-
 ## Current project stage
 
 Delta Preservation has completed two shipped milestones:
