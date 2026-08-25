@@ -1,5 +1,21 @@
 # Delta Preservation
 
+## TL;DR
+
+**Delta Preservation is a “smart diff” for aerospace engineering drawings.**
+
+Give it:
+
+- an older revision of a drawing
+- a newer revision of the same drawing
+- a spreadsheet listing the requirements that were previously inspected
+
+The prototype tries to find each requirement in the new drawing and determine whether it is **unchanged, changed, removed, newly added, or uncertain**. It accounts for requirements that moved or were reformatted instead of treating the drawings as simple images.
+
+For every result, it provides cropped visual evidence, confidence information, and an explanation. A reviewer can inspect ambiguous results, correct decisions, sign off on the run, and export the findings through the included web interface.
+
+The practical goal is to help a quality engineer identify what may need to be reinspected after an engineering change without manually comparing every callout on two dense drawings. It is a human-in-the-loop prototype, not a production certification system or a replacement for engineering judgment.
+
 Delta Preservation is a brownfield aerospace drawing-reconciliation system. It has two validated surfaces that use the same reconciliation packet and evidence model:
 
 - a standalone pipeline for comparing Rev A drawings, Rev B drawings, and AS9102 Form 3 data
