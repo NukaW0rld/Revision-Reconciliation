@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: Cross-part Characteristic Matching Refinement
 status: completed
 stopped_at: v1.1 milestone archived
-last_updated: "2026-08-25T05:19:56.603Z"
-last_activity: 2026-08-25 - Completed quick task 260825-0gm: Add a plain-English TLDR section near the top of README.md
+last_updated: "2026-08-25T05:27:14.468Z"
+last_activity: 2026-08-25 - Completed quick task 260825-0mp: Remove the redundant technical introduction from the README TLDR section
 progress:
   total_phases: 9
   completed_phases: 9
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 Milestone: v1.1 — COMPLETED and ARCHIVED
 Next: `/gsd-new-milestone` to start next milestone
 Status: Milestone v1.1 shipped 2026-04-19
-Last activity: 2026-08-25 - Completed quick task 260825-0gm: Add a plain-English TLDR section near the top of README.md
+Last activity: 2026-08-25 - Completed quick task 260825-0mp: Remove the redundant technical introduction from the README TLDR section
 
 Progress: [██████████] 100%
 
@@ -54,6 +54,7 @@ None.
 | 260413-hfc | Add missing added characteristics check to debug exception queue | 2026-04-13 | 33f27f4 | [260413-hfc-add-missing-added-characteristics-check-](./quick/260413-hfc-add-missing-added-characteristics-check-/) |
 | 260421-phx | Update README.md to match the current project stage | 2026-04-21 | 515b4c7 | [260421-phx-i-want-you-to-update-the-readme-md-of-th](./quick/260421-phx-i-want-you-to-update-the-readme-md-of-th/) |
 | 260825-0gm | Add a plain-English TLDR section near the top of README.md | 2026-08-25 | 1a1c14a | [260825-0gm-add-a-plain-english-tldr-section-near-th](./quick/260825-0gm-add-a-plain-english-tldr-section-near-th/) |
+| 260825-0mp | Remove the redundant technical introduction from the README TLDR section | 2026-08-25 | e7ede4e | [260825-0mp-remove-the-redundant-technical-introduct](./quick/260825-0mp-remove-the-redundant-technical-introduct/) |
 
 ## Session Continuity
 
